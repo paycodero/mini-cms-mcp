@@ -1,0 +1,8 @@
+# Dosar intern: nu se servește niciodată prin HTTP. Fișierele de aici se citesc doar din PHP.
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>

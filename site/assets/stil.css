@@ -1,0 +1,104 @@
+/* mini-cms-mcp — foaia de stil implicită. Fond alb, text aproape negru, un accent viu (din config: site.culoare).
+   Fonturi de sistem: nicio cerere către alte servere. */
+:root{
+  --accent:#6d2be8; --fond:#ffffff; --panou:#f6f7f9; --text:#0d0f14; --text-2:#2b2e38; --text-slab:#5f6270;
+  --linie:#dfe2e8; --verde:#0a8f4f; --verde-fond:#e3f7ec; --rosu:#d4142a; --rosu-fond:#fde6e9;
+  --galben:#b45f00; --galben-fond:#fff3d6; --raza:10px;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--fond);color:var(--text);font:17px/1.65 var(--font);overflow-wrap:break-word}
+a{color:var(--accent);text-underline-offset:2px}
+a:hover{text-decoration-thickness:2px}
+img{max-width:100%;height:auto}
+.lat{max-width:1100px;margin:0 auto;padding:0 16px}
+
+.antet{border-bottom:4px solid var(--accent);background:var(--fond)}
+.antet-rand{display:flex;align-items:center;justify-content:space-between;gap:12px 24px;flex-wrap:wrap;padding-top:14px;padding-bottom:14px}
+.sigla{font-weight:800;font-size:21px;color:var(--text);text-decoration:none;letter-spacing:-.01em}
+.meniu{display:flex;flex-wrap:wrap;gap:4px 18px}
+.meniu a{color:var(--text-2);text-decoration:none;font-weight:600;padding:6px 0}
+.meniu a:hover{color:var(--accent)}
+
+main.lat{padding-top:36px;padding-bottom:64px;min-height:60vh}
+h1,h2,h3{line-height:1.2;letter-spacing:-.015em;color:var(--text)}
+h1{font-size:clamp(30px,5vw,46px);margin:0 0 14px}
+h2{font-size:clamp(23px,3.2vw,30px);margin:40px 0 12px}
+h3{font-size:20px;margin:28px 0 8px}
+.introducere{font-size:20px;color:var(--text-2);margin:0 0 24px;max-width:46em}
+.data{color:var(--text-slab);font-size:14px;margin:0 0 8px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+
+.erou{padding:12px 0 8px;border-left:8px solid var(--accent);padding-left:20px;margin-bottom:28px}
+.text{max-width:720px;margin:0 auto}
+.continut{max-width:720px}
+.text .continut{max-width:none}
+.continut p,.continut li{color:var(--text-2)}
+.continut blockquote{margin:24px 0;padding:14px 20px;border-left:5px solid var(--accent);background:var(--panou);border-radius:0 var(--raza) var(--raza) 0}
+.continut pre{background:#12141a;color:#f3f4f6;padding:16px;border-radius:var(--raza);overflow-x:auto;font-size:14.5px}
+.continut code{font-family:ui-monospace,Consolas,monospace;font-size:.92em}
+.continut :not(pre)>code{background:var(--panou);padding:1px 6px;border-radius:5px}
+.continut table{border-collapse:collapse;width:100%;margin:20px 0;font-size:15px;display:block;overflow-x:auto}
+.continut th,.continut td{border:1px solid var(--linie);padding:8px 10px;text-align:left}
+.continut th{background:var(--panou)}
+.continut figure{margin:24px 0}
+.continut figcaption{color:var(--text-slab);font-size:14px;margin-top:6px}
+.continut iframe{width:100%;aspect-ratio:16/9;height:auto;border:0;border-radius:var(--raza)}
+.continut img{border-radius:var(--raza)}
+.coperta{margin:8px 0 28px}
+.coperta img{width:100%;border-radius:var(--raza)}
+
+.etichete{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px}
+.eticheta{display:inline-block;padding:3px 12px;border-radius:999px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;text-decoration:none}
+.eticheta:hover{filter:brightness(1.1)}
+
+.carduri{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;margin-top:16px}
+.card{border:2px solid var(--linie);border-radius:var(--raza);overflow:hidden;background:var(--fond);display:flex;flex-direction:column}
+.card:hover{border-color:var(--accent)}
+.card-imagine img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}
+.card-text{padding:16px 18px 18px}
+.card h3{margin:0 0 8px;font-size:19px}
+.card h3 a{color:var(--text);text-decoration:none}
+.card h3 a:hover{color:var(--accent)}
+.card p{margin:0;color:var(--text-2);font-size:15.5px}
+.card .data{margin-bottom:6px}
+
+.buton{display:inline-block;background:var(--accent);color:#fff;font-weight:700;padding:10px 20px;border-radius:999px;text-decoration:none;border:0;font:inherit;font-weight:700;cursor:pointer}
+.buton:hover{filter:brightness(1.1)}
+.toate{margin-top:24px}
+.paginare{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:32px}
+.inapoi{margin-top:40px}
+
+.eroare{text-align:center}
+.eroare .carduri{text-align:left}
+.cod{font-size:88px;font-weight:900;color:var(--accent);margin:0;line-height:1}
+
+.subsol{border-top:1px solid var(--linie);background:var(--panou);color:var(--text-slab);font-size:14.5px}
+.subsol .lat{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:20px;padding-bottom:20px}
+
+/* jurnalul */
+.formular{display:grid;gap:10px;max-width:420px;margin-top:16px}
+.formular input[type=password]{font:inherit;padding:10px 12px;border:2px solid var(--linie);border-radius:var(--raza)}
+.formular input[type=password]:focus{border-color:var(--accent);outline:none}
+.bifa{font-size:15px;color:var(--text-2)}
+.alerta{background:var(--rosu-fond);color:var(--rosu);border-left:5px solid var(--rosu);padding:10px 14px;border-radius:6px;font-weight:600}
+.lant{padding:12px 16px;border-radius:var(--raza);font-weight:700}
+.lant.bun{background:var(--verde-fond);color:var(--verde);border:2px solid var(--verde)}
+.lant.rau{background:var(--rosu-fond);color:var(--rosu);border:2px solid var(--rosu)}
+.tabel{overflow-x:auto;border:1px solid var(--linie);border-radius:var(--raza);margin-top:16px}
+.jurnal table{border-collapse:collapse;width:100%;font-size:14px}
+.jurnal th{background:var(--text);color:#fff;text-align:left;padding:8px 10px}
+.jurnal td{border-top:1px solid var(--linie);padding:7px 10px;vertical-align:top}
+.nowrap{white-space:nowrap}
+.detalii{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;color:var(--text-2);max-width:420px;overflow-wrap:anywhere}
+.stare{display:inline-block;padding:1px 8px;border-radius:6px;font-weight:700;font-size:13px;background:var(--panou)}
+.stare-ok{background:var(--verde-fond);color:var(--verde)}
+.stare-auth_esuat,.stare-blocat,.stare-eroare{background:var(--rosu-fond);color:var(--rosu)}
+.stare-refuzat,.stare-respins{background:var(--galben-fond);color:var(--galben)}
+
+@media (max-width:640px){
+  body{font-size:16.5px}
+  main.lat{padding-top:24px}
+  .carduri{grid-template-columns:1fr}
+  .introducere{font-size:18px}
+}

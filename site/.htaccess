@@ -1,0 +1,37 @@
+# mini-cms-mcp — reguli Apache pentru rădăcina site-ului.
+# Doar directive din clase dovedite pe găzduirile folosite (mod_rewrite, mod_headers), toate în IfModule.
+# Lecția de la cinesunt.info: o directivă nepermisă de găzduire (ex. mod_expires, Options, php_flag)
+# = eroare 500 pe tot site-ul, inclusiv pe endpointul MCP.
+# Antetele de securitate le pune PHP, deci merg și unde lipsește mod_headers.
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  <FilesMatch "\.(webp|png|jpe?g|gif)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.css$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+</IfModule>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # antetul Authorization (cheia MCP) ajunge la PHP și când PHP rulează ca CGI/FPM
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+  # dosarele interne nu se servesc niciodată (au și propriul .htaccess, plus o gardă în fiecare fișier PHP)
+  RewriteRule ^(app|sabloane|date)(/|$) - [F,L]
+  # fișiere și dosare ascunse (.htaccess, .git), cu excepția /.well-known (certificate, OAuth)
+  RewriteRule (^|/)\.(?!well-known/) - [F,L]
+  # în media/ ajung doar imagini; orice altceva cu extensie executabilă e refuzat
+  RewriteRule ^media/.+\.(php[0-9]?|phtml|phar|pht|shtml|cgi|pl|py|sh)$ - [F,L,NC]
+
+  # adresa scurtă pentru AI
+  RewriteRule ^mcp/?$ mcp.php [L]
+
+  # tot ce nu e fișier real ajunge la index.php (pagini, articole, sitemap, feed, robots, llms)
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^ index.php [L,QSA]
+</IfModule>

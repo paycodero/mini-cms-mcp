@@ -1,0 +1,19 @@
+# Paginile de lucru ale lui Costin (comparații, planuri, jurnale) rămân doar pe disc
+_*.html
+_versiuni/
+_*/
+
+# Secrete și date de rulare — nu intră niciodată în repo
+config.php
+date/
+security/
+site/media/
+chei*.json
+*.ndjson
+*.log
+teste/rezultate*.json
+
+# Sistem
+.claude/
+Thumbs.db
+desktop.ini
