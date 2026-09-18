@@ -21,7 +21,7 @@ return [
     ],
 
     // Dosarul de date. Mai sigur în afara folderului public, dacă găzduirea permite, de ex.:
-    // 'date' => dirname(__DIR__, 3) . '/date-site',
+    // 'date' => dirname(__DIR__, 2) . '/date-site',   // un nivel deasupra folderului public
     // Rămas în site/date, e protejat de .htaccess (Apache). Pe nginx, vezi README.
 
     'cloudflare' => false,   // true dacă site-ul e în spatele Cloudflare (IP-ul real vine din CF-Connecting-IP)
