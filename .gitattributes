@@ -1,0 +1,6 @@
+# Sfârșit de rând Linux (LF) pentru tot codul — ca pe server
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+*.gif binary
