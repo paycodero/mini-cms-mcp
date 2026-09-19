@@ -24,7 +24,7 @@
         <td><span class="stare stare-<?= esc(preg_replace('/[^a-z_]/', '', $r)) ?>"><?= esc($r) ?></span></td>
         <td><?= esc(trim(($i['punct'] ?? '') . ' ' . ($i['cerere'] ?? '') . ' ' . ($i['unealta'] ?? ''))) ?></td>
         <td><?= esc($i['tinta'] ?? '') ?></td>
-        <td><?= esc($i['cheie'] ?? '') ?></td>
+        <td><?= esc($i['cheie'] ?? '') ?><?= isset($i['conexiune']) ? '<br><small>' . esc($i['conexiune']) . '</small>' : '' ?></td>
         <td class="nowrap"><?= esc($i['ip'] ?? '') ?></td>
         <td class="detalii"><?= esc(isset($i['detalii']) ? json_text($i['detalii']) : '') ?><?= isset($i['amprenta']) ? '<br><small>amprentă ' . esc(substr((string) $i['amprenta'], 0, 16)) . '…</small>' : '' ?></td>
       </tr>

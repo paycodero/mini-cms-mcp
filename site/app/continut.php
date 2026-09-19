@@ -9,7 +9,7 @@ if (!defined('MINICMS')) { http_response_code(403); exit; }
 const TIPURI = ['pagina' => 'pagini', 'articol' => 'articole'];
 const STARI = ['ciorna', 'publicat'];
 const SLUGURI_REZERVATE = ['articole', 'eticheta', 'media', 'assets', 'app', 'sabloane', 'date', 'mcp', 'jurnal',
-    'index', 'sitemap', 'feed', 'robots', 'llms', 'admin', 'wp-admin', 'wp-login', 'favicon', 'cauta', 'api'];
+    'index', 'sitemap', 'feed', 'robots', 'llms', 'admin', 'wp-admin', 'wp-login', 'favicon', 'cauta', 'api', 'previzualizare'];
 const LIMITA_HTML = 1000000;   // octeți de HTML pe element
 
 function tip_valid($tip): bool
@@ -41,12 +41,21 @@ function citeste_element(string $tip, string $slug): ?array
     return json_citeste(fisier_element($tip, $slug));
 }
 
+// Pe site se vede ce e publicat și are data publicării trecută; un articol programat e publicat, dar încă ascuns.
+function e_vizibil(array $e): bool
+{
+    if (($e['stare'] ?? '') !== 'publicat') return false;
+    $la = (string) ($e['publicat_la'] ?? '');
+    return $la === '' || (int) strtotime($la) <= time();
+}
+
+// $stare: 'toate', 'ciorna', 'publicat' (inclusiv programate) sau 'vizibil' (ce apare acum pe site).
 function listeaza_elemente(string $tip, string $stare = 'toate'): array
 {
     $rez = [];
     foreach (glob(dir_date(TIPURI[$tip]) . '/*.json') ?: [] as $f) {
         $e = json_citeste($f);
-        if (!$e || ($stare !== 'toate' && ($e['stare'] ?? '') !== $stare)) continue;
+        if (!$e || ($stare === 'vizibil' ? !e_vizibil($e) : ($stare !== 'toate' && ($e['stare'] ?? '') !== $stare))) continue;
         $rez[] = $e;
     }
     usort($rez, function ($a, $b) use ($tip) {
@@ -71,6 +80,7 @@ function rezumat_element(array $e): array
           'url' => url_absolut(url_element($e)), 'actualizat' => $e['actualizat'] ?? null, 'publicat_la' => $e['publicat_la'] ?? null];
     if ($e['tip'] === 'articol') $r['etichete'] = $e['etichete'] ?? [];
     if ($e['tip'] === 'pagina') $r['meniu'] = $e['meniu'] ?? null;
+    if (($e['stare'] ?? '') === 'publicat' && !e_vizibil($e)) $r['programat_pentru'] = $e['publicat_la'];
     return $r;
 }
 
@@ -164,6 +174,7 @@ function salveaza_element(string $tip, string $slug, array $campuri): array
             if (array_key_exists('etichete', $campuri)) $nou['etichete'] = etichete_valide($campuri['etichete'] ?? []);
             if (array_key_exists('imagine', $campuri)) $nou['imagine'] = imagine_valida($campuri['imagine'] ?? '');
             if (array_key_exists('imagine_alt', $campuri)) $nou['imagine_alt'] = text_simplu($campuri['imagine_alt'] ?? '', 200);
+            if (array_key_exists('autor', $campuri)) $nou['autor'] = text_simplu($campuri['autor'] ?? '', 80);
             $nou += ['etichete' => [], 'imagine' => '', 'imagine_alt' => '', 'autor' => (string) config('site.autor')];
         } else {
             if (array_key_exists('meniu', $campuri)) {
@@ -192,21 +203,42 @@ function salveaza_element(string $tip, string $slug, array $campuri): array
     });
 }
 
-function schimba_stare(string $tip, string $slug, string $stare): array
+// La publicare, $la (opțional) e data publicării: în viitor = programat (apare singur la ora aceea, fără sarcini
+// pe server), în trecut = se păstrează data (ex. la mutarea unui articol vechi). Fără $la: acum, sau data inițială
+// dacă elementul a mai fost publicat.
+function schimba_stare(string $tip, string $slug, string $stare, ?string $la = null): array
 {
     verifica_tip_slug($tip, $slug);
-    return cu_blocare(function () use ($tip, $slug, $stare) {
+    $moment = null;
+    if ($la !== null && trim($la) !== '') {
+        if ($stare !== 'publicat') throw new EroareCms('"la" se folosește doar la publicare');
+        $ts = strtotime(trim($la));
+        if ($ts === false || $ts < 0) throw new EroareCms('"la" nu e o dată validă — ex. "2026-10-01 09:00" (ora României)');
+        $moment = date('c', $ts);
+    }
+    return cu_blocare(function () use ($tip, $slug, $stare, $moment) {
         $e = citeste_element($tip, $slug);
         if ($e === null) throw new EroareCms("nu există $tip cu slugul \"$slug\"");
-        if (($e['stare'] ?? '') === $stare) return ['operatie' => 'neschimbat', 'element' => rezumat_element($e)];
+        $data = $e['publicat_la'] ?? null;
+        if ($stare === 'publicat') {
+            $data = $moment ?? ((empty($data) || strtotime((string) $data) > time()) ? date('c') : $data);
+        }
+        if (($e['stare'] ?? '') === $stare && $data === ($e['publicat_la'] ?? null)) {
+            return ['operatie' => 'neschimbat', 'element' => rezumat_element($e)];
+        }
         $versiune = versioneaza_element($tip, $slug);
         $e['stare'] = $stare;
-        if ($stare === 'publicat' && empty($e['publicat_la'])) $e['publicat_la'] = date('c');
+        $e['publicat_la'] = $data;
         $e['actualizat'] = date('c');
         $json = json_text($e, true);
         if (!scrie_atomic(fisier_element($tip, $slug), $json)) throw new EroareCms('scrierea pe disc a eșuat');
-        return ['operatie' => $stare === 'publicat' ? 'publicat' : 'retras (ciornă)', 'element' => rezumat_element($e),
+        $rez = ['operatie' => $stare === 'publicat' ? 'publicat' : 'retras (ciornă)', 'element' => rezumat_element($e),
                 'versiune_anterioara' => $versiune, 'amprenta' => hash('sha256', $json)];
+        if ($stare === 'publicat' && !e_vizibil($e)) {
+            $rez['operatie'] = 'programat';
+            $rez['atentie'] = 'apare pe site singur la ' . $data . '; până atunci se vede doar prin previzualizeaza';
+        }
+        return $rez;
     });
 }
 
@@ -267,7 +299,15 @@ function seteaza_identitate(array $campuri): array
         $nou['culoare'] = strtolower((string) ($campuri['culoare'] ?? ''));
         if (!preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/', $nou['culoare'])) throw new EroareCms('"culoare" e un cod hex, ex. "#6d2be8"');
     }
-    if (!$nou) throw new EroareCms('trimite cel puțin un câmp: nume, descriere, autor, limba sau culoare');
+    foreach (['logo', 'favicon'] as $k) {
+        if (!array_key_exists($k, $campuri)) continue;
+        $nou[$k] = trim((string) ($campuri[$k] ?? ''));
+        if ($nou[$k] !== '' && !preg_match('#^/media/[a-z0-9-]+\.(jpg|png|gif|webp)$#', $nou[$k])) {
+            throw new EroareCms("\"$k\" e adresa unei imagini urcate, ex. \"/media/sigla-a1b2c3d4.png\" (gol = fără $k)");
+        }
+        if ($nou[$k] !== '' && !is_file(dir_media() . '/' . basename($nou[$k]))) throw new EroareCms("imaginea {$nou[$k]} nu există — urc-o întâi cu urca_imagine");
+    }
+    if (!$nou) throw new EroareCms('trimite cel puțin un câmp: nume, descriere, autor, limba, culoare, logo sau favicon');
 
     return cu_blocare(function () use ($nou) {
         $fisier = dir_date() . '/site.json';
@@ -288,6 +328,202 @@ function seteaza_identitate(array $campuri): array
         return ['operatie' => 'actualizat', 'site' => $dupa, 'inainte' => $inainte, 'versiune_anterioara' => $versiune,
                 'atentie' => 'schimbarea e deja vizibilă pe tot site-ul', 'amprenta' => hash('sha256', $json)];
     });
+}
+
+// --- redirecționări (date/redirectionari.json) ------------------------------------------------
+// Pentru adrese schimbate și pentru site-uri vechi mutate aici: /vechi → /nou, 301. Doar spre adrese de pe acest site.
+// Se aplică numai când la adresa veche nu mai e nimic (în locul paginii 404).
+
+const PREFIXE_REZERVATE = ['/mcp', '/mcp.php', '/app', '/date', '/media', '/assets', '/sabloane', '/jurnal.php', '/index.php',
+    '/sitemap.xml', '/feed.xml', '/robots.txt', '/llms.txt', '/cauta', '/previzualizare', '/articole', '/eticheta', '/.well-known'];
+
+function cale_redirectionare($v, string $camp): string
+{
+    $v = trim((string) $v);
+    if (preg_match('#^https?://#i', $v)) {   // adresa întreagă de pe site-ul vechi: contează doar calea
+        $p = parse_url($v);
+        $v = ($p['path'] ?? '/') . (isset($p['query']) ? '?' . $p['query'] : '');
+    }
+    if ($v === '' || $v[0] !== '/' || strlen($v) > 300 || preg_match('#^//|[\x00-\x20\x7F\\\\]#', $v)) {
+        throw new EroareCms("\"$camp\" e o cale de pe site, ex. \"/despre-noi.html\" (fără spații, cel mult 300 de caractere)");
+    }
+    [$cale, $query] = array_pad(explode('?', $v, 2), 2, '');
+    $cale = rawurldecode($cale);
+    if (preg_match('#[\x00-\x1F\x7F]|(^|/)\.\.?(/|$)#', $cale)) throw new EroareCms("\"$camp\" conține caractere sau segmente nepermise");
+    $cale = rtrim($cale, '/') ?: '/';
+    return $cale . ($query !== '' ? '?' . $query : '');
+}
+
+function citeste_redirectionari(): array
+{
+    return json_citeste(config('date') . '/redirectionari.json') ?? [];
+}
+
+// $la gol = scoate redirecționarea.
+function seteaza_redirectionare($de, $la): array
+{
+    $de = cale_redirectionare($de, 'de');
+    $cale_de = explode('?', $de, 2)[0];
+    if ($cale_de === '/') throw new EroareCms('prima pagină nu se poate redirecționa');
+    foreach (PREFIXE_REZERVATE as $p) {
+        if ($cale_de === $p || strpos($cale_de, $p . '/') === 0) throw new EroareCms("adresa $de e folosită de site și nu se poate redirecționa");
+    }
+    $sterge = $la === null || trim((string) $la) === '';
+    if (!$sterge) {
+        $gazda = parse_url(trim((string) $la), PHP_URL_HOST);
+        if ($gazda !== null && strtolower((string) $gazda) !== strtolower((string) parse_url(url_site(), PHP_URL_HOST))) {
+            throw new EroareCms('"la" trebuie să fie o adresă de pe acest site (ex. "/despre"), nu de pe alt domeniu');
+        }
+        $la = cale_redirectionare($la, 'la');
+        if ($la === $de) throw new EroareCms('adresa țintă e aceeași cu cea veche');
+    }
+    return cu_blocare(function () use ($de, $la, $sterge, $cale_de) {
+        $fisier = dir_date() . '/redirectionari.json';
+        $toate = citeste_redirectionari();
+        if ($sterge) {
+            if (!isset($toate[$de])) throw new EroareCms("nu există o redirecționare de la $de");
+            unset($toate[$de]);
+        } else {
+            if (($toate[$de]['la'] ?? null) === $la) return ['operatie' => 'neschimbat', 'de' => $de, 'la' => $la];
+            $toate[$de] = ['la' => $la, 'creat' => date('c')];
+            for ($pas = $de, $vazute = []; isset($toate[$pas]); $pas = $toate[$pas]['la']) {   // lanțul nu are voie să se închidă
+                if (isset($vazute[$pas])) throw new EroareCms("redirecționarea ar face o buclă: $de → … → $pas");
+                $vazute[$pas] = true;
+            }
+        }
+        $versiune = null;
+        if (is_file($fisier)) {
+            $dir = dir_date('versiuni/redirectionari');
+            $versiune = date('Ymd-His');
+            for ($n = 2; is_file("$dir/$versiune.json"); $n++) $versiune = date('Ymd-His') . '-' . $n;
+            if (!copy($fisier, "$dir/$versiune.json")) throw new EroareCms('nu am putut salva versiunea anterioară — scrierea a fost oprită');
+        }
+        ksort($toate);
+        $json = json_text($toate ?: new stdClass(), true);
+        if (!scrie_atomic($fisier, $json)) throw new EroareCms('scrierea pe disc a eșuat');
+        $rez = ['operatie' => $sterge ? 'scoasă' : 'adăugată', 'de' => $de, 'la' => $sterge ? null : $la,
+                'versiune_anterioara' => $versiune, 'amprenta' => hash('sha256', $json)];
+        $slug = ltrim($cale_de, '/');
+        if (!$sterge && slug_valid($slug) && (citeste_element('pagina', $slug) || citeste_element('articol', $slug))) {
+            $rez['atentie'] = "la $cale_de există o pagină sau un articol: redirecționarea se aplică doar dacă elementul dispare de pe site";
+        }
+        return $rez;
+    });
+}
+
+function cauta_redirectionare(string $cale, string $query): ?string
+{
+    $toate = citeste_redirectionari();
+    $cale = rtrim($cale, '/') ?: '/';
+    if ($query !== '' && isset($toate["$cale?$query"]['la'])) return (string) $toate["$cale?$query"]['la'];
+    return isset($toate[$cale]['la']) ? (string) $toate[$cale]['la'] : null;
+}
+
+// --- căutarea pentru vizitatori ----------------------------------------------------------------
+// Doar ce se vede pe site. Fără diacritice în căutare: „sedinta" găsește și „ședința".
+
+const DIACRITICE = ['ă' => 'a', 'â' => 'a', 'î' => 'i', 'ș' => 's', 'ş' => 's', 'ț' => 't', 'ţ' => 't',
+                    'Ă' => 'a', 'Â' => 'a', 'Î' => 'i', 'Ș' => 's', 'Ş' => 's', 'Ț' => 't', 'Ţ' => 't'];
+
+function model_fara_diacritice(string $cuvant): string
+{
+    $clase = ['a' => '[aăâ]', 'i' => '[iî]', 's' => '[sșş]', 't' => '[tțţ]'];
+    $r = '';
+    foreach (preg_split('//u', $cuvant, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $c) $r .= $clase[$c] ?? preg_quote($c, '/');
+    return $r;
+}
+
+function text_simplu_element(array $e): string
+{
+    return trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace('<', ' <', (string) ($e['continut_html'] ?? ''))),
+        ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+}
+
+function cauta_public(string $q): array
+{
+    $q = strtolower(strtr(text_simplu($q, 100), DIACRITICE));
+    $cuvinte = array_slice(array_values(array_unique(array_filter(preg_split('/\s+/u', $q) ?: [], fn($c) => strlen($c) >= 2))), 0, 8);
+    if (!$cuvinte) return ['modele' => [], 'rezultate' => []];
+    $modele = array_map('model_fara_diacritice', $cuvinte);
+    $rez = [];
+    foreach (array_keys(TIPURI) as $tip) {
+        foreach (listeaza_elemente($tip, 'vizibil') as $e) {
+            $text = text_simplu_element($e);
+            $tot = ($e['titlu'] ?? '') . ' ' . ($e['descriere'] ?? '') . ' ' . $text;
+            $scor = 0;
+            foreach ($modele as $m) {
+                if (!preg_match("/$m/iu", $tot)) continue 2;
+                if (preg_match("/$m/iu", (string) ($e['titlu'] ?? ''))) $scor += 10;
+                $scor += min(5, preg_match_all("/$m/iu", $text));
+            }
+            $fragment = '';
+            foreach ($modele as $m) {
+                if (preg_match('/\S.{0,90}' . $m . '.{0,140}/isu', ' ' . $text, $g)) { $fragment = trim($g[0]); break; }
+            }
+            $rez[] = ['e' => $e, 'scor' => $scor, 'fragment' => $fragment !== '' ? '…' . $fragment . '…' : (string) ($e['descriere'] ?? '')];
+        }
+    }
+    usort($rez, fn($a, $b) => [$b['scor'], (string) ($b['e']['publicat_la'] ?? '')] <=> [$a['scor'], (string) ($a['e']['publicat_la'] ?? '')]);
+    return ['modele' => $modele, 'rezultate' => array_slice($rez, 0, 50)];
+}
+
+// Textul, cu potrivirile marcate: fiecare bucată e escapată separat, deci nimic din text nu devine HTML.
+function evidentiaza(string $text, array $modele): string
+{
+    if (!$modele) return esc($text);
+    $parti = preg_split('/(' . implode('|', $modele) . ')/iu', $text, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [$text];
+    $html = '';
+    foreach ($parti as $i => $p) $html .= $i % 2 ? '<mark>' . esc($p) . '</mark>' : esc($p);
+    return $html;
+}
+
+// --- export: tot conținutul, pentru copia de siguranță (unelte/copie.php) -----------------------
+
+function exporta_continut(): array
+{
+    $rez = ['format' => 'mini-cms-mcp/export', 'versiune' => MINICMS_VERSIUNE, 'exportat_la' => date('c'),
+            'site' => ['url' => url_site()] + identitate_site()];
+    foreach (TIPURI as $tip => $plural) $rez[$plural] = listeaza_elemente($tip);
+    $rez['redirectionari'] = citeste_redirectionari() ?: new stdClass();
+    $rez['imagini'] = [];
+    foreach (listeaza_imagini() as $i) $rez['imagini'][] = $i + ['amprenta' => hash_file('sha256', dir_media() . '/' . $i['nume'])];
+    return $rez;
+}
+
+// --- previzualizarea ciornelor ---------------------------------------------------------------
+// Un link semnat, valabil un timp scurt: /previzualizare/<slug>?e=<expirare>&s=<semnătură>.
+// Cheia de semnare stă în date/securitate/ și se creează la prima cerere de link.
+
+function cheie_previzualizare(bool $creeaza): string
+{
+    $f = config('date') . '/securitate/previzualizare.cheie';
+    $cheie = is_file($f) ? trim((string) file_get_contents($f)) : '';
+    if ($cheie === '' && $creeaza) {
+        $f = dir_date('securitate') . '/previzualizare.cheie';
+        $cheie = bin2hex(random_bytes(32));
+        if (!scrie_atomic($f, $cheie)) throw new EroareCms('nu am putut crea cheia de previzualizare');
+    }
+    return $cheie;
+}
+
+function link_previzualizare(string $tip, string $slug, int $minute): array
+{
+    verifica_tip_slug($tip, $slug);
+    $e = citeste_element($tip, $slug);
+    if ($e === null) throw new EroareCms("nu există $tip cu slugul \"$slug\"");
+    $minute = max(5, min(1440, $minute));
+    $expira = time() + $minute * 60;
+    $semn = hash_hmac('sha256', "$slug|$expira", cheie_previzualizare(true));
+    return ['url' => url_absolut("/previzualizare/$slug?e=$expira&s=$semn"), 'expira' => date('c', $expira),
+            'stare' => $e['stare'] ?? '', 'pe_site' => e_vizibil($e),
+            'atentie' => 'linkul arată elementul exact ca pe site, cu oricine îl primește, până la expirare'];
+}
+
+function previzualizare_valida(string $slug, int $expira, string $semn): bool
+{
+    $cheie = cheie_previzualizare(false);
+    if ($cheie === '' || $expira < time() || $expira > time() + 86400 + 60) return false;
+    return hash_equals(hash_hmac('sha256', "$slug|$expira", $cheie), $semn);
 }
 
 function cauta_elemente(string $text, ?string $tip): array

@@ -16,10 +16,14 @@ img{max-width:100%;height:auto}
 
 .antet{border-bottom:4px solid var(--accent);background:var(--fond)}
 .antet-rand{display:flex;align-items:center;justify-content:space-between;gap:12px 24px;flex-wrap:wrap;padding-top:14px;padding-bottom:14px}
-.sigla{font-weight:800;font-size:21px;color:var(--text);text-decoration:none;letter-spacing:-.01em}
+.sigla{display:inline-flex;align-items:center;gap:10px;font-weight:800;font-size:21px;color:var(--text);text-decoration:none;letter-spacing:-.01em}
+.sigla img{height:40px;width:auto;max-width:180px;object-fit:contain}
 .meniu{display:flex;flex-wrap:wrap;gap:4px 18px}
 .meniu a{color:var(--text-2);text-decoration:none;font-weight:600;padding:6px 0}
 .meniu a:hover{color:var(--accent)}
+.cauta-antet input{font:inherit;font-size:15px;width:170px;padding:6px 12px;border:2px solid var(--linie);border-radius:999px;background:var(--fond);color:var(--text)}
+.cauta-antet input:focus{border-color:var(--accent);outline:none;width:220px}
+.bara-previzualizare{background:var(--galben);color:#fff;font-weight:700;text-align:center;padding:8px 16px;font-size:15px}
 
 main.lat{padding-top:36px;padding-bottom:64px;min-height:60vh}
 h1,h2,h3{line-height:1.2;letter-spacing:-.015em;color:var(--text)}
@@ -76,6 +80,26 @@ h3{font-size:20px;margin:28px 0 8px}
 .subsol{border-top:1px solid var(--linie);background:var(--panou);color:var(--text-slab);font-size:14.5px}
 .subsol .lat{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:20px;padding-bottom:20px}
 
+/* căutarea */
+.cauta-mare{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 18px}
+.cauta-mare input{flex:1 1 260px;font:inherit;padding:10px 16px;border:2px solid var(--linie);border-radius:999px}
+.cauta-mare input:focus{border-color:var(--accent);outline:none}
+.numar-rezultate{color:var(--text-slab);font-weight:600}
+.rezultate{list-style:none;padding:0;margin:0;max-width:760px}
+.rezultate li{padding:18px 0;border-bottom:1px solid var(--linie)}
+.rezultate h3{margin:0 0 6px}
+.rezultate p{margin:0;color:var(--text-2)}
+.rezultate mark{background:#ffe066;color:inherit;border-radius:3px;padding:0 2px}
+
+/* aprobarea conectării (OAuth) */
+.autorizare{max-width:640px;margin:0 auto}
+.aplicatia{border:2px solid var(--linie);border-left:6px solid var(--accent);border-radius:var(--raza);padding:14px 18px;margin:0 0 18px;background:var(--panou)}
+.aplicatia ul{padding-left:20px}
+.aplicatia li{margin-bottom:6px}
+.aplicatia .mic{font-size:14.5px;color:var(--text-slab);margin:8px 0 0}
+.butoane{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.buton-gol{background:var(--fond);color:var(--text);border:2px solid var(--linie)}
+
 /* jurnalul */
 .formular{display:grid;gap:10px;max-width:420px;margin-top:16px}
 .formular input[type=password]{font:inherit;padding:10px 12px;border:2px solid var(--linie);border-radius:var(--raza)}
@@ -101,4 +125,6 @@ h3{font-size:20px;margin:28px 0 8px}
   main.lat{padding-top:24px}
   .carduri{grid-template-columns:1fr}
   .introducere{font-size:18px}
+  .cauta-antet{flex:1 1 100%}
+  .cauta-antet input,.cauta-antet input:focus{width:100%}
 }

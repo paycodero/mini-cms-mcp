@@ -54,10 +54,11 @@ function listeaza_imagini(): array
     return $rez;
 }
 
-// Unde e folosită o imagine: în coperta articolelor sau în conținutul paginilor/articolelor.
+// Unde e folosită o imagine: logo, favicon, coperta articolelor sau conținutul paginilor/articolelor.
 function imagine_folosita_in(string $fisier): array
 {
     $unde = [];
+    foreach (['logo', 'favicon'] as $k) if ((string) config("site.$k") === '/media/' . $fisier) $unde[] = "site/$k";
     foreach (array_keys(TIPURI) as $tip) {
         foreach (listeaza_elemente($tip) as $e) {
             if (($e['imagine'] ?? '') === '/media/' . $fisier || strpos((string) ($e['continut_html'] ?? ''), '/media/' . $fisier) !== false) {

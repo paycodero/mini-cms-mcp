@@ -91,8 +91,8 @@ function unealta(string $cheie, string $nume, array $args = []): array
 // --- pregătire ---------------------------------------------------------------------------------
 
 copiaza_dosar("$radacina/site", "$tmp/site", ['app/config.php', 'date', 'media']);
-$kc = 'test_c_' . bin2hex(random_bytes(16));   // cheile există doar cât rulează testele
-$ks = 'test_s_' . bin2hex(random_bytes(16));
+$kc = 'mcms_c_' . rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');   // cheile există doar cât rulează testele
+$ks = 'mcms_s_' . rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
 $port = 0;
 for ($i = 0; $i < 20 && !$port; $i++) {
     $p = random_int(18100, 18999);
@@ -127,7 +127,8 @@ $r = cerere('GET', '/mcp');
 verifica('Protocol', 'GET pe /mcp e refuzat (405)', $r['cod'] === 405, "cod {$r['cod']}");
 $init = ['protocolVersion' => '2025-06-18', 'capabilities' => new stdClass(), 'clientInfo' => ['name' => 'teste', 'version' => '1']];
 $r = mcp(null, 'initialize', $init);
-verifica('Chei', 'fără cheie → 401', $r['cod'] === 401 && isset($r['antete']['www-authenticate']), "cod {$r['cod']}");
+verifica('Chei', 'fără cheie → 401, cu adresa de unde se face conectarea OAuth', $r['cod'] === 401
+    && strpos($r['antete']['www-authenticate'] ?? '', 'resource_metadata="' . $url . '/.well-known/oauth-protected-resource"') !== false, "cod {$r['cod']}");
 $r = mcp('cheie-gresita-dar-destul-de-lunga-0000', 'initialize', $init);
 verifica('Chei', 'cheie greșită → 401', $r['cod'] === 401, "cod {$r['cod']}");
 $r = mcp($kc, 'initialize', $init);
@@ -139,10 +140,10 @@ $r = mcp($kc, 'notifications/initialized', [], null);
 verifica('Protocol', 'o notificare primește 202, fără corp', $r['cod'] === 202 && $r['corp'] === '', "cod {$r['cod']}");
 $r = mcp($kc, 'tools/list');
 $unelte_c = array_column($r['json']['result']['tools'] ?? [], 'name');
-verifica('Chei', 'cheia de citire vede doar cele 7 comenzi de citire', count($unelte_c) === 7 && !in_array('salveaza', $unelte_c, true), implode(', ', $unelte_c));
+verifica('Chei', 'cheia de citire vede doar cele 11 comenzi de citire', count($unelte_c) === 11 && !in_array('salveaza', $unelte_c, true), implode(', ', $unelte_c));
 $r = mcp($ks, 'tools/list');
 $lista_s = $r['json']['result']['tools'] ?? [];
-verifica('Protocol', 'cheia de scriere vede toate cele 15 comenzi', count($lista_s) === 15, (string) count($lista_s));
+verifica('Protocol', 'cheia de scriere vede toate cele 21 de comenzi', count($lista_s) === 21, (string) count($lista_s));
 $bune = array_filter($lista_s, fn($t) => ($t['inputSchema']['type'] ?? '') === 'object' && isset($t['annotations']['readOnlyHint']));
 verifica('Protocol', 'fiecare comandă are schemă de tip obiect și adnotări', count($bune) === count($lista_s) && $lista_s);
 $r = mcp($kc, 'ping');
@@ -157,6 +158,8 @@ $r = mcp($kc, 'tools/call', ['name' => 'executa_cod', 'arguments' => new stdClas
 verifica('Protocol', 'comandă inexistentă → eroarea -32602', ($r['json']['error']['code'] ?? 0) === -32602, $r['corp']);
 $r = mcp($kc, 'initialize', $init, 1, ['Origin' => 'https://site-strain.example']);
 verifica('Securitate', 'cerere dintr-un browser de pe alt site (Origin străin) → 403', $r['cod'] === 403, "cod {$r['cod']}");
+$r = mcp($kc, 'tools/list', [], 1, ['Origin' => 'https://claude.ai']);
+verifica('Protocol', 'cererile cu Origin de la claude.ai sunt primite (conectorul), tot cu cheie', $r['cod'] === 200, "cod {$r['cod']}");
 $r = cerere('POST', '/mcp', '{"jsonrpc":"2.0","id":1,"method":"ping","params":{"x":"' . str_repeat('a', 9 * 1024 * 1024) . '"}}', ['Authorization' => "Bearer $kc"]);
 verifica('Securitate', 'cerere de 9 MB → 413, necitită', $r['cod'] === 413, "cod {$r['cod']}");
 
@@ -176,7 +179,7 @@ $u = unealta($ks, 'seteaza_site', ['nume' => 'Atelierul <b>Test</b>', 'descriere
 verifica('Site', 'seteaza_site schimbă numele, descrierea și culoarea; răspunsul arată valorile de dinainte',
     !$u['eroare'] && ($u['date']['site']['nume'] ?? '') === 'Atelierul Test' && ($u['date']['inainte']['nume'] ?? '') === 'Site de test', $u['text']);
 $r = cerere('GET', '/');
-verifica('Site', 'noul nume și noua culoare apar imediat pe site', strpos($r['corp'], '>Atelierul Test</a>') !== false && strpos($r['corp'], '--accent:#0050e6') !== false);
+verifica('Site', 'noul nume și noua culoare apar imediat pe site', strpos($r['corp'], '<span>Atelierul Test</span></a>') !== false && strpos($r['corp'], '--accent:#0050e6') !== false);
 $r = cerere('GET', '/llms.txt');
 verifica('Site', 'și în llms.txt, cu descrierea nouă', strpos($r['corp'], '# Atelierul Test') !== false && strpos($r['corp'], 'ăîșț') !== false, $r['corp']);
 $u = unealta($ks, 'seteaza_site', ['culoare' => 'red;background:url(//site-rau.example/x)']);
@@ -239,7 +242,7 @@ $u = unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'atac', 'titlu' => '
 unealta($ks, 'publica', ['tip' => 'pagina', 'slug' => 'atac']);
 $salvat = (string) (json_decode((string) @file_get_contents("$tmp/site/date/pagini/atac.json"), true)['continut_html'] ?? '');
 $r = cerere('GET', '/atac');
-$pagina = $r['corp'];
+$pagina = preg_match('#<div class="continut">(.*)</div>\s*</article>#s', $r['corp'], $m) ? $m[1] : $r['corp'];   // doar ce a scris AI-ul, fără antet
 verifica('Securitate', 'codul PHP trimis ca conținut nu e nici salvat, nici rulat',
     $salvat !== '' && stripos($salvat, '<?php') === false && strpos($pagina, 'RCE-EXECUTAT') === false && !fisiere($tmp, '/^pwn\.txt$/'));
 $interzise = ['<script', 'onerror', 'onclick', 'onload', 'javascript:', '<svg', 'style=', '<form', '<input', 'site-rau.example'];
@@ -293,6 +296,222 @@ unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'cu-coperta', 'titlu' =>
 $u = unealta($ks, 'sterge_imagine', ['nume' => basename($url_img)]);
 verifica('Imagini', 'o imagine folosită nu se șterge fără forteaza=true', $u['eroare'] && strpos($u['text'], 'articol/cu-coperta') !== false, $u['text']);
 
+// --- 0.3: previzualizare, publicare programată, căutare, redirecționări, logo, export -------------
+
+function cale_din(string $url_absolut): string { return (string) preg_replace('#^https?://[^/]+#', '', $url_absolut); }
+
+unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'ciorna-noua', 'titlu' => 'Ciornă secretă zmeurie', 'continut_html' => '<p>Text zmeuriu.</p>']);
+$u = unealta($kc, 'previzualizeaza', ['tip' => 'pagina', 'slug' => 'ciorna-noua']);
+$prev = cale_din((string) ($u['date']['url'] ?? ''));
+$r = cerere('GET', $prev);
+verifica('Previzualizare', 'linkul (cerut și cu cheia de citire) arată ciorna așezată în șablon, cu banda de previzualizare',
+    !$u['eroare'] && $r['cod'] === 200 && strpos($r['corp'], 'Ciornă secretă zmeurie') !== false && strpos($r['corp'], 'bara-previzualizare') !== false, $u['text']);
+verifica('Previzualizare', 'pagina de previzualizare nu se indexează și nu se păstrează în cache',
+    strpos($r['antete']['x-robots-tag'] ?? '', 'noindex') !== false && ($r['antete']['cache-control'] ?? '') === 'no-store' && strpos($r['corp'], 'name="robots" content="noindex') !== false);
+$r = cerere('GET', (string) preg_replace('/s=[a-f0-9]{8}/', 's=00000000', $prev));
+$r2 = cerere('GET', '/previzualizare/ciorna-noua');
+verifica('Previzualizare', 'semnătură schimbată → 403; fără semnătură → 404', $r['cod'] === 403 && $r2['cod'] === 404, "cod {$r['cod']} / {$r2['cod']}");
+$cheie_prev = trim((string) @file_get_contents("$tmp/site/date/securitate/previzualizare.cheie"));
+$expirat = time() - 60;
+$r = cerere('GET', "/previzualizare/ciorna-noua?e=$expirat&s=" . hash_hmac('sha256', "ciorna-noua|$expirat", $cheie_prev));
+verifica('Previzualizare', 'un link expirat, chiar cu semnătură bună, → 403', $cheie_prev !== '' && $r['cod'] === 403, "cod {$r['cod']}");
+verifica('Previzualizare', 'ciorna rămâne fără adresă publică', cerere('GET', '/ciorna-noua')['cod'] === 404);
+
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'programat', 'titlu' => 'Articol programat', 'continut_html' => '<p>Mai târziu.</p>']);
+$u = unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'programat', 'la' => date('Y-m-d H:i', time() + 2 * 86400)]);
+$r = cerere('GET', '/programat');
+$feed = cerere('GET', '/feed.xml')['corp'] . cerere('GET', '/sitemap.xml')['corp'] . cerere('GET', '/llms.txt')['corp'] . cerere('GET', '/articole')['corp'];
+verifica('Programare', 'publicat cu "la" în viitor: programat, invizibil pe site, în feed, sitemap, llms.txt și listă',
+    ($u['date']['operatie'] ?? '') === 'programat' && $r['cod'] === 404 && strpos($feed, '/programat') === false, $u['text']);
+$l = unealta($kc, 'listeaza', ['tip' => 'articol']);
+$programat = array_values(array_filter($l['date']['articole'] ?? [], fn($a) => $a['slug'] === 'programat'))[0] ?? [];
+verifica('Programare', 'listeaza arată data la care apare', !empty($programat['programat_pentru']), $l['text']);
+$r = cerere('GET', cale_din((string) (unealta($kc, 'previzualizeaza', ['tip' => 'articol', 'slug' => 'programat'])['date']['url'] ?? '')));
+verifica('Programare', 'previzualizarea unui articol programat spune când apare', $r['cod'] === 200 && strpos($r['corp'], 'programat pentru') !== false);
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'articol-vechi', 'titlu' => 'Articol mutat de pe site-ul vechi', 'continut_html' => '<p>Vechi.</p>', 'autor' => 'Ion Popescu']);
+$u = unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'articol-vechi', 'la' => '2020-05-01 10:00']);
+$r = cerere('GET', '/articol-vechi');
+verifica('Programare', 'publicat cu "la" în trecut: apare imediat și își păstrează data și autorul',
+    $r['cod'] === 200 && strpos((string) ($u['date']['element']['publicat_la'] ?? ''), '2020-05-01') === 0 && strpos($r['corp'], 'Ion Popescu') !== false, $u['text']);
+$u = unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'articol-vechi', 'la' => 'mâine dimineață']);
+verifica('Programare', 'o dată care nu se înțelege e refuzată', $u['eroare'], $u['text']);
+
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'sedinta-de-luni', 'titlu' => 'Ședința de luni', 'continut_html' => '<p>La ședința de luni discutăm bugetul pe trimestrul patru.</p>']);
+unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'sedinta-de-luni']);
+$r = cerere('GET', '/cauta?q=' . rawurlencode('sedinta bugetul'));
+verifica('Căutare', 'fără diacritice găsește și textul cu diacritice, cu potrivirile marcate',
+    $r['cod'] === 200 && strpos($r['corp'], 'href="/sedinta-de-luni"') !== false && strpos($r['corp'], '<mark>Ședința</mark>') !== false, "cod {$r['cod']}");
+verifica('Căutare', 'pagina de rezultate nu se indexează', strpos($r['corp'], 'name="robots" content="noindex') !== false);
+$r = cerere('GET', '/cauta?q=zmeurie');
+$r2 = cerere('GET', '/cauta?q=' . rawurlencode('Mai târziu'));
+verifica('Căutare', 'nu găsește ciorne și nici articole programate', strpos($r['corp'], 'ciorna-noua') === false && strpos($r2['corp'], '/programat"') === false
+    && strpos($r['corp'], '0 de rezultate') !== false);
+$r = cerere('GET', '/cauta?q=' . rawurlencode('<script>alert(1)</script>'));
+verifica('Securitate', 'textul căutat nu ajunge în pagină ca HTML', $r['cod'] === 200 && stripos($r['corp'], '<script>alert') === false);
+verifica('Căutare', 'caseta de căutare apare în antetul site-ului', strpos(cerere('GET', '/')['corp'], 'action="/cauta"') !== false);
+
+$u = unealta($ks, 'redirectioneaza', ['de' => '/despre-noi.html', 'la' => '/despre']);
+$r = cerere('GET', '/despre-noi.html');
+verifica('Redirecționări', 'adresa veche trimite cu 301 spre cea nouă', !$u['eroare'] && $r['cod'] === 301 && ($r['antete']['location'] ?? '') === '/despre', "cod {$r['cod']} " . $u['text']);
+unealta($ks, 'redirectioneaza', ['de' => 'https://site-vechi.ro/pagina.php?id=5', 'la' => '/despre']);
+$r = cerere('GET', '/pagina.php?id=5');
+$r2 = cerere('GET', '/pagina.php?id=6');
+verifica('Redirecționări', 'adresa completă a site-ului vechi, cu parametri, se potrivește exact', $r['cod'] === 301 && $r2['cod'] === 404, "cod {$r['cod']} / {$r2['cod']}");
+unealta($ks, 'redirectioneaza', ['de' => '/a', 'la' => '/b']);
+$u = unealta($ks, 'redirectioneaza', ['de' => '/b', 'la' => '/a']);
+verifica('Redirecționări', 'o buclă e refuzată', $u['eroare'] && strpos($u['text'], 'buclă') !== false, $u['text']);
+$u = unealta($ks, 'redirectioneaza', ['de' => '/mcp', 'la' => '/despre']);
+$u2 = unealta($ks, 'redirectioneaza', ['de' => '/x', 'la' => 'https://site-rau.example/']);
+verifica('Securitate', 'nu se pot redirecționa adresele site-ului și nici trimite vizitatorii pe alt domeniu', $u['eroare'] && $u2['eroare'], $u['text'] . ' / ' . $u2['text']);
+$u = unealta($kc, 'redirectioneaza', ['de' => '/y', 'la' => '/despre']);
+verifica('Chei', 'cheia de citire nu poate face redirecționări', $u['eroare'] && strpos($u['text'], 'Refuzat') !== false, $u['text']);
+$u = unealta($ks, 'redirectioneaza', ['de' => '/despre', 'la' => '/']);
+$r = cerere('GET', '/despre');
+verifica('Redirecționări', 'o pagină existentă are întâietate; răspunsul avertizează', isset($u['date']['atentie']) && $r['cod'] === 200, $u['text']);
+$u = unealta($ks, 'redirectioneaza', ['de' => '/despre', 'la' => '']);
+$l = unealta($kc, 'listeaza_redirectionari');
+verifica('Redirecționări', 'se scot cu "la" gol și se listează cu cheia de citire', ($u['date']['operatie'] ?? '') === 'scoasă'
+    && isset($l['date']['redirectionari']['/despre-noi.html']) && !isset($l['date']['redirectionari']['/despre']), $l['text']);
+
+$u = unealta($ks, 'seteaza_site', ['logo' => $url_img, 'favicon' => $url_img]);
+$r = cerere('GET', '/');
+verifica('Site', 'logo în antet, favicon în tab, logo ca imagine de distribuire pe prima pagină', !$u['eroare']
+    && strpos($r['corp'], 'class="sigla" href="/"><img src="' . $url_img . '"') !== false && strpos($r['corp'], '<link rel="icon" href="' . $url_img . '"') !== false
+    && strpos($r['corp'], 'og:image" content="' . $url . $url_img . '"') !== false, $u['text']);
+$u = unealta($ks, 'seteaza_site', ['logo' => '/media/nu-exista-12345678.png']);
+$u2 = unealta($ks, 'seteaza_site', ['logo' => 'https://site-rau.example/x.png']);
+verifica('Site', 'logo-ul trebuie să fie o imagine urcată pe site', $u['eroare'] && $u2['eroare'], $u['text'] . ' / ' . $u2['text']);
+$u = unealta($ks, 'sterge_imagine', ['nume' => basename($url_img)]);
+verifica('Imagini', 'imaginea folosită ca logo nu se șterge fără forteaza=true', $u['eroare'] && strpos($u['text'], 'site/logo') !== false, $u['text']);
+
+$u = unealta($kc, 'exporta');
+$exp = $u['date'] ?? [];
+$slugs = array_column(array_merge($exp['pagini'] ?? [], $exp['articole'] ?? []), 'slug');
+verifica('Export', 'exportul (cu cheia de citire) are tot: ciorne, programate, identitate, redirecționări, imagini cu amprentă',
+    !$u['eroare'] && in_array('ciorna-noua', $slugs, true) && in_array('programat', $slugs, true) && ($exp['site']['logo'] ?? '') === $url_img
+    && isset($exp['redirectionari']['/despre-noi.html']) && preg_match('/^[a-f0-9]{64}$/', (string) ($exp['imagini'][0]['amprenta'] ?? '')), substr($u['text'], 0, 300));
+
+$copii = "$tmp/copii";
+mkdir($copii);
+file_put_contents("$copii/chei-127-0-0-1.json", json_encode(['citire' => ['cheie' => $kc, 'amprenta' => hash('sha256', $kc)],
+                                                             'scriere' => ['cheie' => $ks, 'amprenta' => hash('sha256', $ks)]]));
+$rc = unealta_locala('copie.php', [$url, '--local', "--dosar=$copii"]);
+$dosar_copie = (glob("$copii/_copii/127-0-0-1/*") ?: [''])[0];
+$exp_copie = json_decode((string) @file_get_contents("$dosar_copie/export.json"), true) ?? [];
+$imagini_ok = $exp_copie && count(glob("$dosar_copie/media/*") ?: []) === count($exp_copie['imagini'] ?? [-1])
+    && @file_get_contents("$dosar_copie/media/" . basename($url_img)) === @file_get_contents("$tmp/site/media/" . basename($url_img));
+verifica('Export', 'copie.php salvează copia pe calculator: export.json și imaginile, identice cu cele de pe site',
+    $rc['cod'] === 0 && $imagini_ok && strpos($rc['iesire'], $kc) === false, $rc['iesire']);
+
+// --- OAuth: conectorul din claude.ai --------------------------------------------------------------
+
+function b64url(string $b): string { return rtrim(strtr(base64_encode($b), '+/', '-_'), '='); }
+function formular(array $d): array { return [http_build_query($d), ['Content-Type' => 'application/x-www-form-urlencoded']]; }
+function autorizare(string $client, string $intoarcere, string $provocare, array $in_plus = []): array
+{
+    return $in_plus + ['response_type' => 'code', 'client_id' => $client, 'redirect_uri' => $intoarcere, 'state' => 'st4te',
+                       'code_challenge' => $provocare, 'code_challenge_method' => 'S256', 'resource' => $GLOBALS['url'] . '/mcp'];
+}
+function aproba(string $client, string $intoarcere, string $provocare, string $cheie): array
+{
+    [$corp, $ant] = formular(autorizare($client, $intoarcere, $provocare) + ['cheie' => $cheie, 'decizie' => 'permite']);
+    $r = cerere('POST', '/oauth/autorizare', $corp, $ant);
+    parse_str((string) parse_url($r['antete']['location'] ?? '', PHP_URL_QUERY), $q);
+    return ['r' => $r, 'q' => $q, 'cod' => (string) ($q['code'] ?? '')];
+}
+function token(array $d): array
+{
+    [$corp, $ant] = formular($d);
+    $r = cerere('POST', '/oauth/token', $corp, $ant);
+    $r['json'] = json_decode($r['corp'], true) ?? [];
+    return $r;
+}
+
+$prm = json_decode(cerere('GET', '/.well-known/oauth-protected-resource')['corp'], true) ?? [];
+$asm = json_decode(cerere('GET', '/.well-known/oauth-authorization-server')['corp'], true) ?? [];
+verifica('OAuth', 'descoperirea: resursa /mcp, serverul de autorizare, înregistrare, PKCE S256', ($prm['resource'] ?? '') === "$url/mcp"
+    && ($prm['authorization_servers'][0] ?? '') === $url && ($asm['token_endpoint'] ?? '') === "$url/oauth/token"
+    && ($asm['registration_endpoint'] ?? '') === "$url/oauth/inregistrare" && ($asm['code_challenge_methods_supported'] ?? []) === ['S256'], json_encode([$prm, $asm]));
+
+$claude = 'https://claude.ai/api/mcp/auth_callback';
+$r = cerere('POST', '/oauth/inregistrare', json_encode(['client_name' => 'Rău', 'redirect_uris' => ['https://site-rau.example/cb']]));
+verifica('OAuth', 'înregistrarea cu o adresă de întoarcere străină e refuzată', $r['cod'] === 400 && strpos($r['corp'], 'invalid_redirect_uri') !== false, $r['corp']);
+$r = cerere('POST', '/oauth/inregistrare', json_encode(['client_name' => 'Claude', 'redirect_uris' => [$claude], 'token_endpoint_auth_method' => 'none',
+    'grant_types' => ['authorization_code', 'refresh_token'], 'response_types' => ['code']]));
+$client = (string) (json_decode($r['corp'], true)['client_id'] ?? '');
+verifica('OAuth', 'Claude se înregistrează singur (RFC 7591)', $r['cod'] === 201 && strpos($client, 'mcms_k_') === 0, $r['corp']);
+
+$ver = b64url(random_bytes(32));
+$prov = b64url(hash('sha256', $ver, true));
+$r = cerere('GET', '/oauth/autorizare?' . http_build_query(autorizare($client, $claude, $prov)));
+verifica('OAuth', 'pagina de aprobare cere cheia și spune unde se întoarce; CSP permite trimiterea spre Claude', $r['cod'] === 200
+    && strpos($r['corp'], 'name="cheie"') !== false && strpos($r['corp'], 'claude.ai') !== false
+    && strpos($r['antete']['content-security-policy'] ?? '', "form-action 'self' https://claude.ai") !== false, "cod {$r['cod']}");
+$r = cerere('GET', '/oauth/autorizare?' . http_build_query(autorizare($client, 'https://claude.ai/alt-callback', $prov)));
+verifica('Securitate', 'OAuth: o adresă de întoarcere neînregistrată → pagină de eroare, fără redirecționare', $r['cod'] === 400 && !isset($r['antete']['location']), "cod {$r['cod']}");
+$r = cerere('GET', '/oauth/autorizare?' . http_build_query(autorizare($client, $claude, $prov, ['code_challenge_method' => 'plain'])));
+verifica('Securitate', 'OAuth: fără PKCE S256 nu se aprobă nimic', $r['cod'] === 400, "cod {$r['cod']}");
+$a = aproba($client, $claude, $prov, 'cheie-gresita-dar-destul-de-lunga-1111');
+verifica('Securitate', 'OAuth: cu o cheie greșită nu se aprobă (și se numără la blocare)', $a['r']['cod'] === 401 && $a['cod'] === '', "cod {$a['r']['cod']}");
+[$corp, $ant] = formular(autorizare($client, $claude, $prov) + ['decizie' => 'refuza']);
+$r = cerere('POST', '/oauth/autorizare', $corp, $ant);
+verifica('OAuth', '„Refuză” → înapoi la Claude cu access_denied', $r['cod'] === 302 && strpos($r['antete']['location'] ?? '', 'error=access_denied') !== false);
+
+$a = aproba($client, $claude, $prov, $ks);
+verifica('OAuth', 'cu cheia de scriere: înapoi la Claude cu cod, state și emitent', $a['r']['cod'] === 302
+    && strpos($a['r']['antete']['location'] ?? '', $claude . '?') === 0 && ($a['q']['state'] ?? '') === 'st4te' && ($a['q']['iss'] ?? '') === $url && strlen($a['cod']) > 40,
+    $a['r']['antete']['location'] ?? '');
+$r = token(['grant_type' => 'authorization_code', 'code' => $a['cod'], 'redirect_uri' => $claude, 'client_id' => $client, 'code_verifier' => b64url(random_bytes(32))]);
+verifica('Securitate', 'OAuth: un code_verifier greșit (PKCE) e refuzat', $r['cod'] === 400 && ($r['json']['error'] ?? '') === 'invalid_grant', $r['corp']);
+$r = token(['grant_type' => 'authorization_code', 'code' => $a['cod'], 'redirect_uri' => $claude, 'client_id' => $client, 'code_verifier' => $ver]);
+verifica('Securitate', 'OAuth: un cod se folosește o singură dată, chiar dacă prima încercare a fost greșită', $r['cod'] === 400, $r['corp']);
+
+$ver = b64url(random_bytes(32));
+$a = aproba($client, $claude, b64url(hash('sha256', $ver, true)), $ks);
+$r = token(['grant_type' => 'authorization_code', 'code' => $a['cod'], 'redirect_uri' => $claude, 'client_id' => $client, 'code_verifier' => $ver]);
+$acces = (string) ($r['json']['access_token'] ?? '');
+$reinnoire = (string) ($r['json']['refresh_token'] ?? '');
+verifica('OAuth', 'cod bun + verificator bun → token de acces și de reînnoire, cu drept de scriere', $r['cod'] === 200 && strpos($acces, 'mcms_t_') === 0
+    && strpos($reinnoire, 'mcms_r_') === 0 && ($r['json']['scope'] ?? '') === 'scriere' && ($r['json']['token_type'] ?? '') === 'Bearer', $r['corp']);
+$pe_server = implode('', array_map('file_get_contents', glob("$tmp/site/date/oauth/*.json") ?: []));
+verifica('Securitate', 'OAuth: pe server nu stă niciun token sau cod în clar, doar amprente', $acces !== '' && strpos($pe_server, $acces) === false
+    && strpos($pe_server, $reinnoire) === false && strpos($pe_server, $a['cod']) === false && strpos($pe_server, hash('sha256', $acces)) !== false);
+$r = mcp($acces, 'tools/list');
+verifica('OAuth', 'Claude folosește tokenul pe /mcp și vede toate comenzile', $r['cod'] === 200 && count($r['json']['result']['tools'] ?? []) === 21, $r['corp']);
+$r = token(['grant_type' => 'refresh_token', 'refresh_token' => $reinnoire, 'client_id' => $client]);
+$acces2 = (string) ($r['json']['access_token'] ?? '');
+$r2 = token(['grant_type' => 'refresh_token', 'refresh_token' => $reinnoire, 'client_id' => $client]);
+verifica('OAuth', 'reînnoirea dă token-uri noi; tokenul de reînnoire vechi nu mai merge', $r['cod'] === 200 && $acces2 !== ''
+    && ($r['json']['refresh_token'] ?? $reinnoire) !== $reinnoire && $r2['cod'] === 400, $r['corp'] . ' / ' . $r2['corp']);
+$r = token(['grant_type' => 'refresh_token', 'refresh_token' => (string) ($r['json']['refresh_token'] ?? ''), 'client_id' => 'mcms_k_necunoscut']);
+verifica('Securitate', 'OAuth: un client necunoscut nu primește nimic', $r['cod'] === 401, $r['corp']);
+
+$ver = b64url(random_bytes(32));
+$a = aproba($client, $claude, b64url(hash('sha256', $ver, true)), $kc);
+$r = token(['grant_type' => 'authorization_code', 'code' => $a['cod'], 'redirect_uri' => $claude, 'client_id' => $client, 'code_verifier' => $ver]);
+$r2 = mcp((string) ($r['json']['access_token'] ?? ''), 'tools/list');
+verifica('OAuth', 'aprobat cu cheia de citire, tokenul are doar drept de citire', ($r['json']['scope'] ?? '') === 'citire'
+    && count($r2['json']['result']['tools'] ?? []) === 11, $r['corp']);
+$l = unealta($kc, 'listeaza_conexiuni');
+verifica('OAuth', 'listeaza_conexiuni arată conexiunea Claude, aprobată, cu drepturile ei', ($l['date']['conexiuni'][0]['nume'] ?? '') === 'Claude'
+    && ($l['date']['conexiuni'][0]['aprobat'] ?? false) === true && in_array('scriere', $l['date']['conexiuni'][0]['drepturi'] ?? [], true), $l['text']);
+$j = unealta($kc, 'citeste_jurnal', ['ultimele' => 60]);
+verifica('OAuth', 'jurnalul arată apelurile prin conexiune și pașii OAuth, fără token-uri sau coduri',
+    array_filter($j['date']['intrari'] ?? [], fn($i) => ($i['conexiune'] ?? '') === 'Claude')
+    && array_filter($j['date']['intrari'] ?? [], fn($i) => ($i['punct'] ?? '') === 'oauth' && ($i['cerere'] ?? '') === 'token')
+    && strpos($j['text'], $acces) === false && strpos($j['text'], $a['cod']) === false);
+
+$cfg_original = (string) file_get_contents("$tmp/site/app/config.php");
+file_put_contents("$tmp/site/app/config.php", str_replace(hash('sha256', $ks), hash('sha256', $ks . 'alta'), $cfg_original));
+$r = mcp($acces2, 'tools/list');
+file_put_contents("$tmp/site/app/config.php", $cfg_original);
+$r2 = mcp($acces2, 'tools/list');
+verifica('Securitate', 'OAuth: când cheia de scriere se schimbă, tokenurile aprobate cu ea nu mai merg', $r['cod'] === 401
+    && strpos($r['antete']['www-authenticate'] ?? '', 'invalid_token') !== false && $r2['cod'] === 200, "cod {$r['cod']} / {$r2['cod']}");
+$u = unealta($ks, 'retrage_conexiune', ['client_id' => $client]);
+$r = mcp($acces2, 'tools/list');
+verifica('OAuth', 'retrage_conexiune anulează imediat accesul', !$u['eroare'] && $r['cod'] === 401, $u['text'] . " / cod {$r['cod']}");
+
 // --- acces direct din web la fișierele interne --------------------------------------------------
 
 $interne = ['/app/config.php', '/app/nucleu.php', '/sabloane/baza.php', '/date/pagini/atac.json',
@@ -323,6 +542,8 @@ verifica('Jurnal', 'scrierile au amprenta conținutului scris', (bool) array_fil
 verifica('Jurnal', 'lanțul de amprente e intact', ($u['date']['lant']['intact'] ?? false) === true, json_encode($u['date']['lant'] ?? null));
 verifica('Jurnal', 'schimbarea identității apare în jurnal, cu ținta "site" și amprenta', (bool) array_filter($intrari, fn($i) => ($i['unealta'] ?? '') === 'seteaza_site'
     && ($i['tinta'] ?? '') === 'site' && preg_match('/^[a-f0-9]{64}$/', (string) ($i['amprenta'] ?? ''))));
+verifica('Jurnal', 'vizualizările previzualizărilor sunt în jurnal, inclusiv cele refuzate', count(array_filter($intrari, fn($i) => ($i['punct'] ?? '') === 'previzualizare' && ($i['rezultat'] ?? '') === 'ok')) >= 2
+    && count(array_filter($intrari, fn($i) => ($i['punct'] ?? '') === 'previzualizare' && ($i['rezultat'] ?? '') === 'respins')) >= 2);
 verifica('Jurnal', 'nicio comandă MCP nu scrie în jurnal', !array_filter($lista_s, fn($t) => strpos($t['name'], 'jurnal') !== false && $t['name'] !== 'citeste_jurnal'));
 $r = cerere('POST', '/jurnal.php', http_build_query(['cheie' => $kc]), ['Content-Type' => 'application/x-www-form-urlencoded']);
 verifica('Jurnal', 'pagina jurnalului se deschide cu cheia de citire', $r['cod'] === 200 && strpos($r['corp'], 'Lanțul e intact') !== false, "cod {$r['cod']}");
@@ -360,10 +581,15 @@ verifica('Securitate', 'după toate testele, niciun fișier executabil nou pe se
 
 // --- instalarea în doi pași, cap-coadă: pachetul făcut de instaleaza.php, despachetat ca pe server, verificat ---
 
-function instaleaza(array $argumente): array   // stdin e un pipe, deci comanda rulează neinteractiv (fără pauze)
+function instaleaza(array $argumente): array
+{
+    return unealta_locala('instaleaza.php', $argumente);
+}
+
+function unealta_locala(string $script, array $argumente): array   // stdin e un pipe, deci unealta rulează neinteractiv (fără pauze)
 {
     global $radacina;
-    $proc = proc_open(array_merge([PHP_BINARY, "$radacina/unelte/instaleaza.php"], $argumente),
+    $proc = proc_open(array_merge([PHP_BINARY, "$radacina/unelte/$script"], $argumente),
         [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
     fclose($pipes[0]);
     $iesire = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
@@ -422,6 +648,21 @@ $url = $url2;
 $u = unealta($chei2['citire']['cheie'], 'despre_site');
 $url = $url_principal;
 verifica('Instalare', 'fără nume în config.php, site-ul poartă numele domeniului până îl setează AI-ul', ($u['date']['site']['nume'] ?? '') === '127.0.0.1', $u['text']);
+$rp = unealta_locala('copie.php', [$url2, '--local', "--dosar=$inst", "--pune=$dosar_copie"]);
+$url = $url2;
+$vechi = cerere('GET', '/articol-vechi');
+$acasa2 = cerere('GET', '/');
+$img2 = cerere('GET', $url_img);
+$refacut = $rp['cod'] === 0 && cerere('GET', '/sedinta-de-luni')['cod'] === 200 && $vechi['cod'] === 200
+    && strpos($vechi['corp'], 'Ion Popescu') !== false && strpos($vechi['corp'], '2020') !== false
+    && cerere('GET', '/programat')['cod'] === 404 && cerere('GET', '/ciorna-noua')['cod'] === 404
+    && cerere('GET', '/despre-noi.html')['cod'] === 301 && strpos($acasa2['corp'], 'Atelierul Test') !== false
+    && strpos($acasa2['corp'], 'src="' . $url_img . '"') !== false && $img2['corp'] === @file_get_contents("$tmp/site/media/" . basename($url_img));
+$url = $url_principal;
+verifica('Export', 'copia pusă pe un site gol îl reface: elemente, stări, date, autori, identitate, imagini cu aceleași adrese, redirecționări',
+    $refacut, $rp['iesire']);
+$rp2 = unealta_locala('copie.php', [$url2, '--local', "--dosar=$inst", "--pune=$dosar_copie"]);
+verifica('Export', 'peste un site cu conținut, copia nu se pune fără --peste', $rp2['cod'] === 1 && strpos($rp2['iesire'], '--peste') !== false, $rp2['iesire']);
 rename("$inst/server/app/config.php", "$inst/server/app/config.scos");
 $r4 = instaleaza([$url2, '--verifica', '--local', "--dosar=$inst", '--fara-claude']);
 verifica('Instalare', 'verificarea se oprește și spune cauza când serverul nu e în regulă (config.php lipsă)',

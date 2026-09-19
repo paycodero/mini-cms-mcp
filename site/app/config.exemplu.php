@@ -23,6 +23,7 @@ return [
     //                                                 // permite; rămas în site/date, e protejat de .htaccess (pe nginx, vezi README)
     // 'cloudflare' => false,   // implicit 'auto': IP-ul real vine din CF-Connecting-IP doar când cererea vine chiar din Cloudflare
     // 'hsts' => false,         // implicit 'auto': antetul HSTS pe orice răspuns servit prin https
+    // 'oauth_gazde' => [],     // gazde https în plus (pe lângă claude.ai și claude.com) la care OAuth poate trimite codul de aprobare
     // 'csp_extra' => [],       // surse în plus pentru Content-Security-Policy, ex. pentru Google Analytics:
     //                          // ['script-src' => ['https://www.googletagmanager.com'], 'connect-src' => ['https://*.google-analytics.com']]
 ];

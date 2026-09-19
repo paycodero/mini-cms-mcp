@@ -6,7 +6,8 @@ Un CMS mic pentru site-uri de câteva pagini și un blog, administrat de un asis
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache/cPanel). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Circa 1.750 de rânduri PHP pe server, plus teste automate (104 verificări, inclusiv instalarea cap-coadă).
+- Circa 2.450 de rânduri PHP pe server, plus teste automate (156 de verificări, inclusiv instalarea, copia de siguranță și OAuth cap-coadă).
+- Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
 - Instalarea: o comandă pe calculator și un zip urcat în cPanel.
 
 ## Structura
@@ -24,6 +25,8 @@ site/                    ← se urcă pe server, ca rădăcină a site-ului
   media/                 creat automat: imaginile urcate
 teste/ruleaza.php        testele: pornesc o copie a site-ului și încearcă funcțiile și atacurile
 unelte/instaleaza.php    instalarea: teste, chei, config.php, pachetul .zip, verificarea serverului, legarea Claude Code
+unelte/copie.php         copia de siguranță: salvează tot site-ul pe calculator și îl poate pune la loc (sau pe alt site)
+unelte/comun.php         funcțiile comune ale celor două
 unelte/genereaza-cheie.php, unelte/router-local.php
 ```
 
@@ -60,11 +63,43 @@ fi modificat prin MCP; ajunge pe server o singură dată, în pachetul urcat de 
 Dacă folderul avea deja un `.htaccess` pus de cPanel (MultiPHP), după Extract alegi din nou versiunea de PHP în
 MultiPHP Manager, ca cPanel să-și rescrie blocul.
 
+## Copia de siguranță
+
+```
+php unelte/copie.php https://site.ro
+```
+
+Salvează tot site-ul în `_copii/<nume>/<data>/` (în folderul de deasupra repo-ului): `export.json` cu paginile și articolele
+(inclusiv ciornele și cele programate), identitatea și redirecționările, plus imaginile, verificate după amprentă. Folosește
+cheia de citire. Nicio copie nu se scrie peste alta.
+
+```
+php unelte/copie.php https://site-nou.ro --pune=_copii/<nume>/<data>
+```
+
+Pune copia pe un site (de obicei unul nou, gol), cu cheia de scriere: imaginile cu aceleași adrese, apoi identitatea,
+elementele cu starea, data publicării și autorul lor, și redirecționările. Pe un site care are deja conținut cere și
+`--peste`; elementele cu același slug se modifică, cu versiunea anterioară păstrată.
+
 ## Schimbarea cheilor
 
 Dacă o cheie a scăpat: `php unelte/instaleaza.php https://site --chei-noi`. Cheile vechi se păstrează cu data în nume,
 config-ul și pachetul se refac. Urci pe server doar `app/config.php` din `_livrare/<nume>/` (sau tot pachetul): din acel
 moment cheile vechi nu mai merg. Apoi `--verifica`, care înlocuiește și cheia din conexiunea Claude Code.
+
+## Conectorul din claude.ai (web și telefon)
+
+În claude.ai: **Settings → Connectors → Add custom connector**, cu adresa `https://site/mcp`. Claude se înregistrează singur la
+site și deschide pagina de aprobare a site-ului: acolo introduci **cheia de scriere** (sau pe cea de citire, pentru acces doar
+de citire) și apeși *Permite*. De acolo, Claude primește token-uri temporare; conectorul apare și în aplicația de telefon.
+
+- OAuth 2.1 cu PKCE (S256) obligatoriu, înregistrare automată a clientului (RFC 7591), descoperire prin
+  `/.well-known/oauth-protected-resource` și `/.well-known/oauth-authorization-server`.
+- Codul de aprobare poate fi trimis doar spre `claude.ai`, `claude.com` sau calculatorul omului (`localhost`, pentru Claude Code);
+  alte gazde se adaugă în `config.php`, la `'oauth_gazde'`.
+- Token de acces 1 oră, de reînnoire 60 de zile, rotit la fiecare folosire. Pe server stau doar amprentele lor.
+- Un token are drepturile cheii cu care a fost aprobat și nu mai merge după `--chei-noi`. Accesul se vede cu
+  `listeaza_conexiuni` și se retrage cu `retrage_conexiune`. Fiecare pas e în jurnal, fără token-uri sau coduri.
 
 ## Legarea de mână la Claude Code
 
@@ -90,15 +125,24 @@ Conectorul din claude.ai (web, telefon) cere OAuth, care e în lucru (vezi mai j
 | `listeaza_versiuni` | citire | versiunile salvate automat ale unui element |
 | `listeaza_imagini` | citire | imaginile din `/media/` |
 | `citeste_jurnal` | citire | ultimele intrări și verificarea lanțului |
+| `previzualizeaza` | citire | link temporar (implicit 60 de minute) la care omul vede o ciornă exact ca pe site, înainte de publicare |
+| `listeaza_redirectionari` | citire | adresele vechi care trimit spre adrese noi |
+| `exporta` | citire | tot conținutul, pentru copia de siguranță (vezi `unelte/copie.php`) |
+| `listeaza_conexiuni` | citire | aplicațiile legate prin OAuth (conectorul claude.ai): cine, cu ce drepturi, dacă au acces acum |
 | `salveaza` | scriere | creează (ca ciornă) sau modifică o pagină ori un articol |
-| `seteaza_site` | scriere | numele, descrierea, autorul, limba și culoarea site-ului; păstrează versiunea anterioară |
-| `publica` / `retrage` | scriere | pune pe site / scoate de pe site (rămâne ciornă) |
+| `seteaza_site` | scriere | numele, descrierea, autorul, limba, culoarea, logo-ul și favicon-ul; păstrează versiunea anterioară |
+| `publica` / `retrage` | scriere | pune pe site / scoate de pe site (rămâne ciornă); `publica` cu `la` în viitor programează, în trecut păstrează data |
+| `retrage_conexiune` | scriere | anulează accesul unei aplicații legate prin OAuth |
+| `redirectioneaza` | scriere | adresă veche → adresă nouă de pe site, 301 (doar când la adresa veche nu mai e nimic); `la` gol o scoate |
 | `sterge` | scriere | mută elementul între versiuni (reversibil) |
 | `restaureaza` | scriere | aduce înapoi o versiune, ca ciornă |
 | `urca_imagine` | scriere | JPEG/PNG/GIF/WebP, max 5 MB; extensia se stabilește din conținut |
 | `sterge_imagine` | scriere | mută imaginea între versiuni; refuză dacă e folosită |
 
 Paginile și articolele au adrese comune: `/despre`, `/primul-articol`. Pagina `acasa` e prima pagină.
+
+Vizitatorii au căutare (`/cauta?q=…`, în antet): doar în ce e pe site, cu sau fără diacritice ("sedinta" găsește "ședința").
+Articolele programate apar singure la ora lor: nu e nevoie de sarcini programate pe server.
 
 ## Securitate
 
@@ -113,6 +157,8 @@ Paginile și articolele au adrese comune: `/despre`, `/primul-articol`. Pagina `
 - Arhivele și copiile de siguranță (`.zip`, `.tar`, `.gz`, `.sql`, `.bak` etc.) nu se servesc: pachetul de instalare uitat pe server nu se poate descărca.
 - IP-ul real din `CF-Connecting-IP` e crezut doar când cererea vine chiar din rețeaua Cloudflare; altfel antetul e ignorat. Setarea se potrivește singură, cu sau fără Cloudflare (`'cloudflare' => false` o oprește).
 - HSTS pe orice răspuns servit prin https (`'hsts' => false` îl oprește).
+- Linkurile de previzualizare sunt semnate (HMAC, cheie în `date/securitate/`), expiră în cel mult 24 de ore, nu se indexează și sunt scrise în jurnal, inclusiv încercările cu semnătură greșită.
+- Redirecționările duc doar spre adrese de pe același site; adresele site-ului (`/mcp`, `/app`, `/date`, …) nu se pot redirecționa, iar buclele sunt refuzate.
 
 ## Jurnalul
 
@@ -143,6 +189,5 @@ location / { try_files $uri /index.php$is_args$args; }
 
 ## Limitări cunoscute
 
-- OAuth pentru conectorul claude.ai: în lucru. Până atunci, clienții care pot trimite un antet (Claude Code).
 - `post_max_size` al găzduirii limitează mărimea imaginilor urcate (base64 adaugă ~33%).
 - Căutarea și listele citesc toate fișierele JSON la fiecare cerere: potrivit pentru zeci sau sute de elemente, nu pentru zeci de mii.

@@ -20,6 +20,8 @@
 <?php if ($imagine_og !== ''): ?><meta property="og:image" content="<?= esc($imagine_og) ?>">
 <meta name="twitter:card" content="summary_large_image">
 <?php endif; ?>
+<?php if ((string) config('site.favicon') !== ''): ?><link rel="icon" href="<?= esc(config('site.favicon')) ?>">
+<?php endif; ?>
 <link rel="stylesheet" href="/assets/stil.css?v=<?= (int) @filemtime(dirname(__DIR__) . '/assets/stil.css') ?>">
 <link rel="alternate" type="application/rss+xml" title="<?= esc(config('site.nume')) ?>" href="/feed.xml">
 <style nonce="<?= esc($nonce) ?>">:root{--accent:<?= culoare_accent() ?>}</style>
@@ -27,14 +29,20 @@
 <?php endif; ?>
 </head>
 <body>
+<?php if ($previzualizare): ?>
+<div class="bara-previzualizare">Previzualizare · <?= esc($previzualizare['stare']) ?> · linkul expiră la <?= esc($previzualizare['expira']) ?></div>
+<?php endif; ?>
 <header class="antet">
   <div class="lat antet-rand">
-    <a class="sigla" href="/"><?= esc(config('site.nume')) ?></a>
+    <a class="sigla" href="/"><?php if ((string) config('site.logo') !== ''): ?><img src="<?= esc(config('site.logo')) ?>" alt="" height="40"><?php endif; ?><span><?= esc(config('site.nume')) ?></span></a>
     <nav class="meniu" aria-label="Meniu">
 <?php foreach (meniu() as $m): ?>
       <a href="<?= esc($m['url']) ?>"><?= esc($m['titlu']) ?></a>
 <?php endforeach; ?>
     </nav>
+    <form class="cauta-antet" action="/cauta" method="get" role="search">
+      <input type="search" name="q" value="<?= esc($cautare) ?>" placeholder="Caută pe site" aria-label="Caută pe site" maxlength="100">
+    </form>
   </div>
 </header>
 <main class="lat">

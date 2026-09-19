@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 if (!defined('MINICMS')) { http_response_code(403); exit; }
 
-const MINICMS_VERSIUNE = '0.2.0';
+const MINICMS_VERSIUNE = '0.4.0';
 
 ini_set('display_errors', '0');   // un avertisment afișat ar strica JSON-ul MCP și ar scurge căi de pe server
 error_reporting(E_ALL);
@@ -17,7 +17,7 @@ class EroareCms extends RuntimeException {}   // eroare de validare, cu mesaj bu
 
 // Identitatea site-ului e conținut: AI-ul o schimbă cu seteaza_site, iar valorile stau în date/site.json.
 // Ce scrie în config.php e doar punctul de plecare. Adresa (url) și cheile rămân numai în config.php.
-const CAMPURI_IDENTITATE = ['nume', 'descriere', 'limba', 'autor', 'culoare'];
+const CAMPURI_IDENTITATE = ['nume', 'descriere', 'limba', 'autor', 'culoare', 'logo', 'favicon'];
 
 function config(string $cale = '')
 {
@@ -28,7 +28,8 @@ function config(string $cale = '')
         $dat = require $fisier;
         if (!is_array($dat)) oprire(503, 'app/config.php trebuie să întoarcă un array.');
         $implicit = [
-            'site' => ['nume' => '', 'descriere' => '', 'url' => '', 'limba' => 'ro', 'autor' => '', 'culoare' => '#6d2be8'],
+            'site' => ['nume' => '', 'descriere' => '', 'url' => '', 'limba' => 'ro', 'autor' => '', 'culoare' => '#6d2be8',
+                       'logo' => '', 'favicon' => ''],
             'chei' => ['citire' => '', 'scriere' => ''],
             'date' => dirname(__DIR__) . '/date',
             'media' => dirname(__DIR__) . '/media',
@@ -36,6 +37,7 @@ function config(string $cale = '')
             'cloudflare' => 'auto',   // IP-ul real din CF-Connecting-IP, doar când cererea vine din rețeaua Cloudflare
             'hsts' => 'auto',         // antetul HSTS pe orice răspuns servit prin https
             'csp_extra' => [],
+            'oauth_gazde' => [],      // gazde https în plus la care OAuth poate trimite codul (implicit: claude.ai, claude.com, localhost)
             'articole_pe_pagina' => 12,
         ];
         foreach (['site', 'chei'] as $k) $dat[$k] = (array) ($dat[$k] ?? []) + $implicit[$k];
@@ -238,7 +240,7 @@ function antete_securitate(?string $csp = null): void
     if ($csp !== null) header('Content-Security-Policy: ' . $csp);
 }
 
-function csp_pagina(string $nonce): string
+function csp_pagina(string $nonce, array $extra = []): string
 {
     $surse = [
         'default-src' => ["'self'"],
@@ -253,7 +255,7 @@ function csp_pagina(string $nonce): string
         'form-action' => ["'self'"],
         'frame-ancestors' => ["'none'"],
     ];
-    foreach ((array) config('csp_extra') as $directiva => $lista) {
+    foreach (array_merge_recursive((array) config('csp_extra'), $extra) as $directiva => $lista) {
         if (isset($surse[$directiva])) $surse[$directiva] = array_merge($surse[$directiva], (array) $lista);
     }
     $parti = [];
@@ -268,3 +270,4 @@ require __DIR__ . '/securitate.php';
 require __DIR__ . '/curatare.php';
 require __DIR__ . '/continut.php';
 require __DIR__ . '/imagini.php';
+require __DIR__ . '/oauth.php';

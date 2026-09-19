@@ -47,6 +47,7 @@ function unelte(): array
                     'versiune' => MINICMS_VERSIUNE, 'cheia_ta' => $rol, 'continut' => $numar, 'imagini' => count(listeaza_imagini()),
                     'adrese' => ['/' => 'pagina "acasa" + ultimele articole', '/<slug>' => 'pagină sau articol publicat',
                                  '/articole' => 'lista articolelor', '/eticheta/<eticheta>' => 'articolele cu o etichetă',
+                                 '/cauta?q=' => 'căutarea pentru vizitatori (doar ce e pe site)',
                                  '/media/<fisier>' => 'imagini urcate', '/sitemap.xml, /feed.xml, /llms.txt, /robots.txt' => 'generate automat'],
                     'reguli' => [
                         'Tot ce creezi pleacă drept ciornă; pe site apare doar după "publica".',
@@ -55,7 +56,10 @@ function unelte(): array
                         'HTML-ul trece printr-o listă de etichete permise; ce se scoate apare în "curatari" la răspuns.',
                         'Titlul elementului devine <h1>; în conținut începe cu <h2>.',
                         'Fiecare apel, inclusiv citirile, e scris în jurnal.',
-                        'Numele, descrierea, autorul, limba și culoarea site-ului se schimbă cu seteaza_site, după acordul omului.',
+                        'Numele, descrierea, autorul, limba, culoarea, logo-ul și favicon-ul se schimbă cu seteaza_site, după acordul omului.',
+                        'Înainte de "publica", trimite-i omului linkul din previzualizeaza: vede pagina exact ca pe site.',
+                        '"publica" cu "la" în viitor programează elementul: apare singur la ora aceea.',
+                        'Când se schimbă adresa unui element, o redirecționare (redirectioneaza) duce vizitatorii de la adresa veche la cea nouă.',
                     ],
                     'html_permis' => array_keys(HTML_PERMISE),
                     'atribute_globale' => HTML_GLOBALE,
@@ -131,6 +135,34 @@ function unelte(): array
                 return ['lant' => jurnal_verifica(), 'intrari' => jurnal_ultimele($n, !empty($a['doar_probleme']))];
             },
         ],
+        'previzualizeaza' => [
+            'scriere' => false, 'titlu' => 'Link de previzualizare', 'adnotari' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => false, 'openWorldHint' => false],
+            'descriere' => 'Un link temporar la care omul vede o ciornă (sau un element programat) exact cum va arăta pe site, înainte de "publica". '
+                . 'Linkul expiră după "minute" (implicit 60) și nu e indexat.',
+            'schema' => schema_obiect(['tip' => $tip, 'slug' => $slug,
+                'minute' => ['type' => 'integer', 'minimum' => 5, 'maximum' => 1440, 'default' => 60]], ['tip', 'slug']),
+            'fn' => fn(array $a) => link_previzualizare((string) arg_text($a, 'tip'), (string) arg_text($a, 'slug'), (int) ($a['minute'] ?? 60)),
+        ],
+        'listeaza_redirectionari' => [
+            'scriere' => false, 'titlu' => 'Listează redirecționările', 'adnotari' => $citire,
+            'descriere' => 'Adresele vechi care trimit (301) spre adrese noi de pe site.',
+            'schema' => schema_obiect([]),
+            'fn' => fn(array $a) => ['redirectionari' => citeste_redirectionari() ?: new stdClass()],
+        ],
+        'exporta' => [
+            'scriere' => false, 'titlu' => 'Exportă tot conținutul', 'adnotari' => $citire,
+            'descriere' => 'Tot conținutul, pentru o copie de siguranță: identitatea site-ului, paginile și articolele întregi (și ciornele), '
+                . 'redirecționările și lista imaginilor, cu amprentele lor. Imaginile se descarcă separat, de la adresele lor.',
+            'schema' => schema_obiect([]),
+            'fn' => fn(array $a) => exporta_continut(),
+        ],
+        'listeaza_conexiuni' => [
+            'scriere' => false, 'titlu' => 'Listează conexiunile aprobate', 'adnotari' => $citire,
+            'descriere' => 'Aplicațiile legate de site prin OAuth (ex. conectorul din claude.ai): nume, unde întorc, dacă au acces acum și cu ce drepturi. '
+                . 'Legătura prin cheie în antet (Claude Code) nu apare aici.',
+            'schema' => schema_obiect([]),
+            'fn' => fn(array $a) => ['conexiuni' => conexiuni_oauth()],
+        ],
         'salveaza' => [
             'scriere' => true, 'titlu' => 'Creează sau modifică o pagină ori un articol',
             'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
@@ -146,6 +178,7 @@ function unelte(): array
                 'imagine' => ['type' => 'string', 'description' => 'doar la articole: coperta, adresa /media/... întoarsă de urca_imagine'],
                 'imagine_alt' => ['type' => 'string', 'description' => 'doar la articole: descrierea copertei'],
                 'meniu' => ['type' => ['integer', 'null'], 'minimum' => 0, 'maximum' => 99, 'description' => 'doar la pagini: poziția în meniu; null = nu apare în meniu'],
+                'autor' => ['type' => 'string', 'maxLength' => 80, 'description' => 'doar la articole: autorul, dacă nu e cel implicit al site-ului'],
             ], ['tip', 'slug']),
             'fn' => function (array $a) {
                 $campuri = $a;
@@ -165,15 +198,20 @@ function unelte(): array
                 'autor' => ['type' => 'string', 'maxLength' => 80, 'description' => 'autorul implicit al articolelor noi'],
                 'limba' => ['type' => 'string', 'pattern' => '^[a-z]{2,3}(-[A-Z]{2})?$', 'description' => 'ex. "ro"'],
                 'culoare' => ['type' => 'string', 'pattern' => '^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$', 'description' => 'culoarea de accent, ex. "#6d2be8"'],
+                'logo' => ['type' => 'string', 'description' => 'sigla din antet: adresa /media/... întoarsă de urca_imagine; "" = fără logo'],
+                'favicon' => ['type' => 'string', 'description' => 'iconița din tab: adresa /media/... a unei imagini pătrate (PNG); "" = fără'],
             ]),
             'fn' => fn(array $a) => seteaza_identitate($a),
         ],
         'publica' => [
             'scriere' => true, 'titlu' => 'Publică',
             'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
-            'descriere' => 'Face elementul vizibil pe site. Publică doar după ce omul a aprobat conținutul.',
-            'schema' => schema_obiect(['tip' => $tip, 'slug' => $slug], ['tip', 'slug']),
-            'fn' => fn(array $a) => schimba_stare((string) arg_text($a, 'tip'), (string) arg_text($a, 'slug'), 'publicat'),
+            'descriere' => 'Face elementul vizibil pe site. Publică doar după ce omul a aprobat conținutul (vezi previzualizeaza). '
+                . 'Cu "la" în viitor, elementul e programat: apare singur la ora aceea.',
+            'schema' => schema_obiect(['tip' => $tip, 'slug' => $slug,
+                'la' => ['type' => 'string', 'description' => 'opțional: data și ora publicării, ex. "2026-10-01 09:00" (ora României). '
+                    . 'În viitor = programat; în trecut = păstrează data (ex. la mutarea unui articol vechi).']], ['tip', 'slug']),
+            'fn' => fn(array $a) => schimba_stare((string) arg_text($a, 'tip'), (string) arg_text($a, 'slug'), 'publicat', arg_text($a, 'la', false)),
         ],
         'retrage' => [
             'scriere' => true, 'titlu' => 'Retrage de pe site',
@@ -196,6 +234,25 @@ function unelte(): array
             'schema' => schema_obiect(['tip' => $tip, 'slug' => $slug,
                 'versiune' => ['type' => 'string', 'description' => 'identificatorul din listeaza_versiuni, ex. "20260918-153000"']], ['tip', 'slug', 'versiune']),
             'fn' => fn(array $a) => restaureaza_element((string) arg_text($a, 'tip'), (string) arg_text($a, 'slug'), (string) arg_text($a, 'versiune')),
+        ],
+        'redirectioneaza' => [
+            'scriere' => true, 'titlu' => 'Redirecționează o adresă veche',
+            'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
+            'descriere' => 'Trimite vizitatorii de la o adresă veche (ex. după schimbarea unui slug, sau de pe un site vechi mutat aici) spre una nouă, '
+                . 'de pe acest site, cu 301. Se aplică doar când la adresa veche nu mai e nimic. Cu "la" gol, scoate redirecționarea.',
+            'schema' => schema_obiect([
+                'de' => ['type' => 'string', 'description' => 'adresa veche, ex. "/despre-noi.html" sau "/pagina.php?id=5"'],
+                'la' => ['type' => ['string', 'null'], 'description' => 'adresa nouă de pe site, ex. "/despre"; "" sau null = scoate redirecționarea'],
+            ], ['de', 'la']),
+            'fn' => fn(array $a) => seteaza_redirectionare(arg_text($a, 'de'), arg_text($a, 'la', false)),
+        ],
+        'retrage_conexiune' => [
+            'scriere' => true, 'titlu' => 'Retrage accesul unei conexiuni',
+            'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'openWorldHint' => false],
+            'descriere' => 'Anulează accesul unei aplicații legate prin OAuth (client_id din listeaza_conexiuni): token-urile ei nu mai merg, '
+                . 'iar ca să se lege din nou trebuie aprobată iar, cu cheia. Doar la cererea omului.',
+            'schema' => schema_obiect(['client_id' => ['type' => 'string']], ['client_id']),
+            'fn' => fn(array $a) => retrage_conexiune_oauth((string) arg_text($a, 'client_id')),
         ],
         'urca_imagine' => [
             'scriere' => true, 'titlu' => 'Urcă o imagine',
@@ -222,6 +279,8 @@ function unelte(): array
 function tinta_apel(array $a, string $unealta = ''): string
 {
     if ($unealta === 'seteaza_site') return 'site';
+    if ($unealta === 'retrage_conexiune' && isset($a['client_id']) && is_string($a['client_id'])) return 'conexiune ' . substr($a['client_id'], 0, 40);
+    if ($unealta === 'redirectioneaza' && isset($a['de']) && is_string($a['de'])) return 'redirectionare ' . substr($a['de'], 0, 90);
     if (isset($a['tip'], $a['slug']) && is_string($a['tip']) && is_string($a['slug'])) return substr($a['tip'] . '/' . $a['slug'], 0, 100);
     if (isset($a['nume']) && is_string($a['nume'])) return 'media/' . substr($a['nume'], 0, 80);
     return '';

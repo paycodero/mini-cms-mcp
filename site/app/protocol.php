@@ -26,14 +26,18 @@ function mcp_eroare(int $http, $id, int $cod, string $mesaj): void
     mcp_trimite($http, ['jsonrpc' => '2.0', 'id' => $id, 'error' => ['code' => $cod, 'message' => $mesaj]]);
 }
 
-// O cerere venită dintr-un browser (are Origin) e acceptată doar de pe situl însuși — apărare DNS rebinding.
+// O cerere venită dintr-un browser (are Origin) e acceptată doar de pe situl însuși sau de la Claude (claude.ai,
+// claude.com, plus 'oauth_gazde' din config) — apărare DNS rebinding. Cheia sau tokenul rămân obligatorii oricum.
 function origine_permisa(string $origine): bool
 {
+    $origine = strtolower(rtrim($origine, '/'));
+    foreach (array_merge(['claude.ai', 'claude.com'], (array) config('oauth_gazde')) as $gazda) {
+        if ($origine === 'https://' . strtolower((string) $gazda)) return true;
+    }
     $site = (string) config('site.url');
     if ($site === '') return false;
     $p = parse_url($site);
-    $asteptat = strtolower(($p['scheme'] ?? '') . '://' . ($p['host'] ?? '') . (isset($p['port']) ? ':' . $p['port'] : ''));
-    return strtolower(rtrim($origine, '/')) === $asteptat;
+    return $origine === strtolower(($p['scheme'] ?? '') . '://' . ($p['host'] ?? '') . (isset($p['port']) ? ':' . $p['port'] : ''));
 }
 
 function ruleaza_mcp(): void
@@ -55,13 +59,18 @@ function ruleaza_mcp(): void
         jurnal_scrie($baza + ['cerere' => 'POST', 'rezultat' => 'respins', 'detalii' => ['cod' => 403, 'origine' => substr($origine, 0, 100)]]);
         mcp_eroare(403, null, -32000, 'Origine nepermisă.');
     }
-    $acces = verifica_acces('mcp', cheie_din_cerere());
+    $cheie = cheie_din_cerere();
+    $acces = verifica_acces('mcp', $cheie);
     if ($acces['cod'] !== 200) {
-        if ($acces['cod'] === 401) header('WWW-Authenticate: Bearer realm="mini-cms-mcp"');
+        if ($acces['cod'] === 401) {   // clientul află de aici unde se face conectarea OAuth (RFC 9728)
+            header('WWW-Authenticate: Bearer realm="mini-cms-mcp", resource_metadata="' . url_absolut('/.well-known/oauth-protected-resource') . '"'
+                . (strncmp($cheie, 'mcms_t_', 7) === 0 ? ', error="invalid_token"' : ''));
+        }
         mcp_eroare($acces['cod'], null, -32001, $acces['mesaj']);
     }
     $rol = $acces['rol'];
     $baza['cheie'] = $rol;
+    if (isset($acces['conexiune'])) $baza['conexiune'] = $acces['conexiune'];
 
     $corp = (string) file_get_contents('php://input', false, null, 0, MCP_MAX_OCTETI + 1);
     if ((int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > MCP_MAX_OCTETI || strlen($corp) > MCP_MAX_OCTETI) {

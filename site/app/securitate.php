@@ -81,8 +81,9 @@ function inregistreaza_esec(): void
     });
 }
 
-// Poarta comună pentru mcp.php și jurnal.php. Scrie singură în jurnal eșecurile.
-// Întoarce ['cod' => 200, 'rol' => ...] sau ['cod' => 401|429|503, 'mesaj' => ...].
+// Poarta comună pentru mcp.php, jurnal.php și aprobarea OAuth. Scrie singură în jurnal eșecurile.
+// Pe /mcp se acceptă și token-urile OAuth (conectorul din claude.ai); la jurnal și la aprobare, doar cheile.
+// Întoarce ['cod' => 200, 'rol' => ..., 'conexiune' => ...?] sau ['cod' => 401|429|503, 'mesaj' => ...].
 function verifica_acces(string $punct, string $cheie): array
 {
     if (!chei_configurate()) {
@@ -94,10 +95,15 @@ function verifica_acces(string $punct, string $cheie): array
         return ['cod' => 429, 'mesaj' => 'Prea multe încercări eșuate de pe această adresă. Reîncearcă peste 15 minute.'];
     }
     $rol = rol_pentru_cheie($cheie);
+    $conexiune = null;
+    if ($rol === null && $punct === 'mcp' && strncmp($cheie, 'mcms_t_', 7) === 0 && ($t = rol_token_oauth(hash('sha256', $cheie)))) {
+        $rol = $t['rol'];
+        $conexiune = $t['conexiune'];
+    }
     if ($rol === null) {
         inregistreaza_esec();
         jurnal_scrie(['punct' => $punct, 'rezultat' => 'auth_esuat', 'detalii' => ['cheie' => $cheie === '' ? 'lipsă' : 'greșită']]);
         return ['cod' => 401, 'mesaj' => 'Cheie lipsă sau greșită.'];
     }
-    return ['cod' => 200, 'rol' => $rol];
+    return ['cod' => 200, 'rol' => $rol] + ($conexiune !== null ? ['conexiune' => $conexiune] : []);
 }
