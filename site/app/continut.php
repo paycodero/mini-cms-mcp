@@ -240,6 +240,56 @@ function restaureaza_element(string $tip, string $slug, string $versiune): array
     });
 }
 
+// --- identitatea site-ului (date/site.json) -----------------------------------------------------
+
+function identitate_site(): array
+{
+    $s = (array) config('site');
+    $rez = [];
+    foreach (CAMPURI_IDENTITATE as $k) $rez[$k] = (string) ($s[$k] ?? '');
+    return $rez;
+}
+
+function seteaza_identitate(array $campuri): array
+{
+    $nou = [];
+    if (array_key_exists('nume', $campuri)) {
+        $nou['nume'] = text_simplu($campuri['nume'] ?? '', 80);
+        if ($nou['nume'] === '') throw new EroareCms('numele site-ului nu poate fi gol');
+    }
+    if (array_key_exists('descriere', $campuri)) $nou['descriere'] = text_simplu($campuri['descriere'] ?? '', 300);
+    if (array_key_exists('autor', $campuri)) $nou['autor'] = text_simplu($campuri['autor'] ?? '', 80);
+    if (array_key_exists('limba', $campuri)) {
+        $nou['limba'] = (string) ($campuri['limba'] ?? '');
+        if (!preg_match('/^[a-z]{2,3}(-[A-Z]{2})?$/', $nou['limba'])) throw new EroareCms('"limba" e un cod ca "ro" sau "en-GB"');
+    }
+    if (array_key_exists('culoare', $campuri)) {
+        $nou['culoare'] = strtolower((string) ($campuri['culoare'] ?? ''));
+        if (!preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/', $nou['culoare'])) throw new EroareCms('"culoare" e un cod hex, ex. "#6d2be8"');
+    }
+    if (!$nou) throw new EroareCms('trimite cel puțin un câmp: nume, descriere, autor, limba sau culoare');
+
+    return cu_blocare(function () use ($nou) {
+        $fisier = dir_date() . '/site.json';
+        $inainte = identitate_site();
+        $salvat = json_citeste($fisier) ?? [];
+        $dupa = [];
+        foreach (CAMPURI_IDENTITATE as $k) $dupa[$k] = $nou[$k] ?? $inainte[$k];
+        if ($dupa === $inainte) return ['operatie' => 'neschimbat', 'site' => $inainte];
+        $versiune = null;
+        if (is_file($fisier)) {
+            $dir = dir_date('versiuni/site');
+            $versiune = date('Ymd-His');
+            for ($n = 2; is_file("$dir/$versiune.json"); $n++) $versiune = date('Ymd-His') . '-' . $n;
+            if (!copy($fisier, "$dir/$versiune.json")) throw new EroareCms('nu am putut salva versiunea anterioară — scrierea a fost oprită');
+        }
+        $json = json_text(array_intersect_key($nou + $salvat, array_flip(CAMPURI_IDENTITATE)) + ['actualizat' => date('c')], true);
+        if (!scrie_atomic($fisier, $json)) throw new EroareCms('scrierea pe disc a eșuat');
+        return ['operatie' => 'actualizat', 'site' => $dupa, 'inainte' => $inainte, 'versiune_anterioara' => $versiune,
+                'atentie' => 'schimbarea e deja vizibilă pe tot site-ul', 'amprenta' => hash('sha256', $json)];
+    });
+}
+
 function cauta_elemente(string $text, ?string $tip): array
 {
     $text = text_simplu($text, 100);

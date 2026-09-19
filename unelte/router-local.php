@@ -7,6 +7,7 @@ $cale = rawurldecode((string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/
 
 if (preg_match('#^/(app|sabloane|date)(/|$)#', $cale)
     || preg_match('#(^|/)\.(?!well-known/)#', $cale)
+    || preg_match('#\.(zip|tar|gz|tgz|7z|rar|sql|bak|old|orig|swp)$#i', $cale)
     || preg_match('#^/media/.+\.(php[0-9]?|phtml|phar|pht|shtml|cgi|pl|py|sh)$#i', $cale)) {
     http_response_code(403);
     header('Content-Type: text/plain');

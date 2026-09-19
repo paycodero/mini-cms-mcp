@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 if (!defined('MINICMS')) { http_response_code(403); exit; }
 
-const MINICMS_VERSIUNE = '0.1.0';
+const MINICMS_VERSIUNE = '0.2.0';
 
 ini_set('display_errors', '0');   // un avertisment afișat ar strica JSON-ul MCP și ar scurge căi de pe server
 error_reporting(E_ALL);
@@ -14,6 +14,10 @@ error_reporting(E_ALL);
 class EroareCms extends RuntimeException {}   // eroare de validare, cu mesaj bun de arătat AI-ului
 
 // --- configurarea ------------------------------------------------------------------------------
+
+// Identitatea site-ului e conținut: AI-ul o schimbă cu seteaza_site, iar valorile stau în date/site.json.
+// Ce scrie în config.php e doar punctul de plecare. Adresa (url) și cheile rămân numai în config.php.
+const CAMPURI_IDENTITATE = ['nume', 'descriere', 'limba', 'autor', 'culoare'];
 
 function config(string $cale = '')
 {
@@ -24,19 +28,24 @@ function config(string $cale = '')
         $dat = require $fisier;
         if (!is_array($dat)) oprire(503, 'app/config.php trebuie să întoarcă un array.');
         $implicit = [
-            'site' => ['nume' => 'Site nou', 'descriere' => '', 'url' => '', 'limba' => 'ro', 'autor' => '', 'culoare' => '#6d2be8'],
+            'site' => ['nume' => '', 'descriere' => '', 'url' => '', 'limba' => 'ro', 'autor' => '', 'culoare' => '#6d2be8'],
             'chei' => ['citire' => '', 'scriere' => ''],
             'date' => dirname(__DIR__) . '/date',
             'media' => dirname(__DIR__) . '/media',
             'fus_orar' => 'Europe/Bucharest',
-            'cloudflare' => false,
-            'hsts' => false,
+            'cloudflare' => 'auto',   // IP-ul real din CF-Connecting-IP, doar când cererea vine din rețeaua Cloudflare
+            'hsts' => 'auto',         // antetul HSTS pe orice răspuns servit prin https
             'csp_extra' => [],
             'articole_pe_pagina' => 12,
         ];
         foreach (['site', 'chei'] as $k) $dat[$k] = (array) ($dat[$k] ?? []) + $implicit[$k];
         $c = $dat + $implicit;
         $c['site']['url'] = rtrim((string) $c['site']['url'], '/');
+        $identitate = json_citeste($c['date'] . '/site.json') ?? [];
+        foreach (CAMPURI_IDENTITATE as $k) {
+            if (isset($identitate[$k]) && is_string($identitate[$k])) $c['site'][$k] = $identitate[$k];
+        }
+        if ((string) $c['site']['nume'] === '') $c['site']['nume'] = (string) (parse_url($c['site']['url'], PHP_URL_HOST) ?: 'Site nou');
     }
     if ($cale === '') return $c;
     $v = $c;
@@ -170,23 +179,37 @@ function ip_in_retea(string $ip, string $cidr): bool
     return (($a[$octeti] & $masca) === ($b[$octeti] & $masca));
 }
 
-function ip_client(): string
+// Antetele puse de Cloudflare (CF-Connecting-IP, X-Forwarded-Proto) se cred doar dacă cererea vine chiar din
+// rețeaua Cloudflare: acolo Cloudflare le suprascrie, clientul nu le poate impune. Oricine altcineva le trimite,
+// sunt ignorate. Așa setarea se potrivește singură, fără să știi dinainte dacă domeniul trece prin Cloudflare.
+// Cu 'cloudflare' => false în config.php, antetele sunt ignorate mereu.
+function din_cloudflare(): bool
 {
-    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? 'necunoscut');
-    $cf = (string) ($_SERVER['HTTP_CF_CONNECTING_IP'] ?? '');
-    if (config('cloudflare') && $cf !== '' && filter_var($cf, FILTER_VALIDATE_IP)) {
-        foreach (CLOUDFLARE as $retea) {
-            if (ip_in_retea($ip, $retea)) return $cf;
+    static $rez = null;
+    if ($rez === null) {
+        $rez = false;
+        if (config('cloudflare') !== false) {
+            $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+            foreach (CLOUDFLARE as $retea) {
+                if (ip_in_retea($ip, $retea)) { $rez = true; break; }
+            }
         }
     }
-    return $ip;
+    return $rez;
+}
+
+function ip_client(): string
+{
+    $cf = (string) ($_SERVER['HTTP_CF_CONNECTING_IP'] ?? '');
+    if (din_cloudflare() && filter_var($cf, FILTER_VALIDATE_IP)) return $cf;
+    return (string) ($_SERVER['REMOTE_ADDR'] ?? 'necunoscut');
 }
 
 function este_https(): bool
 {
     if (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off') return true;
     if ((string) ($_SERVER['SERVER_PORT'] ?? '') === '443') return true;
-    return config('cloudflare') && strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+    return din_cloudflare() && strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
 }
 
 function url_site(): string
@@ -211,7 +234,7 @@ function antete_securitate(?string $csp = null): void
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
     header('Cross-Origin-Opener-Policy: same-origin');
-    if (config('hsts') && este_https()) header('Strict-Transport-Security: max-age=31536000');
+    if (config('hsts') !== false && este_https()) header('Strict-Transport-Security: max-age=31536000');
     if ($csp !== null) header('Content-Security-Policy: ' . $csp);
 }
 

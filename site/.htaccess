@@ -25,6 +25,8 @@
   RewriteRule ^(app|sabloane|date)(/|$) - [F,L]
   # fișiere și dosare ascunse (.htaccess, .git), cu excepția /.well-known (certificate, OAuth)
   RewriteRule (^|/)\.(?!well-known/) - [F,L]
+  # arhive și copii de siguranță: pachetul de instalare (.zip, cu config.php în el) nu se descarcă nici uitat pe server
+  RewriteRule \.(zip|tar|gz|tgz|7z|rar|sql|bak|old|orig|swp)$ - [F,L,NC]
   # în media/ ajung doar imagini; orice altceva cu extensie executabilă e refuzat
   RewriteRule ^media/.+\.(php[0-9]?|phtml|phar|pht|shtml|cgi|pl|py|sh)$ - [F,L,NC]
 

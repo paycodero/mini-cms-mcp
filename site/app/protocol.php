@@ -132,7 +132,7 @@ function mcp_apel_unealta(array $params, string $rol, array $baza, float $start,
     $nume = (string) ($params['name'] ?? '');
     $args = is_array($params['arguments'] ?? null) ? $params['arguments'] : [];
     $unelte = unelte();
-    $jurnal = $baza + ['unealta' => substr($nume, 0, 40), 'tinta' => tinta_apel($args)];
+    $jurnal = $baza + ['unealta' => substr($nume, 0, 40), 'tinta' => tinta_apel($args, $nume)];
 
     if (!isset($unelte[$nume])) {
         jurnal_scrie($jurnal + ['rezultat' => 'respins', 'detalii' => ['motiv' => 'comandă necunoscută']]);

@@ -34,7 +34,7 @@ function unelte(): array
     return [
         'despre_site' => [
             'scriere' => false, 'titlu' => 'Despre site și regulile lui', 'adnotari' => $citire,
-            'descriere' => 'Numele și adresa site-ului, câte pagini și articole are, ce HTML e permis, cum se formează adresele și ce drepturi are cheia folosită. Cheam-o prima.',
+            'descriere' => 'Numele, descrierea și adresa site-ului, câte pagini și articole are, ce HTML e permis, cum se formează adresele și ce drepturi are cheia folosită. Cheam-o prima.',
             'schema' => schema_obiect([]),
             'fn' => function (array $a, string $rol) {
                 $numar = [];
@@ -43,7 +43,7 @@ function unelte(): array
                     $numar[$t] = ['total' => count($toate), 'publicate' => count(array_filter($toate, fn($e) => ($e['stare'] ?? '') === 'publicat'))];
                 }
                 return [
-                    'site' => ['nume' => config('site.nume'), 'url' => url_site(), 'descriere' => config('site.descriere'), 'limba' => config('site.limba')],
+                    'site' => ['url' => url_site()] + identitate_site(),
                     'versiune' => MINICMS_VERSIUNE, 'cheia_ta' => $rol, 'continut' => $numar, 'imagini' => count(listeaza_imagini()),
                     'adrese' => ['/' => 'pagina "acasa" + ultimele articole', '/<slug>' => 'pagină sau articol publicat',
                                  '/articole' => 'lista articolelor', '/eticheta/<eticheta>' => 'articolele cu o etichetă',
@@ -55,6 +55,7 @@ function unelte(): array
                         'HTML-ul trece printr-o listă de etichete permise; ce se scoate apare în "curatari" la răspuns.',
                         'Titlul elementului devine <h1>; în conținut începe cu <h2>.',
                         'Fiecare apel, inclusiv citirile, e scris în jurnal.',
+                        'Numele, descrierea, autorul, limba și culoarea site-ului se schimbă cu seteaza_site, după acordul omului.',
                     ],
                     'html_permis' => array_keys(HTML_PERMISE),
                     'atribute_globale' => HTML_GLOBALE,
@@ -152,6 +153,21 @@ function unelte(): array
                 return salveaza_element((string) arg_text($a, 'tip'), (string) arg_text($a, 'slug'), $campuri);
             },
         ],
+        'seteaza_site' => [
+            'scriere' => true, 'titlu' => 'Setează numele și descrierea site-ului',
+            'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
+            'descriere' => 'Schimbă identitatea site-ului: numele (antet, titluri, feed), descrierea (Google, feed, llms.txt), '
+                . 'autorul implicit al articolelor, limba și culoarea de accent. Trimite doar câmpurile care se schimbă. '
+                . 'Schimbarea apare imediat pe tot site-ul; valorile anterioare se păstrează ca versiune și apar în răspuns.',
+            'schema' => schema_obiect([
+                'nume' => ['type' => 'string', 'maxLength' => 80],
+                'descriere' => ['type' => 'string', 'maxLength' => 300, 'description' => 'o frază despre site'],
+                'autor' => ['type' => 'string', 'maxLength' => 80, 'description' => 'autorul implicit al articolelor noi'],
+                'limba' => ['type' => 'string', 'pattern' => '^[a-z]{2,3}(-[A-Z]{2})?$', 'description' => 'ex. "ro"'],
+                'culoare' => ['type' => 'string', 'pattern' => '^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$', 'description' => 'culoarea de accent, ex. "#6d2be8"'],
+            ]),
+            'fn' => fn(array $a) => seteaza_identitate($a),
+        ],
         'publica' => [
             'scriere' => true, 'titlu' => 'Publică',
             'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
@@ -203,8 +219,9 @@ function unelte(): array
 }
 
 // Ce apare în jurnal drept „țintă" a unui apel.
-function tinta_apel(array $a): string
+function tinta_apel(array $a, string $unealta = ''): string
 {
+    if ($unealta === 'seteaza_site') return 'site';
     if (isset($a['tip'], $a['slug']) && is_string($a['tip']) && is_string($a['slug'])) return substr($a['tip'] . '/' . $a['slug'], 0, 100);
     if (isset($a['nume']) && is_string($a['nume'])) return 'media/' . substr($a['nume'], 0, 80);
     return '';

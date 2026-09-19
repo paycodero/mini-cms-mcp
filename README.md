@@ -6,7 +6,8 @@ Un CMS mic pentru site-uri de câteva pagini și un blog, administrat de un asis
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache/cPanel). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Circa 1.650 de rânduri PHP pe server, plus teste automate (81 de verificări).
+- Circa 1.750 de rânduri PHP pe server, plus teste automate (104 verificări, inclusiv instalarea cap-coadă).
+- Instalarea: o comandă pe calculator și un zip urcat în cPanel.
 
 ## Structura
 
@@ -22,23 +23,60 @@ site/                    ← se urcă pe server, ca rădăcină a site-ului
   date/                  creat automat: pagini, articole, versiuni, jurnal (blocat din web)
   media/                 creat automat: imaginile urcate
 teste/ruleaza.php        testele: pornesc o copie a site-ului și încearcă funcțiile și atacurile
+unelte/instaleaza.php    instalarea: teste, chei, config.php, pachetul .zip, verificarea serverului, legarea Claude Code
 unelte/genereaza-cheie.php, unelte/router-local.php
 ```
 
-## Instalare
+## Instalare, în doi pași
 
-1. Urci conținutul lui `site/` pe server.
-2. Generezi cheile local: `php unelte/genereaza-cheie.php chei-site.json`. Cheile rămân în acel fișier (și în managerul de parole), nu pe server.
-3. Copiezi `site/app/config.exemplu.php` ca `site/app/config.php`, completezi datele site-ului și pui **doar amprentele** celor două chei. `config.php` se pune pe server o singură dată, de om; nu intră în git și nu poate fi modificat prin MCP.
-4. Verifici: `https://site/` răspunde; `https://site/app/config.php`, `https://site/date/` → 403; `GET https://site/mcp` → 405.
+Condiția: un domeniu sau subdomeniu doar pentru site (site-ul stă la rădăcină), cu PHP 8.0+ și HTTPS.
 
-## Legarea la Claude Code
+**1. Pe calculator**, din folderul repo-ului:
 
 ```
-claude mcp add --transport http site https://site/mcp --header "Authorization: Bearer <cheia de scriere>"
+php unelte/instaleaza.php https://test.exemplu.ro
 ```
 
-Cheia de citire se folosește pentru un asistent care doar verifică sau raportează.
+Comanda rulează testele, generează cele două chei, scrie `config.php` (adresa și **doar amprentele** cheilor) și face
+pachetul `minicms-<versiune>-<nume>.zip`. Cheile și pachetul stau în folderul de deasupra repo-ului, în afara lui git:
+`chei-<nume>.json` și `_livrare/<nume>/`. Cheile nu apar niciodată pe ecran; copiază-le în managerul de parole.
+La o nouă rulare, cheile existente se refolosesc, iar pachetul și config-ul vechi se păstrează cu data în nume.
+
+**2. În cPanel**: File Manager → folderul domeniului → Upload zip-ul → Extract → șterge zip-ul. Apoi Enter în terminal.
+Comanda verifică serverul (`/mcp` 405; dosarele interne, jurnalul și zip-ul blocate — 403 sau 404, după găzduire, fără nimic
+din fișier în răspuns; ambele chei), leagă Claude Code
+de site cu cheia de scriere (pentru folderul proiectului) și arată adresa jurnalului.
+Dacă ceva nu e în regulă, spune cauza și așteaptă să repari pe server. Verificarea se poate relua oricând:
+
+```
+php unelte/instaleaza.php https://test.exemplu.ro --verifica
+```
+
+După instalare, în Claude: *„Cheamă despre_site, apoi setează numele site-ului, descrierea și autorul.”*
+Numele, descrierea, autorul, limba și culoarea sunt conținut: le schimbă AI-ul cu `seteaza_site`, rămân în jurnal și
+au versiuni. `config.php` ține doar ce nu trebuie să schimbe AI-ul: adresa și amprentele. Nu intră în git și nu poate
+fi modificat prin MCP; ajunge pe server o singură dată, în pachetul urcat de om.
+
+Dacă folderul avea deja un `.htaccess` pus de cPanel (MultiPHP), după Extract alegi din nou versiunea de PHP în
+MultiPHP Manager, ca cPanel să-și rescrie blocul.
+
+## Schimbarea cheilor
+
+Dacă o cheie a scăpat: `php unelte/instaleaza.php https://site --chei-noi`. Cheile vechi se păstrează cu data în nume,
+config-ul și pachetul se refac. Urci pe server doar `app/config.php` din `_livrare/<nume>/` (sau tot pachetul): din acel
+moment cheile vechi nu mai merg. Apoi `--verifica`, care înlocuiește și cheia din conexiunea Claude Code.
+
+## Legarea de mână la Claude Code
+
+`instaleaza.php` o face singur. De mână, cu cheia citită din fișier (PowerShell), din folderul proiectului:
+
+```
+$k = (Get-Content chei-<nume>.json -Raw | ConvertFrom-Json).scriere.cheie
+claude mcp add --transport http <nume> https://site/mcp --header "Authorization: Bearer $k"
+```
+
+Dacă găzduirea nu transmite antetul `Authorization` către PHP, se folosește `--header "X-API-Key: $k"`
+(`instaleaza.php` detectează singur cazul). Cheia de citire se folosește pentru un asistent care doar verifică.
 Conectorul din claude.ai (web, telefon) cere OAuth, care e în lucru (vezi mai jos).
 
 ## Comenzile
@@ -53,6 +91,7 @@ Conectorul din claude.ai (web, telefon) cere OAuth, care e în lucru (vezi mai j
 | `listeaza_imagini` | citire | imaginile din `/media/` |
 | `citeste_jurnal` | citire | ultimele intrări și verificarea lanțului |
 | `salveaza` | scriere | creează (ca ciornă) sau modifică o pagină ori un articol |
+| `seteaza_site` | scriere | numele, descrierea, autorul, limba și culoarea site-ului; păstrează versiunea anterioară |
 | `publica` / `retrage` | scriere | pune pe site / scoate de pe site (rămâne ciornă) |
 | `sterge` | scriere | mută elementul între versiuni (reversibil) |
 | `restaureaza` | scriere | aduce înapoi o versiune, ca ciornă |
@@ -71,6 +110,9 @@ Paginile și articolele au adrese comune: `/despre`, `/primul-articol`. Pagina `
 - Înainte de orice modificare se salvează o versiune. Ștergerea mută fișierul între versiuni.
 - Paginile publice au Content-Security-Policy cu nonce (fără `unsafe-inline`), `nosniff`, `X-Frame-Options: DENY`.
 - Imaginile: tipul se află din conținut; fișierele cu cod PHP ascuns și SVG-urile sunt refuzate.
+- Arhivele și copiile de siguranță (`.zip`, `.tar`, `.gz`, `.sql`, `.bak` etc.) nu se servesc: pachetul de instalare uitat pe server nu se poate descărca.
+- IP-ul real din `CF-Connecting-IP` e crezut doar când cererea vine chiar din rețeaua Cloudflare; altfel antetul e ignorat. Setarea se potrivește singură, cu sau fără Cloudflare (`'cloudflare' => false` o oprește).
+- HSTS pe orice răspuns servit prin https (`'hsts' => false` îl oprește).
 
 ## Jurnalul
 
@@ -93,6 +135,7 @@ Pornesc o copie a site-ului într-un dosar temporar, cu chei de unică folosinț
 ```
 location ~ ^/(app|sabloane|date)(/|$) { deny all; }
 location ~ /\.(?!well-known/) { deny all; }
+location ~* \.(zip|tar|gz|tgz|7z|rar|sql|bak|old|orig|swp)$ { deny all; }
 location ~* ^/media/.+\.(php[0-9]?|phtml|phar|pht|shtml|cgi|pl|py|sh)$ { deny all; }
 location = /mcp { rewrite ^ /mcp.php last; }
 location / { try_files $uri /index.php$is_args$args; }

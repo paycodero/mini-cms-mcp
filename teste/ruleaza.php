@@ -142,7 +142,7 @@ $unelte_c = array_column($r['json']['result']['tools'] ?? [], 'name');
 verifica('Chei', 'cheia de citire vede doar cele 7 comenzi de citire', count($unelte_c) === 7 && !in_array('salveaza', $unelte_c, true), implode(', ', $unelte_c));
 $r = mcp($ks, 'tools/list');
 $lista_s = $r['json']['result']['tools'] ?? [];
-verifica('Protocol', 'cheia de scriere vede toate cele 14 comenzi', count($lista_s) === 14, (string) count($lista_s));
+verifica('Protocol', 'cheia de scriere vede toate cele 15 comenzi', count($lista_s) === 15, (string) count($lista_s));
 $bune = array_filter($lista_s, fn($t) => ($t['inputSchema']['type'] ?? '') === 'object' && isset($t['annotations']['readOnlyHint']));
 verifica('Protocol', 'fiecare comandă are schemă de tip obiect și adnotări', count($bune) === count($lista_s) && $lista_s);
 $r = mcp($kc, 'ping');
@@ -166,6 +166,28 @@ $u = unealta($kc, 'salveaza', ['tip' => 'articol', 'slug' => 'test', 'titlu' => 
 verifica('Chei', 'cheia de citire nu poate scrie: refuz și nimic creat', $u['eroare'] && strpos($u['text'], 'Refuzat') !== false && !glob("$tmp/site/date/articole/*.json"), $u['text']);
 $u = unealta($kc, 'despre_site');
 verifica('Conținut', 'despre_site întoarce regulile și rolul cheii', !$u['eroare'] && ($u['date']['cheia_ta'] ?? '') === 'citire' && in_array('p', $u['date']['html_permis'] ?? [], true), $u['text']);
+
+// --- identitatea site-ului: conținut, schimbat de AI prin seteaza_site ----------------------------
+
+verifica('Site', 'numele din config.php e punctul de plecare', ($u['date']['site']['nume'] ?? '') === 'Site de test', $u['text']);
+$u = unealta($kc, 'seteaza_site', ['nume' => 'Alt nume']);
+verifica('Chei', 'cheia de citire nu poate schimba numele site-ului', $u['eroare'] && !is_file("$tmp/site/date/site.json"), $u['text']);
+$u = unealta($ks, 'seteaza_site', ['nume' => 'Atelierul <b>Test</b>', 'descriere' => 'Descriere nouă, cu diacritice: ăîșț.', 'culoare' => '#0050E6']);
+verifica('Site', 'seteaza_site schimbă numele, descrierea și culoarea; răspunsul arată valorile de dinainte',
+    !$u['eroare'] && ($u['date']['site']['nume'] ?? '') === 'Atelierul Test' && ($u['date']['inainte']['nume'] ?? '') === 'Site de test', $u['text']);
+$r = cerere('GET', '/');
+verifica('Site', 'noul nume și noua culoare apar imediat pe site', strpos($r['corp'], '>Atelierul Test</a>') !== false && strpos($r['corp'], '--accent:#0050e6') !== false);
+$r = cerere('GET', '/llms.txt');
+verifica('Site', 'și în llms.txt, cu descrierea nouă', strpos($r['corp'], '# Atelierul Test') !== false && strpos($r['corp'], 'ăîșț') !== false, $r['corp']);
+$u = unealta($ks, 'seteaza_site', ['culoare' => 'red;background:url(//site-rau.example/x)']);
+verifica('Securitate', 'o „culoare" care nu e cod hex e refuzată (nu ajunge în CSS)', $u['eroare'], $u['text']);
+$u = unealta($ks, 'seteaza_site', ['nume' => '   ']);
+verifica('Site', 'numele gol e refuzat', $u['eroare'], $u['text']);
+$u = unealta($ks, 'seteaza_site', ['autor' => 'Autor Nou']);
+verifica('Site', 'a doua schimbare păstrează versiunea anterioară', !$u['eroare'] && !empty($u['date']['versiune_anterioara'])
+    && count(glob("$tmp/site/date/versiuni/site/*.json") ?: []) === 1 && ($u['date']['site']['nume'] ?? '') === 'Atelierul Test', $u['text']);
+$u = unealta($ks, 'seteaza_site', ['autor' => 'Autor Nou']);
+verifica('Site', 'aceleași valori de două ori → "neschimbat"', ($u['date']['operatie'] ?? '') === 'neschimbat', $u['text']);
 
 $u = unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'primul-articol', 'titlu' => 'Primul articol', 'descriere' => 'Descriere scurtă.',
     'continut_html' => '<h2>Început</h2><p>Text cu diacritice: ă î â ș ț Ă Î Â Ș Ț.</p>', 'etichete' => ['Decizii', 'Timp']]);
@@ -274,7 +296,8 @@ verifica('Imagini', 'o imagine folosită nu se șterge fără forteaza=true', $u
 // --- acces direct din web la fișierele interne --------------------------------------------------
 
 $interne = ['/app/config.php', '/app/nucleu.php', '/sabloane/baza.php', '/date/pagini/atac.json',
-            '/date/jurnal/' . date('Y-m') . '.ndjson', '/date/securitate/incercari.json', '/.htaccess', '/media/x.php'];
+            '/date/jurnal/' . date('Y-m') . '.ndjson', '/date/securitate/incercari.json', '/.htaccess', '/media/x.php',
+            '/minicms-0.2.0-site.zip', '/copie.sql', '/site.tar.gz'];
 foreach ($interne as $c) {
     $r = cerere('GET', $c);
     verifica('Securitate', "$c nu se poate citi din web (403)", $r['cod'] === 403, "cod {$r['cod']}");
@@ -283,6 +306,10 @@ $r = cerere('GET', '/');
 $csp = $r['antete']['content-security-policy'] ?? '';
 verifica('Securitate', 'paginile publice au CSP cu nonce, fără unsafe-inline', strpos($csp, "'nonce-") !== false && strpos($csp, 'unsafe-inline') === false, $csp);
 verifica('Securitate', 'antete nosniff și X-Frame-Options DENY', ($r['antete']['x-content-type-options'] ?? '') === 'nosniff' && ($r['antete']['x-frame-options'] ?? '') === 'DENY');
+verifica('Securitate', 'fără HSTS pe http (se trimite singur doar pe https)', !isset($r['antete']['strict-transport-security']));
+$r = mcp('cheie-gresita-cu-ip-falsificat-000', 'ping', [], 1, ['CF-Connecting-IP' => '203.0.113.9', 'X-Forwarded-Proto' => 'https']);
+$falsificat = array_filter(unealta($kc, 'citeste_jurnal', ['ultimele' => 20])['date']['intrari'] ?? [], fn($i) => ($i['ip'] ?? '') === '203.0.113.9');
+verifica('Securitate', 'antetul CF-Connecting-IP trimis din afara Cloudflare e ignorat (jurnalul păstrează IP-ul real)', $r['cod'] === 401 && !$falsificat);
 
 // --- jurnal ------------------------------------------------------------------------------------
 
@@ -294,6 +321,8 @@ verifica('Jurnal', 'refuzul cheii de citire e în jurnal', ($pe_rezultat['refuza
 verifica('Jurnal', 'și citirile sunt în jurnal', (bool) array_filter($intrari, fn($i) => ($i['unealta'] ?? '') === 'listeaza_versiuni' && ($i['cheie'] ?? '') === 'citire'));
 verifica('Jurnal', 'scrierile au amprenta conținutului scris', (bool) array_filter($intrari, fn($i) => ($i['unealta'] ?? '') === 'salveaza' && preg_match('/^[a-f0-9]{64}$/', (string) ($i['amprenta'] ?? ''))));
 verifica('Jurnal', 'lanțul de amprente e intact', ($u['date']['lant']['intact'] ?? false) === true, json_encode($u['date']['lant'] ?? null));
+verifica('Jurnal', 'schimbarea identității apare în jurnal, cu ținta "site" și amprenta', (bool) array_filter($intrari, fn($i) => ($i['unealta'] ?? '') === 'seteaza_site'
+    && ($i['tinta'] ?? '') === 'site' && preg_match('/^[a-f0-9]{64}$/', (string) ($i['amprenta'] ?? ''))));
 verifica('Jurnal', 'nicio comandă MCP nu scrie în jurnal', !array_filter($lista_s, fn($t) => strpos($t['name'], 'jurnal') !== false && $t['name'] !== 'citeste_jurnal'));
 $r = cerere('POST', '/jurnal.php', http_build_query(['cheie' => $kc]), ['Content-Type' => 'application/x-www-form-urlencoded']);
 verifica('Jurnal', 'pagina jurnalului se deschide cu cheia de citire', $r['cod'] === 200 && strpos($r['corp'], 'Lanțul e intact') !== false, "cod {$r['cod']}");
@@ -325,9 +354,85 @@ file_put_contents($fisier, implode("\n", $linii) . "\n");
 verifica('Jurnal', 'un rând scos de la final e detectat', !jurnal_verifica()['intact']);
 file_put_contents($fisier, $original);
 
-$php_la_final = fisiere($tmp, '/\.(php[0-9]?|phtml|phar)$/i');
+$php_la_final = fisiere($tmp, '/\.(php[0-9]?|phtml|phar)$/i');   // înainte de instalarea de mai jos, care aduce fișierele ei
 verifica('Securitate', 'după toate testele, niciun fișier executabil nou pe server', $php_la_final === $php_la_inceput,
     implode(', ', array_diff($php_la_final, $php_la_inceput)));
+
+// --- instalarea în doi pași, cap-coadă: pachetul făcut de instaleaza.php, despachetat ca pe server, verificat ---
+
+function instaleaza(array $argumente): array   // stdin e un pipe, deci comanda rulează neinteractiv (fără pauze)
+{
+    global $radacina;
+    $proc = proc_open(array_merge([PHP_BINARY, "$radacina/unelte/instaleaza.php"], $argumente),
+        [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+    fclose($pipes[0]);
+    $iesire = stream_get_contents($pipes[1]) . stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    return ['cod' => proc_close($proc), 'iesire' => (string) $iesire];
+}
+
+$inst = "$tmp/instalare";
+mkdir($inst);
+$port2 = 0;
+for ($i = 0; $i < 20 && !$port2; $i++) {
+    $p = random_int(19000, 19899);
+    $s = @fsockopen('127.0.0.1', $p, $e1, $e2, 0.2);
+    if ($s) fclose($s); else $port2 = $p;
+}
+$url2 = "http://127.0.0.1:$port2";
+$nume2 = '127-0-0-1';
+$pas1 = [$url2, '--local', "--dosar=$inst", '--fara-teste', '--fara-claude'];
+$r1 = instaleaza($pas1);
+$chei2 = json_decode((string) @file_get_contents("$inst/chei-$nume2.json"), true);
+$zip2 = "$inst/_livrare/$nume2/minicms-" . MINICMS_VERSIUNE . "-$nume2.zip";
+verifica('Instalare', 'pasul 1 face cheile și pachetul, fără să afișeze vreo cheie', $r1['cod'] === 0 && is_file($zip2) && isset($chei2['scriere']['cheie'])
+    && strpos($r1['iesire'], $chei2['scriere']['cheie']) === false && strpos($r1['iesire'], $chei2['citire']['cheie']) === false, $r1['iesire']);
+$r3 = instaleaza($pas1);
+$chei3 = json_decode((string) @file_get_contents("$inst/chei-$nume2.json"), true);
+verifica('Instalare', 'a doua rulare refolosește cheile și păstrează pachetul vechi, cu data în nume', $r3['cod'] === 0 && $chei3 === $chei2
+    && count(glob("$inst/_livrare/$nume2/minicms-*.zip") ?: []) === 2, $r3['iesire']);
+
+$pachet = new PharData($zip2);
+$in_pachet = [];
+foreach (new RecursiveIteratorIterator($pachet) as $f) {
+    $c = str_replace('\\', '/', $f->getPathname());
+    $in_pachet[] = substr($c, (int) strpos($c, '.zip/') + 5);
+}
+$cfg2 = $pachet['app/config.php']->getContent();
+verifica('Instalare', 'pachetul are cele trei .htaccess și config.php, dar nu date/ sau media/',
+    !array_diff(['.htaccess', 'app/.htaccess', 'sabloane/.htaccess', 'app/config.php', 'mcp.php'], $in_pachet)
+    && !preg_grep('#^(date|media)/#', $in_pachet), implode(', ', $in_pachet));
+verifica('Instalare', 'config.php din pachet are adresa și amprentele, nu și cheile', strpos($cfg2, $chei2['scriere']['amprenta']) !== false
+    && strpos($cfg2, $chei2['citire']['amprenta']) !== false && strpos($cfg2, $url2) !== false && strpos($cfg2, 'mcms_') === false, $cfg2);
+$pachet->extractTo("$inst/server");
+unset($pachet);
+
+$server2 = proc_open([PHP_BINARY, '-d', 'display_errors=0', '-S', "127.0.0.1:$port2", '-t', "$inst/server", "$radacina/unelte/router-local.php"],
+    [0 => ['pipe', 'r'], 1 => ['file', "$tmp/server2.log", 'a'], 2 => ['file', "$tmp/server2.log", 'a']], $pipes2, "$inst/server");
+for ($i = 0; $i < 60; $i++) {
+    $s = @fsockopen('127.0.0.1', $port2, $e1, $e2, 0.2);
+    if ($s) { fclose($s); break; }
+    usleep(100000);
+}
+$r2 = instaleaza([$url2, '--verifica', '--local', "--dosar=$inst", '--fara-claude']);
+verifica('Instalare', 'pasul 2 trece pe pachetul despachetat: dosare închise, /mcp, ambele chei', $r2['cod'] === 0 && strpos($r2['iesire'], 'Gata') !== false, $r2['iesire']);
+$url_principal = $url;
+$url = $url2;
+$u = unealta($chei2['citire']['cheie'], 'despre_site');
+$url = $url_principal;
+verifica('Instalare', 'fără nume în config.php, site-ul poartă numele domeniului până îl setează AI-ul', ($u['date']['site']['nume'] ?? '') === '127.0.0.1', $u['text']);
+rename("$inst/server/app/config.php", "$inst/server/app/config.scos");
+$r4 = instaleaza([$url2, '--verifica', '--local', "--dosar=$inst", '--fara-claude']);
+verifica('Instalare', 'verificarea se oprește și spune cauza când serverul nu e în regulă (config.php lipsă)',
+    $r4['cod'] === 1 && strpos($r4['iesire'], 'Lipsește app/config.php') !== false, $r4['iesire']);
+proc_terminate($server2);
+$r5 = instaleaza(array_merge($pas1, ['--chei-noi']));
+$chei5 = json_decode((string) @file_get_contents("$inst/chei-$nume2.json"), true);
+$cfg5 = (string) @file_get_contents("$inst/_livrare/$nume2/config.php");
+verifica('Instalare', '--chei-noi: chei noi în config, cele vechi păstrate cu data în nume', $r5['cod'] === 0
+    && ($chei5['scriere']['cheie'] ?? '') !== $chei2['scriere']['cheie'] && strpos($cfg5, $chei5['scriere']['amprenta']) !== false
+    && strpos($cfg5, $chei2['scriere']['amprenta']) === false && count(glob("$inst/chei-$nume2.*.json") ?: []) === 1, $r5['iesire']);
 
 // --- încheiere ---------------------------------------------------------------------------------
 
