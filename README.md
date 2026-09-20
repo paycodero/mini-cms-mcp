@@ -188,6 +188,10 @@ Site-ul e făcut ca să fie găsit de oameni prin Google și Bing, dar și citit
 - **IndexNow:** la publicare, modificare sau retragere, adresa pleacă singură spre Bing (și Yandex, Seznam, Naver).
   Cheia stă în `date/securitate/` și se servește la `https://site/<cheie>.txt`, fără niciun fișier pus în rădăcină.
   Se oprește cu `'indexnow' => false`. Google nu are un punct echivalent: acolo rămâne sitemap-ul.
+- **Iconița site-ului:** o pui cu `seteaza_site` (`favicon`), iar `/apple-touch-icon.png` trimite spre ea, pentru telefon.
+  ⚠️ Adresa `/favicon.ico` e singura care nu se poate rezolva din cod pe un domeniu prin **Cloudflare**: e prinsă la
+  margine și nu ajunge niciodată la PHP (verificat: `/altceva.ico` și `/favicon.ICO` ajung, `/favicon.ico` nu).
+  Dacă o vrei și pe aceea, omul pune un `favicon.ico` adevărat în rădăcina site-ului, o singură dată.
 - **Fără sărituri la încărcare:** coperțile și miniaturile primesc `width`/`height` din fișier, iar coperta articolului
   are `fetchpriority="high"` (e candidatul LCP).
 
