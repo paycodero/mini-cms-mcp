@@ -192,7 +192,8 @@ function unelte(): array
             'scriere' => true, 'titlu' => 'Setează numele și descrierea site-ului',
             'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
             'descriere' => 'Schimbă identitatea site-ului: numele (antet, titluri, feed), descrierea (Google, feed, llms.txt), '
-                . 'autorul implicit al articolelor, limba, culoarea de accent și tema (aspectul). Trimite doar câmpurile care se schimbă. '
+                . 'autorul implicit al articolelor, limba, culoarea de accent, tema (aspectul) și legăturile din subsol. '
+                . 'Trimite doar câmpurile care se schimbă. '
                 . 'Schimbarea apare imediat pe tot site-ul; valorile anterioare se păstrează ca versiune și apar în răspuns.',
             'schema' => schema_obiect([
                 'nume' => ['type' => 'string', 'maxLength' => 80],
@@ -204,6 +205,14 @@ function unelte(): array
                 'favicon' => ['type' => 'string', 'description' => 'iconița din tab: adresa /media/... a unei imagini pătrate (PNG); "" = fără'],
                 'tema' => ['type' => 'string', 'enum' => array_merge([''], teme_disponibile()),
                            'description' => 'aspectul site-ului: una dintre temele din despre_site; "" = aspectul implicit'],
+                'legaturi' => ['type' => 'array', 'maxItems' => 15,
+                    'description' => 'celelalte site-uri și conturi ale aceluiași autor: apar în subsol, pe fiecare pagină, '
+                        . 'și în datele structurate ca "sameAs" (așa știu Google și Bing că sunt ale aceleiași entități). '
+                        . 'Lista goală le scoate.',
+                    'items' => ['type' => 'object', 'additionalProperties' => false,
+                        'properties' => ['titlu' => ['type' => 'string', 'maxLength' => 60, 'description' => 'cum apare în subsol; gol = numele gazdei'],
+                                         'url' => ['type' => 'string', 'description' => 'adresa, cu https://']],
+                        'required' => ['url']]],
             ]),
             'fn' => fn(array $a) => seteaza_identitate($a),
         ],

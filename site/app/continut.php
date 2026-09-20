@@ -282,8 +282,35 @@ function identitate_site(): array
 {
     $s = (array) config('site');
     $rez = [];
-    foreach (CAMPURI_IDENTITATE as $k) $rez[$k] = (string) ($s[$k] ?? '');
+    foreach (CAMPURI_IDENTITATE as $k) {
+        $rez[$k] = in_array($k, CAMPURI_LISTA, true) ? array_values((array) ($s[$k] ?? [])) : (string) ($s[$k] ?? '');
+    }
     return $rez;
+}
+
+// Legăturile site-ului: celelalte site-uri și conturi ale aceluiași om sau firme. Apar în subsol, pe fiecare
+// pagină, și în datele structurate ca "sameAs" — de acolo află Google și Bing că profilurile sunt ale aceleiași
+// entități. Se acceptă fie {"titlu": "...", "url": "..."}, fie doar adresa (titlul iese din ea).
+function legaturi_valide($v): array
+{
+    if (!is_array($v)) throw new EroareCms('"legaturi" e o listă: fie adrese, fie {"titlu": "…", "url": "https://…"}');
+    $rez = [];
+    foreach ($v as $l) {
+        $url = trim((string) (is_array($l) ? ($l['url'] ?? '') : $l));
+        if ($url === '') continue;
+        if (!url_sigur($url, false, ['https', 'http']) || strlen($url) > 300) throw new EroareCms("\"$url\" nu e o adresă http(s) validă");
+        $titlu = text_simplu(is_array($l) ? ($l['titlu'] ?? '') : '', 60);
+        if ($titlu === '') {   // fără titlu: numele gazdei, fără www și fără terminație, plus contul dacă e unul
+            $p = parse_url($url);
+            $gazda = (string) preg_replace('/^www\./', '', strtolower((string) ($p['host'] ?? '')));
+            $cont = preg_match('#/@?([A-Za-z0-9._-]{2,40})/?$#', (string) ($p['path'] ?? ''), $m) ? $m[1] : '';
+            $titlu = $gazda . ($cont !== '' ? ' · ' . $cont : '');
+        }
+        if ($titlu === '') continue;
+        foreach ($rez as $g) if ($g['url'] === $url) continue 2;   // aceeași adresă, o singură dată
+        $rez[] = ['titlu' => $titlu, 'url' => $url];
+    }
+    return array_slice($rez, 0, 15);
 }
 
 // Temele: foi de stil puse de om în assets/teme/<nume>.css (cu fonturile lor în assets/teme/<nume>/).
@@ -331,6 +358,7 @@ function seteaza_identitate(array $campuri): array
         }
         if ($nou[$k] !== '' && !is_file(dir_media() . '/' . basename($nou[$k]))) throw new EroareCms("imaginea {$nou[$k]} nu există — urc-o întâi cu urca_imagine");
     }
+    if (array_key_exists('legaturi', $campuri)) $nou['legaturi'] = legaturi_valide($campuri['legaturi'] ?? []);
     if (array_key_exists('tema', $campuri)) {
         $nou['tema'] = trim((string) ($campuri['tema'] ?? ''));
         $teme = teme_disponibile();
@@ -338,7 +366,7 @@ function seteaza_identitate(array $campuri): array
             throw new EroareCms('"tema" e una dintre temele de pe server: ' . ($teme ? '"' . implode('", "', $teme) . '"' : 'nu e niciuna') . ' ("" = aspectul implicit)');
         }
     }
-    if (!$nou) throw new EroareCms('trimite cel puțin un câmp: nume, descriere, autor, limba, culoare, logo, favicon sau tema');
+    if (!$nou) throw new EroareCms('trimite cel puțin un câmp: nume, descriere, autor, limba, culoare, logo, favicon, tema sau legaturi');
 
     return cu_blocare(function () use ($nou) {
         $fisier = dir_date() . '/site.json';

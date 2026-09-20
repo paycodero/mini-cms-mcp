@@ -156,7 +156,7 @@ Conectorul din claude.ai (web, telefon) cere OAuth, care e în lucru (vezi mai j
 | `exporta` | citire | tot conținutul, pentru copia de siguranță (vezi `unelte/copie.php`) |
 | `listeaza_conexiuni` | citire | aplicațiile legate prin OAuth (conectorul claude.ai): cine, cu ce drepturi, dacă au acces acum |
 | `salveaza` | scriere | creează (ca ciornă) sau modifică o pagină ori un articol |
-| `seteaza_site` | scriere | numele, descrierea, autorul, limba, culoarea, logo-ul, favicon-ul și tema; păstrează versiunea anterioară |
+| `seteaza_site` | scriere | numele, descrierea, autorul, limba, culoarea, logo-ul, favicon-ul, tema și legăturile din subsol; păstrează versiunea anterioară |
 | `publica` / `retrage` | scriere | pune pe site / scoate de pe site (rămâne ciornă); `publica` cu `la` în viitor programează, în trecut păstrează data |
 | `retrage_conexiune` | scriere | anulează accesul unei aplicații legate prin OAuth |
 | `redirectioneaza` | scriere | adresă veche → adresă nouă de pe site, 301 (doar când la adresa veche nu mai e nimic); `la` gol o scoate |
@@ -188,6 +188,9 @@ Site-ul e făcut ca să fie găsit de oameni prin Google și Bing, dar și citit
 - **IndexNow:** la publicare, modificare sau retragere, adresa pleacă singură spre Bing (și Yandex, Seznam, Naver).
   Cheia stă în `date/securitate/` și se servește la `https://site/<cheie>.txt`, fără niciun fișier pus în rădăcină.
   Se oprește cu `'indexnow' => false`. Google nu are un punct echivalent: acolo rămâne sitemap-ul.
+- **Rețeaua autorului:** `seteaza_site` (`legaturi`) pune celelalte site-uri și conturi în subsol, pe fiecare
+  pagină, și aceleași adrese în `sameAs` din datele structurate — de acolo află Google și Bing că profilurile sunt
+  ale aceleiași entități. Sunt conținut, nu configurare: rămân la locul lor când urci un pachet nou.
 - **Iconița site-ului:** o pui cu `seteaza_site` (`favicon`), iar `/apple-touch-icon.png` trimite spre ea, pentru telefon.
   ⚠️ Adresa `/favicon.ico` e singura care nu se poate rezolva din cod pe un domeniu prin **Cloudflare**: e prinsă la
   margine și nu ajunge niciodată la PHP (verificat: `/altceva.ico` și `/favicon.ICO` ajung, `/favicon.ico` nu).

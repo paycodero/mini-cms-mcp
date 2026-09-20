@@ -145,6 +145,8 @@ main.lat>section>h1{margin-bottom:clamp(28px,4vw,44px)}
 .subsol .lat{padding-top:clamp(28px,4vw,40px);padding-bottom:clamp(28px,4vw,40px)}
 .subsol a{color:#8695b3}
 .subsol a:hover{color:#fff}
+.subsol .retea{border-bottom:1px solid rgba(255,255,255,.12)}
+.subsol .retea nav{padding-bottom:22px}
 
 @media (max-width:760px){
   .lat{padding:0 16px}

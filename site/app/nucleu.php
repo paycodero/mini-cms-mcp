@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 if (!defined('MINICMS')) { http_response_code(403); exit; }
 
-const MINICMS_VERSIUNE = '0.7.1';
+const MINICMS_VERSIUNE = '0.8.0';
 
 ini_set('display_errors', '0');   // un avertisment afișat ar strica JSON-ul MCP și ar scurge căi de pe server
 error_reporting(E_ALL);
@@ -17,7 +17,8 @@ class EroareCms extends RuntimeException {}   // eroare de validare, cu mesaj bu
 
 // Identitatea site-ului e conținut: AI-ul o schimbă cu seteaza_site, iar valorile stau în date/site.json.
 // Ce scrie în config.php e doar punctul de plecare. Adresa (url) și cheile rămân numai în config.php.
-const CAMPURI_IDENTITATE = ['nume', 'descriere', 'limba', 'autor', 'culoare', 'logo', 'favicon', 'tema'];
+const CAMPURI_IDENTITATE = ['nume', 'descriere', 'limba', 'autor', 'culoare', 'logo', 'favicon', 'tema', 'legaturi'];
+const CAMPURI_LISTA = ['legaturi'];   // câmpurile de identitate care sunt liste, nu text
 
 function config(string $cale = '')
 {
@@ -29,7 +30,7 @@ function config(string $cale = '')
         if (!is_array($dat)) oprire(503, 'app/config.php trebuie să întoarcă un array.');
         $implicit = [
             'site' => ['nume' => '', 'descriere' => '', 'url' => '', 'limba' => 'ro', 'autor' => '', 'culoare' => '#6d2be8',
-                       'logo' => '', 'favicon' => '', 'tema' => ''],
+                       'logo' => '', 'favicon' => '', 'tema' => '', 'legaturi' => []],
             'chei' => ['citire' => '', 'scriere' => ''],
             'date' => dirname(__DIR__) . '/date',
             'media' => dirname(__DIR__) . '/media',
@@ -49,7 +50,8 @@ function config(string $cale = '')
         $c['site']['url'] = rtrim((string) $c['site']['url'], '/');
         $identitate = json_citeste($c['date'] . '/site.json') ?? [];
         foreach (CAMPURI_IDENTITATE as $k) {
-            if (isset($identitate[$k]) && is_string($identitate[$k])) $c['site'][$k] = $identitate[$k];
+            $e_lista = in_array($k, CAMPURI_LISTA, true);
+            if (isset($identitate[$k]) && ($e_lista ? is_array($identitate[$k]) : is_string($identitate[$k]))) $c['site'][$k] = $identitate[$k];
         }
         if ((string) $c['site']['nume'] === '') $c['site']['nume'] = (string) (parse_url($c['site']['url'], PHP_URL_HOST) ?: 'Site nou');
     }

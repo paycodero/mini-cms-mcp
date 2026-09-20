@@ -65,6 +65,15 @@
 <?= $corp_pagina ?>
 </main>
 <footer class="subsol">
+<?php $legaturi = (array) config('site.legaturi'); if ($legaturi): ?>
+  <div class="lat retea">
+    <nav aria-label="Celelalte site-uri și conturi">
+<?php foreach ($legaturi as $l): ?>
+      <a href="<?= esc($l['url']) ?>" rel="noopener me" target="_blank"><?= esc($l['titlu']) ?></a>
+<?php endforeach; ?>
+    </nav>
+  </div>
+<?php endif; ?>
   <div class="lat">
     <span>© <?= date('Y') ?> <?= esc(config('site.nume')) ?></span>
     <a href="/feed.xml">RSS</a>

@@ -100,6 +100,9 @@ function editor_jsonld(): array
 {
     $ed = ['@type' => 'Organization', '@id' => url_absolut('/#editor'), 'name' => (string) config('site.nume'), 'url' => url_absolut('/')];
     if ((string) config('site.logo') !== '') $ed['logo'] = url_absolut((string) config('site.logo'));
+    // sameAs: celelalte site-uri și conturi. De aici află motoarele că profilurile sunt ale aceleiași entități.
+    $sameas = array_values(array_filter(array_column((array) config('site.legaturi'), 'url')));
+    if ($sameas) $ed['sameAs'] = $sameas;
     return $ed;
 }
 
@@ -438,6 +441,12 @@ function fisier_llms(): void
     echo 'Adresa site-ului: ', url_absolut('/'), ' · limba: ', config('site.limba');
     if ((string) config('site.autor') !== '') echo ' · autor: ', config('site.autor');
     echo "\n", 'Conținutul se poate citi și prin ', url_absolut('/feed.xml'), ' (RSS) sau ', url_absolut('/sitemap.xml'), ' (toate adresele).', "\n\n";
+    $legaturi = (array) config('site.legaturi');
+    if ($legaturi) {
+        echo '## Celelalte site-uri și conturi ale aceluiași autor', "\n\n";
+        foreach ($legaturi as $l) echo '- [', $l['titlu'], '](', $l['url'], ")\n";
+        echo "\n";
+    }
     foreach (['pagina' => 'Pagini', 'articol' => 'Articole'] as $tip => $titlu) {
         $lista = listeaza_elemente($tip, 'vizibil');
         if (!$lista) continue;

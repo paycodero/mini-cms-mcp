@@ -500,6 +500,32 @@ foreach (['/favicon.ico', '/apple-touch-icon.png'] as $c_icon) {
     verifica('SEO', "$c_icon trimite spre iconița site-ului (boții o cer fără să citească pagina)",
         $r['cod'] === 301 && ($r['antete']['location'] ?? '') === $url_img, "cod {$r['cod']} " . ($r['antete']['location'] ?? ''));
 }
+// --- legăturile din subsol (rețeaua aceluiași autor) ---------------------------------------------
+
+$u = unealta($ks, 'seteaza_site', ['legaturi' => [
+    ['titlu' => 'Celălalt site', 'url' => 'https://exemplu.ro/'],
+    ['url' => 'https://www.youtube.com/@cineva'],
+    ['url' => 'https://exemplu.ro/'],
+]]);
+$r = cerere('GET', '/');
+$subsol = preg_match('#<footer.*?</footer>#s', $r['corp'], $mf) ? $mf[0] : '';
+verifica('Site', 'legăturile apar în subsol, o singură dată fiecare, cu titlul luat din adresă când lipsește',
+    !$u['eroare'] && strpos($subsol, '>Celălalt site</a>') !== false
+    && strpos($subsol, '>youtube.com · cineva</a>') !== false
+    && substr_count($subsol, 'https://exemplu.ro/') === 1, $subsol . ' || ' . $u['text']);
+$ld_acasa = jsonld_din($r['corp']);
+$sameas = ld_de_tip($ld_acasa, 'WebSite')['publisher']['sameAs'] ?? [];
+verifica('SEO', 'aceleași adrese ajung în "sameAs", de unde motoarele leagă profilurile de site',
+    count($sameas) === 2 && in_array('https://www.youtube.com/@cineva', $sameas, true), json_encode($sameas));
+verifica('SEO', 'legăturile apar și în llms.txt, pentru asistenții care citesc site-ul',
+    strpos(cerere('GET', '/llms.txt')['corp'], 'Celelalte site-uri și conturi') !== false);
+$u = unealta($ks, 'seteaza_site', ['legaturi' => [['url' => 'javascript:alert(1)']]]);
+verifica('Securitate', 'o legătură care nu e http(s) e refuzată', $u['eroare'], $u['text']);
+$u = unealta($ks, 'seteaza_site', ['legaturi' => []]);
+$r = cerere('GET', '/');
+verifica('Site', 'lista goală scoate legăturile din subsol', !$u['eroare'] && strpos($r['corp'], 'class="lat retea"') === false, $u['text']);
+$u = unealta($ks, 'seteaza_site', ['legaturi' => [['titlu' => 'Celălalt site', 'url' => 'https://exemplu.ro/']]]);
+
 $u = unealta($ks, 'seteaza_site', ['logo' => '/media/nu-exista-12345678.png']);
 $u2 = unealta($ks, 'seteaza_site', ['logo' => 'https://site-rau.example/x.png']);
 verifica('Site', 'logo-ul trebuie să fie o imagine urcată pe site', $u['eroare'] && $u2['eroare'], $u['text'] . ' / ' . $u2['text']);

@@ -79,6 +79,10 @@ h3{font-size:20px;margin:28px 0 8px}
 
 .subsol{border-top:1px solid var(--linie);background:var(--panou);color:var(--text-slab);font-size:14.5px}
 .subsol .lat{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:20px;padding-bottom:20px}
+.subsol .retea{padding-bottom:0;border-bottom:1px solid var(--linie)}
+.subsol .retea nav{display:flex;flex-wrap:wrap;gap:10px 22px;padding-bottom:18px}
+.subsol .retea a{text-decoration:none}
+.subsol .retea a:hover{text-decoration:underline}
 
 /* căutarea */
 .cauta-mare{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 18px}
