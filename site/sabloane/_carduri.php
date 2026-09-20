@@ -2,8 +2,8 @@
 <div class="carduri">
 <?php foreach ($articole as $a): ?>
   <article class="card">
-<?php if (($a['imagine'] ?? '') !== ''): ?>
-    <a class="card-imagine" href="<?= esc(url_element($a)) ?>" tabindex="-1" aria-hidden="true"><img src="<?= esc($a['imagine']) ?>" alt="" loading="lazy"></a>
+<?php if (($a['imagine'] ?? '') !== ''): $m_card = imagine_masuri((string) $a['imagine']); ?>
+    <a class="card-imagine" href="<?= esc(url_element($a)) ?>" tabindex="-1" aria-hidden="true"><img src="<?= esc($a['imagine']) ?>" alt="" loading="lazy" decoding="async"<?= $m_card ? ' width="' . (int) $m_card['latime'] . '" height="' . (int) $m_card['inaltime'] . '"' : '' ?>></a>
 <?php endif; ?>
     <div class="card-text">
       <p class="data"><?= esc(data_ro($a['publicat_la'] ?? null)) ?></p>

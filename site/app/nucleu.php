@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 if (!defined('MINICMS')) { http_response_code(403); exit; }
 
-const MINICMS_VERSIUNE = '0.6.0';
+const MINICMS_VERSIUNE = '0.7.0';
 
 ini_set('display_errors', '0');   // un avertisment afișat ar strica JSON-ul MCP și ar scurge căi de pe server
 error_reporting(E_ALL);
@@ -37,6 +37,8 @@ function config(string $cale = '')
             'cloudflare' => 'auto',   // IP-ul real din CF-Connecting-IP, doar când cererea vine din rețeaua Cloudflare
             'hsts' => 'auto',         // antetul HSTS pe orice răspuns servit prin https
             'csp_extra' => [],
+            'verificari' => [],       // etichete meta de verificare, ex. ['google-site-verification' => '...', 'msvalidate.01' => '...']
+            'indexnow' => 'auto',     // anunță Bing (IndexNow) când un articol apare, se schimbă sau iese de pe site; false îl oprește
             'oauth' => 'fereastra',   // 'fereastra' = înregistrarea și aprobarea merg doar în fereastra deschisă de om
                                       // (cu --oauth, cod de 6 cifre în terminal) · 'deschis' = ca în 0.5 · false = fără OAuth
             'oauth_gazde' => [],      // gazde https în plus la care OAuth poate trimite codul (implicit: claude.ai, claude.com, localhost)
@@ -273,3 +275,4 @@ require __DIR__ . '/curatare.php';
 require __DIR__ . '/continut.php';
 require __DIR__ . '/imagini.php';
 require __DIR__ . '/oauth.php';
+require __DIR__ . '/seo.php';

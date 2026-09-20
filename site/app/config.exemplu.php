@@ -27,6 +27,10 @@ return [
     //                          // deschide omul cu "php unelte/instaleaza.php <site> --oauth" (cod de 6 cifre în terminal).
     //                          // 'deschis' = ca în 0.5 (oricine poate porni o aprobare) · false = fără OAuth deloc
     // 'oauth_gazde' => [],     // gazde https în plus (pe lângă claude.ai și claude.com) la care OAuth poate trimite codul de aprobare
+    // 'verificari' => [],      // etichetele meta cerute de Search Console și Bing Webmaster Tools, ex.:
+    //                          // ['google-site-verification' => 'abc...', 'msvalidate.01' => 'DEF...']
+    // 'indexnow' => false,     // implicit 'auto': la publicare/modificare/retragere, adresa pleacă spre Bing (IndexNow),
+    //                          // cu o cheie ținută în date/securitate/ și servită la /<cheie>.txt. Google nu are așa ceva.
     // 'csp_extra' => [],       // surse în plus pentru Content-Security-Policy, ex. pentru Google Analytics:
     //                          // ['script-src' => ['https://www.googletagmanager.com'], 'connect-src' => ['https://*.google-analytics.com']]
 ];

@@ -6,7 +6,7 @@ Un CMS mic pentru site-uri de câteva pagini și un blog, administrat de un asis
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache/cPanel). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Circa 2.560 de rânduri PHP pe server, plus teste automate (177 de verificări, inclusiv instalarea, copia de siguranță și OAuth cap-coadă).
+- Circa 2.700 de rânduri PHP pe server, plus teste automate (190 de verificări, inclusiv instalarea, copia de siguranță, OAuth și SEO cap-coadă).
 - Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
 - Instalarea: o comandă pe calculator și un zip urcat în cPanel.
 
@@ -169,6 +169,27 @@ Paginile și articolele au adrese comune: `/despre`, `/primul-articol`. Pagina `
 
 Vizitatorii au căutare (`/cauta?q=…`, în antet): doar în ce e pe site, cu sau fără diacritice ("sedinta" găsește "ședința").
 Articolele programate apar singure la ora lor: nu e nevoie de sarcini programate pe server.
+
+## SEO și citit de agenți
+
+Site-ul e făcut ca să fie găsit de oameni prin Google și Bing, dar și citit de asistenți AI, fără nicio unealtă în plus.
+
+- **Adrese generate singure:** `/sitemap.xml` (cu `lastmod`, coperțile ca imagini și paginile de etichetă), `/feed.xml`
+  (RSS cu legătură spre el însuși, autor și etichete), `/robots.txt` (îi numește pe rând pe Googlebot, Bingbot, GPTBot,
+  ClaudeBot, PerplexityBot și restul, și arată unde e `llms.txt`), `/llms.txt` (rezumatul site-ului pentru modele:
+  adresă, limbă, autor, lista paginilor și a articolelor cu descriere, dată și etichete).
+- **Date structurate (JSON-LD):** `Article` cu editor, limbă, etichete și pagina-părinte · `WebSite` cu `SearchAction`
+  (căutarea site-ului, pentru Google) · `BreadcrumbList` pe fiecare pagină · **`FAQPage` construit singur** dintr-o
+  secțiune `<h2>Întrebări frecvente</h2>` cu `<h3>` întrebare + răspuns, dacă articolul are una.
+- **Cardurile sociale:** `og:` complet, cu `og:locale`, măsurile copertei, textul ei alternativ, data publicării și a
+  modificării, etichetele. Titlul din bara browserului nu repetă numele site-ului când e deja în el.
+- **Verificarea în Search Console și Bing Webmaster Tools:** `'verificari' => ['google-site-verification' => '…',
+  'msvalidate.01' => '…']` în `config.php` pune etichetele meta cerute.
+- **IndexNow:** la publicare, modificare sau retragere, adresa pleacă singură spre Bing (și Yandex, Seznam, Naver).
+  Cheia stă în `date/securitate/` și se servește la `https://site/<cheie>.txt`, fără niciun fișier pus în rădăcină.
+  Se oprește cu `'indexnow' => false`. Google nu are un punct echivalent: acolo rămâne sitemap-ul.
+- **Fără sărituri la încărcare:** coperțile și miniaturile primesc `width`/`height` din fișier, iar coperta articolului
+  are `fetchpriority="high"` (e candidatul LCP).
 
 ## Securitate
 

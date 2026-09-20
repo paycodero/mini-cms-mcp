@@ -327,6 +327,89 @@ unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'cu-coperta', 'titlu' =>
 $u = unealta($ks, 'sterge_imagine', ['nume' => basename($url_img)]);
 verifica('Imagini', 'o imagine folosită nu se șterge fără forteaza=true', $u['eroare'] && strpos($u['text'], 'articol/cu-coperta') !== false, $u['text']);
 
+// --- SEO și citit de agenți (0.7) ----------------------------------------------------------------
+
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'cu-coperta', 'imagine_alt' => 'O copertă de probă']);
+unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'cu-coperta']);
+$faq = '<p>Răspunsul scurt stă în prima frază.</p><h2>Întrebări frecvente</h2>'
+    . '<h3>Cât durează instalarea?</h3><p>Vreo zece minute, dacă ai deja PHP pe calculator.</p>'
+    . '<h3>Merge pe orice găzduire?</h3><p>Pe orice găzduire cu PHP 8 și Apache.</p>'
+    . '<h3>Ce fac dacă pierd cheia?</h3><p>Faci altele, cu --chei-noi.</p>';
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'cu-intrebari', 'titlu' => 'Ghid cu întrebări',
+    'descriere' => 'Un ghid scurt, cu întrebări frecvente la final.', 'continut_html' => $faq, 'etichete' => ['Ghid', 'Instalare']]);
+unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'cu-intrebari']);
+
+function jsonld_din(string $html): array
+{
+    preg_match_all('#<script type="application/ld\+json"[^>]*>(.*?)</script>#s', $html, $m);
+    return array_map(fn($t) => json_decode($t, true) ?? [], $m[1]);
+}
+function ld_de_tip(array $blocuri, string $tip): array
+{
+    foreach ($blocuri as $b) if (($b['@type'] ?? '') === $tip) return $b;
+    return [];
+}
+
+$r = cerere('GET', '/cu-intrebari');
+$ld = jsonld_din($r['corp']);
+$art = ld_de_tip($ld, 'Article');
+verifica('SEO', 'Article cu editor, limbă, etichete și pagina-părinte',
+    ($art['publisher']['@type'] ?? '') === 'Organization' && ($art['inLanguage'] ?? '') === 'ro'
+    && strpos((string) ($art['keywords'] ?? ''), 'Ghid') !== false && isset($art['mainEntityOfPage']['@id']), json_encode($art));
+verifica('SEO', 'firimituri (BreadcrumbList): Acasă → Articole → articolul',
+    count(ld_de_tip($ld, 'BreadcrumbList')['itemListElement'] ?? []) === 3, json_encode(ld_de_tip($ld, 'BreadcrumbList')));
+$faq_ld = ld_de_tip($ld, 'FAQPage');
+verifica('SEO', 'secțiunea „Întrebări frecvente" devine FAQPage, cu întrebările și răspunsurile din text',
+    count($faq_ld['mainEntity'] ?? []) === 3
+    && ($faq_ld['mainEntity'][0]['name'] ?? '') === 'Cât durează instalarea?'
+    && strpos((string) ($faq_ld['mainEntity'][0]['acceptedAnswer']['text'] ?? ''), 'zece minute') !== false, json_encode($faq_ld));
+verifica('SEO', 'articolul are og:locale, datele de publicare și etichetele ca meta',
+    strpos($r['corp'], 'property="og:locale"') !== false && strpos($r['corp'], 'article:published_time') !== false
+    && strpos($r['corp'], 'article:modified_time') !== false && strpos($r['corp'], 'article:tag') !== false);
+
+$r = cerere('GET', '/cu-coperta');
+verifica('SEO', 'coperta are măsurile ei, în pagină și în cardul social (fără sărituri la încărcare)',
+    strpos($r['corp'], 'property="og:image:width"') !== false && strpos($r['corp'], 'property="og:image:alt"') !== false
+    && preg_match('#<figure class="coperta"><img[^>]*width="1" height="1"#', $r['corp']) === 1);
+
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'chiar-atelierul-test', 'titlu' => 'Cum lucrează Atelierul Test',
+    'descriere' => 'Titlu care conține deja numele site-ului.', 'continut_html' => '<p>Text.</p>']);
+unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'chiar-atelierul-test']);
+$r = cerere('GET', '/chiar-atelierul-test');
+preg_match('#<title>(.*?)</title>#s', $r['corp'], $m_titlu);
+verifica('SEO', 'numele site-ului nu se repetă în titlu când e deja în el',
+    substr_count((string) ($m_titlu[1] ?? ''), 'Atelierul Test') === 1, (string) ($m_titlu[1] ?? ''));
+
+$roboti = cerere('GET', '/robots.txt')['corp'];
+verifica('SEO', 'robots.txt numește boții de căutare și pe cei AI, și arată llms.txt',
+    strpos($roboti, "User-agent: Googlebot\n") !== false && strpos($roboti, "User-agent: Bingbot\n") !== false
+    && strpos($roboti, "User-agent: GPTBot\n") !== false && strpos($roboti, "User-agent: ClaudeBot\n") !== false
+    && strpos($roboti, '/llms.txt') !== false && substr_count($roboti, 'Disallow: /jurnal.php') > 1, substr($roboti, 0, 120));
+$harta = cerere('GET', '/sitemap.xml')['corp'];
+verifica('SEO', 'sitemap: lastmod pe prima pagină, coperta ca imagine și paginile de etichetă',
+    strpos($harta, '<lastmod>') !== false && strpos($harta, '<image:loc>') !== false
+    && strpos($harta, '/eticheta/') !== false, substr($harta, 0, 200));
+$feed_xml = cerere('GET', '/feed.xml')['corp'];
+verifica('SEO', 'feed: legătură spre el însuși, lastBuildDate, autor și etichete',
+    strpos($feed_xml, 'rel="self"') !== false && strpos($feed_xml, '<lastBuildDate>') !== false
+    && strpos($feed_xml, '<dc:creator>') !== false && strpos($feed_xml, '<category>') !== false, substr($feed_xml, 0, 200));
+$llms = cerere('GET', '/llms.txt')['corp'];
+verifica('SEO', 'llms.txt spune adresa, limba, autorul și unde sunt feed-ul și harta site-ului',
+    strpos($llms, 'Adresa site-ului:') !== false && strpos($llms, '/feed.xml') !== false
+    && strpos($llms, '/sitemap.xml') !== false && strpos($llms, '[Ghid, Instalare]') !== false, substr($llms, 0, 200));
+
+@mkdir("$tmp/site/date/securitate", 0755, true);
+$cheie_in = bin2hex(random_bytes(16));
+file_put_contents("$tmp/site/date/securitate/indexnow.cheie", $cheie_in);
+$r = cerere('GET', "/$cheie_in.txt");
+verifica('SEO', 'cheia IndexNow se servește la adresa ei (fără fișier pus în rădăcină)',
+    $r['cod'] === 200 && trim($r['corp']) === $cheie_in, "cod {$r['cod']}");
+$r = cerere('GET', '/' . bin2hex(random_bytes(16)) . '.txt');
+verifica('SEO', 'o cheie IndexNow greșită dă 404', $r['cod'] === 404, "cod {$r['cod']}");
+$j_seo = unealta($kc, 'citeste_jurnal', ['ultimele' => 300]);
+verifica('SEO', 'pe un site local nu se anunță nimic în afară (IndexNow tace)',
+    !array_filter($j_seo['date']['intrari'] ?? [], fn($i) => ($i['punct'] ?? '') === 'seo'));
+
 // --- 0.3: previzualizare, publicare programată, căutare, redirecționări, logo, export -------------
 
 function cale_din(string $url_absolut): string { return (string) preg_replace('#^https?://[^/]+#', '', $url_absolut); }

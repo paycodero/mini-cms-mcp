@@ -13,7 +13,8 @@
   </p>
 <?php endif; ?>
 <?php if (($e['imagine'] ?? '') !== ''): ?>
-  <figure class="coperta"><img src="<?= esc($e['imagine']) ?>" alt="<?= esc($e['imagine_alt'] ?? '') ?>" fetchpriority="high"></figure>
+  <?php $m_cop = imagine_masuri((string) $e['imagine']); ?>
+  <figure class="coperta"><img src="<?= esc($e['imagine']) ?>" alt="<?= esc($e['imagine_alt'] ?? '') ?>" fetchpriority="high"<?= $m_cop ? ' width="' . (int) $m_cop['latime'] . '" height="' . (int) $m_cop['inaltime'] . '"' : '' ?>></figure>
 <?php endif; ?>
   <div class="continut"><?= $html ?></div>
   <p class="inapoi"><a href="/articole">← Toate articolele</a></p>

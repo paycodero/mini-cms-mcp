@@ -197,7 +197,10 @@ function salveaza_element(string $tip, string $slug, array $campuri): array
         if (!scrie_atomic(fisier_element($tip, $slug), $json)) throw new EroareCms('scrierea pe disc a eșuat');
         $rez = ['operatie' => $vechi === null ? 'creat' : 'actualizat', 'element' => rezumat_element($nou),
                 'versiune_anterioara' => $versiune, 'curatari' => $raport, 'amprenta' => hash('sha256', $json)];
-        if ($nou['stare'] === 'publicat') $rez['atentie'] = 'elementul e publicat: modificarea e deja vizibilă pe site';
+        if ($nou['stare'] === 'publicat') {
+            $rez['atentie'] = 'elementul e publicat: modificarea e deja vizibilă pe site';
+            if (e_vizibil($nou)) indexnow_pentru($nou);   // Bing află de schimbare fără să aștepte următorul crawl
+        }
         if ($vechi === null) $rez['atentie'] = 'creat ca ciornă — nu apare pe site până nu îl publici cu "publica"';
         return $rez;
     });
@@ -234,6 +237,7 @@ function schimba_stare(string $tip, string $slug, string $stare, ?string $la = n
         if (!scrie_atomic(fisier_element($tip, $slug), $json)) throw new EroareCms('scrierea pe disc a eșuat');
         $rez = ['operatie' => $stare === 'publicat' ? 'publicat' : 'retras (ciornă)', 'element' => rezumat_element($e),
                 'versiune_anterioara' => $versiune, 'amprenta' => hash('sha256', $json)];
+        if ($stare !== 'publicat' || e_vizibil($e)) indexnow_pentru($e);   // și retragerea e o schimbare de anunțat
         if ($stare === 'publicat' && !e_vizibil($e)) {
             $rez['operatie'] = 'programat';
             $rez['atentie'] = 'apare pe site singur la ' . $data . '; până atunci se vede doar prin previzualizeaza';
