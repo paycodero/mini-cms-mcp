@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 if (!defined('MINICMS')) { http_response_code(403); exit; }
 
-const MINICMS_VERSIUNE = '0.8.0';
+const MINICMS_VERSIUNE = '0.9.0';
 
 ini_set('display_errors', '0');   // un avertisment afișat ar strica JSON-ul MCP și ar scurge căi de pe server
 error_reporting(E_ALL);
@@ -31,7 +31,11 @@ function config(string $cale = '')
         $implicit = [
             'site' => ['nume' => '', 'descriere' => '', 'url' => '', 'limba' => 'ro', 'autor' => '', 'culoare' => '#6d2be8',
                        'logo' => '', 'favicon' => '', 'tema' => '', 'legaturi' => []],
-            'chei' => ['citire' => '', 'scriere' => ''],
+            'chei' => ['citire' => '', 'scriere' => '', 'cod' => ''],
+            'depozit' => 'paycodero/mini-cms-mcp',   // de unde își ia site-ul versiunea nouă, când i-o ceri tu
+            'depozit_ramura' => 'main',
+            'depozit_zip' => '',      // adresa exactă a pachetului, dacă nu e GitHub
+            'actualizare' => true,    // false = pagina /actualizare.php nu există deloc
             'date' => dirname(__DIR__) . '/date',
             'media' => dirname(__DIR__) . '/media',
             'fus_orar' => 'Europe/Bucharest',
@@ -278,3 +282,4 @@ require __DIR__ . '/continut.php';
 require __DIR__ . '/imagini.php';
 require __DIR__ . '/oauth.php';
 require __DIR__ . '/seo.php';
+require __DIR__ . '/actualizare.php';

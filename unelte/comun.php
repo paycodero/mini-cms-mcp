@@ -91,18 +91,26 @@ function cheile(string $fisier, bool $doar_citeste = false): array
         foreach (['citire', 'scriere'] as $rol) {
             if (!preg_match('/^mcms_[cs]_[A-Za-z0-9_-]{40,}$/', (string) ($c[$rol]['cheie'] ?? ''))) opreste("$fisier există, dar nu are forma unui fișier de chei.");
         }
+        // A treia cheie (0.9), adăugată la fișierele făcute înainte: deschide doar actualizarea codului.
+        if (!preg_match('/^mcms_d_[A-Za-z0-9_-]{40,}$/', (string) ($c['cod']['cheie'] ?? ''))) {
+            $cheie = 'mcms_d_' . rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+            $c['cod'] = ['cheie' => $cheie, 'amprenta' => hash('sha256', $cheie)];
+            if (file_put_contents($fisier, json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "
+", LOCK_EX) === false) opreste("nu pot scrie $fisier.");
+            if (!$doar_citeste) ok('cheia de cod (a treia) e nouă — deschide doar actualizarea codului, nu și conținutul');
+        }
         if (!$doar_citeste) ok('cheile există deja — le refolosesc (nu se generează altele peste ele)');
         return $c;
     }
     if ($doar_citeste) opreste("nu există $fisier. Cheile se fac la instalare: php unelte/instaleaza.php <adresa site-ului>.");
     $c = [];
-    foreach (['citire' => 'c', 'scriere' => 's'] as $rol => $pref) {
+    foreach (['citire' => 'c', 'scriere' => 's', 'cod' => 'd'] as $rol => $pref) {
         $cheie = 'mcms_' . $pref . '_' . rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
         $c[$rol] = ['cheie' => $cheie, 'amprenta' => hash('sha256', $cheie)];
     }
     if (file_put_contents($fisier, json_encode($c, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n", LOCK_EX) === false) opreste("nu pot scrie $fisier.");
     @chmod($fisier, 0600);
-    ok('două chei noi, scrise în fișier (nu pe ecran)');
+    ok('trei chei noi, scrise în fișier (nu pe ecran): citire, scriere și cod');
     info('Păstrează o copie (manager de parole): pe server stau doar amprentele; fără fișier, le refaci cu --chei-noi.');
     return $c;
 }

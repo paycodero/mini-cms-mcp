@@ -19,6 +19,10 @@ return [
     ],
 
     // Opționale — valorile implicite se potrivesc singure:
+    // 'depozit' => 'paycodero/mini-cms-mcp',   // de unde își ia site-ul versiunea nouă, când i-o ceri tu
+    // 'depozit_ramura' => 'main',
+    // 'depozit_zip' => '',      // adresa exactă a pachetului, dacă nu e GitHub
+    // 'actualizare' => false,   // implicit true: pagina /actualizare.php și comanda actualizeaza.php, cu cheia de cod
     // 'date' => dirname(__DIR__, 2) . '/date-site',   // dosarul de date un nivel deasupra folderului public, dacă găzduirea
     //                                                 // permite; rămas în site/date, e protejat de .htaccess (pe nginx, vezi README)
     // 'cloudflare' => false,   // implicit 'auto': IP-ul real vine din CF-Connecting-IP doar când cererea vine chiar din Cloudflare

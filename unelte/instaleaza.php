@@ -51,6 +51,7 @@ function text_config(string $site, array $chei, string $versiune, string $date =
         . "    'chei' => [\n"
         . "        'citire' => " . $e($chei['citire']['amprenta']) . ",\n"
         . "        'scriere' => " . $e($chei['scriere']['amprenta']) . ",\n"
+        . "        'cod' => " . $e((string) ($chei['cod']['amprenta'] ?? '')) . ",   // doar actualizarea codului; AI-ul n-o primește niciodată\n"
         . "    ],\n"
         . ($date !== '' ? "    // dosarul de date, în afara rădăcinii publice (--date-afara): nu depinde de .htaccess\n"
             . "    'date' => $date,\n" : '')

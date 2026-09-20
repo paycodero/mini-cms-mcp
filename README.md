@@ -6,7 +6,7 @@ Un CMS mic pentru site-uri de câteva pagini și un blog, administrat de un asis
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache/cPanel). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Circa 2.700 de rânduri PHP pe server, plus teste automate (190 de verificări, inclusiv instalarea, copia de siguranță, OAuth și SEO cap-coadă).
+- Circa 3.000 de rânduri PHP pe server, plus teste automate (213 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth și SEO cap-coadă).
 - Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
 - Instalarea: o comandă pe calculator și un zip urcat în cPanel.
 
@@ -26,6 +26,7 @@ site/                    ← se urcă pe server, ca rădăcină a site-ului
   media/                 creat automat: imaginile urcate
 teste/ruleaza.php        testele: pornesc o copie a site-ului și încearcă funcțiile și atacurile
 unelte/instaleaza.php    instalarea: teste, chei, config.php, pachetul .zip, verificarea serverului, legarea Claude Code
+unelte/actualizeaza.php  actualizarea codului de pe depozit, cerută de om (cheia de cod), cu copie și punere înapoi
 unelte/copie.php         copia de siguranță: salvează tot site-ul pe calculator și îl poate pune la loc (sau pe alt site)
 unelte/comun.php         funcțiile comune ale celor două
 unelte/genereaza-cheie.php, unelte/router-local.php
@@ -74,6 +75,45 @@ implicit); nu poate scrie CSS. O temă aleasă dar scoasă de pe server e ignora
 Tema `simpluspv` copiază blogul de pe simpluspv.eu (Bricolage Grotesque, Hanken Grotesk, Newsreader, toate sub SIL OFL 1.1).
 Culoarea principală rămâne cea din identitate. Știe și două clase din articolele de acolo: `p.aerisit` (spațiu mai mare
 după paragraf) și `img.ingust` (captură de telefon, 340 px, centrată), plus containerul video `div.cai-video`.
+
+## Actualizarea codului, fără zip și fără cPanel
+
+Din 0.9, site-ul își ia singur versiunea nouă din depozit — dar **numai când i-o ceri tu**, niciodată de la sine și
+niciodată la cererea AI-ului. Prima instalare rămâne cu pachetul urcat de mână; de la ea încolo:
+
+```
+php unelte/actualizeaza.php https://site.ro
+```
+
+Comanda întreabă serverul ce versiune are și ce e în depozit, îți arată fișierele care s-ar schimba, apoi (după ce
+confirmi, sau direct cu `--acum`) îi cere să se sincronizeze. Același lucru se poate face și din browser, pe
+`https://site.ro/actualizare.php`, lipind cheia de cod în formular.
+
+**Cheia de cod e a treia cheie**, alături de cea de citire și cea de scriere. Stă doar pe calculatorul tău, în
+`chei-<nume>.json`, iar pe server e tot o amprentă. **Nu e cheie de MCP:** AI-ul nu o primește niciodată, iar un token
+OAuth al conectorului din claude.ai nu deschide nimic din actualizare. Principiul rămâne cel de la început — asistentul
+schimbă conținutul, nu codul.
+
+Ce face serverul, în ordine, într-o singură cerere:
+
+1. descarcă pachetul depozitului (`depozit` din `config.php`, implicit `paycodero/mini-cms-mcp`, ramura `main`);
+2. verifică fiecare cale din el: doar din dosarul `site/`, fără `..`, doar extensii din lista permisă;
+   `app/config.php`, `date/` și `media/` nu se ating **niciodată**;
+3. refuză o versiune mai veche decât cea instalată (`forta` o acceptă, dacă chiar vrei să cobori);
+4. salvează fișierele pe care urmează să le înlocuiască, în `date/versiuni/cod/<data>/`;
+5. scrie doar ce diferă;
+6. **își cere singur prima pagină**: dacă nu mai răspunde 200, pune la loc versiunea veche în aceeași cerere și îți
+   spune ce a pățit. Dacă nu poate ajunge la el însuși (unele găzduiri nu permit), spune „necunoscut" și nu presupune
+   nimic — verificarea din afară o face comanda de pe calculatorul tău, care pune și ea înapoi copia dacă site-ul
+   nu răspunde cum trebuie.
+
+Copiile rămân pe server: `php unelte/actualizeaza.php https://site.ro --copii` le listează, iar `--pune=<copie>` pune
+una înapoi. `'actualizare' => false` în `config.php` scoate cu totul pagina și comanda.
+
+⚠️ **Prețul acestei comodități, spus pe față:** serverul are încredere în depozit. Cine ajunge la contul de GitHub poate
+pune cod pe site. Ce se poate fără GitHub — cale în afara dosarului `site/`, extensie nepermisă, atingerea configurării,
+coborârea versiunii — e refuzat de server. Dacă vrei și apărare împotriva unui depozit compromis, pasul următor e
+semnarea pachetului cu o cheie privată de pe calculatorul tău; nu e construită.
 
 ## Copia de siguranță
 

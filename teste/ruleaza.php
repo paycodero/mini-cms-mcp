@@ -93,6 +93,7 @@ function unealta(string $cheie, string $nume, array $args = []): array
 copiaza_dosar("$radacina/site", "$tmp/site", ['app/config.php', 'date', 'media']);
 $kc = 'mcms_c_' . rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');   // cheile există doar cât rulează testele
 $ks = 'mcms_s_' . rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+$kd = 'mcms_d_' . rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');   // cheia de cod (actualizarea)
 $port = 0;
 for ($i = 0; $i < 20 && !$port; $i++) {
     $p = random_int(18100, 18999);
@@ -100,9 +101,23 @@ for ($i = 0; $i < 20 && !$port; $i++) {
     if ($s) fclose($s); else $port = $p;
 }
 $url = "http://127.0.0.1:$port";
+$port_depozit = 0;   // al doilea server, care ține pachetul de probă: serverul de test e cu un singur fir
+for ($i = 0; $i < 20 && !$port_depozit; $i++) {
+    $p = random_int(19100, 19999);
+    $s = @fsockopen('127.0.0.1', $p, $e1, $e2, 0.2);
+    if ($s) fclose($s); else $port_depozit = $p;
+}
+@mkdir("$tmp/depozit", 0755, true);
+$server_depozit = proc_open([PHP_BINARY, '-S', "127.0.0.1:$port_depozit", '-t', "$tmp/depozit"],
+    [0 => ['pipe', 'r'], 1 => ['file', "$tmp/depozit.log", 'a'], 2 => ['file', "$tmp/depozit.log", 'a']], $pd, "$tmp/depozit");
+register_shutdown_function(function () use ($server_depozit) {
+    $st = @proc_get_status($server_depozit);
+    if ($st && $st['running']) proc_terminate($server_depozit);
+});
 $config = ['site' => ['nume' => 'Site de test', 'descriere' => 'Site pentru teste automate.', 'url' => $url, 'limba' => 'ro',
                       'autor' => 'Autor Test', 'culoare' => '#6d2be8'],
-           'chei' => ['citire' => hash('sha256', $kc), 'scriere' => hash('sha256', $ks)]];
+           'chei' => ['citire' => hash('sha256', $kc), 'scriere' => hash('sha256', $ks), 'cod' => hash('sha256', $kd)],
+           'depozit_zip' => "http://127.0.0.1:$port_depozit/pachet.bin", 'autocontrol_secunde' => 2];
 file_put_contents("$tmp/site/app/config.php", "<?php\nif (!defined('MINICMS')) { http_response_code(403); exit; }\nreturn "
     . var_export($config, true) . ";\n");
 
@@ -743,6 +758,117 @@ verifica('Jurnal', 'pagina jurnalului se deschide cu cheia de citire', $r['cod']
 $r = cerere('GET', '/jurnal.php?cheie=' . $kc);
 verifica('Jurnal', 'cheia pusă în adresă (GET) nu deschide jurnalul', $r['cod'] === 200 && strpos($r['corp'], 'Lanțul') === false);
 
+// --- actualizarea codului de pe depozit (0.9) ----------------------------------------------------
+
+elibereaza();
+function actualizare(string $cheie, array $date): array
+{
+    $r = cerere('POST', '/actualizare.php', json_encode($date),
+        ['Content-Type' => 'application/json', 'Accept' => 'application/json', 'Authorization' => 'Bearer ' . $cheie]);
+    $r['json'] = json_decode($r['corp'], true) ?? [];
+    return $r;
+}
+function fa_pachet_proba(array $schimba, array $in_plus = []): void   // pachetul pe care „depozitul" de probă îl servește
+{
+    global $tmp;
+    static $n = 0;
+    $n++;
+    sterge_dosar("$tmp/pachet");
+    copiaza_dosar("$tmp/site", "$tmp/pachet/mini-cms-mcp-main/site", ['date', 'media', 'app/config.php']);
+    $rad = "$tmp/pachet/mini-cms-mcp-main/site";
+    foreach ($schimba as $rel => $continut) {
+        @mkdir(dirname("$rad/$rel"), 0755, true);
+        file_put_contents("$rad/$rel", $continut);
+    }
+    foreach ($in_plus as $rel => $continut) {   // fișiere din afara dosarului site/: nu au voie să iasă de acolo
+        @mkdir(dirname("$tmp/pachet/mini-cms-mcp-main/$rel"), 0755, true);
+        file_put_contents("$tmp/pachet/mini-cms-mcp-main/$rel", $continut);
+    }
+    $zip_proba = "$tmp/pachet-$n.zip";   // nume nou de fiecare dată: Phar ține arhivele în cache, pe nume
+    $phar = new PharData($zip_proba, 0, null, Phar::ZIP);
+    $phar->buildFromDirectory("$tmp/pachet");
+    copy($zip_proba, "$tmp/depozit/pachet.bin");
+}
+
+$nucleu_test = (string) file_get_contents("$tmp/site/app/nucleu.php");
+$nucleu_nou = (string) preg_replace("/MINICMS_VERSIUNE = '[^']+'/", "MINICMS_VERSIUNE = '9.9.9'", $nucleu_test);
+fa_pachet_proba(['app/nucleu.php' => $nucleu_nou, 'assets/proba-actualizare.txt' => 'pachetul nou a ajuns']);
+
+$r = actualizare($ks, ['actiune' => 'stare']);
+verifica('Securitate', 'actualizarea codului NU se deschide cu cheia de scriere (cea a AI-ului)',
+    $r['cod'] === 401 && strpos((string) ($r['json']['eroare'] ?? ''), 'cheia de scriere') !== false, $r['corp']);
+$r = actualizare($kc, ['actiune' => 'stare']);
+verifica('Securitate', 'nici cu cheia de citire', $r['cod'] === 401, "cod {$r['cod']}");
+$r = cerere('GET', '/actualizare.php');
+verifica('Actualizare', 'pagina cere cheia de cod și nu arată nimic fără ea',
+    $r['cod'] === 200 && strpos($r['corp'], 'Cheia de cod') !== false && strpos($r['corp'], 'name="cheie"') !== false, "cod {$r['cod']}");
+
+$r = actualizare($kd, ['actiune' => 'stare']);
+$stare_cod = (array) ($r['json']['stare'] ?? []);
+verifica('Actualizare', 'cu cheia de cod: spune ce versiune e în depozit și ce fișiere s-ar schimba',
+    $r['cod'] === 200 && ($stare_cod['versiune_in_pachet'] ?? '') === '9.9.9'
+    && in_array('app/nucleu.php', (array) ($stare_cod['de_schimbat'] ?? []), true)
+    && in_array('assets/proba-actualizare.txt', (array) ($stare_cod['noi'] ?? []), true), $r['corp']);
+verifica('Actualizare', 'starea nu scrie nimic pe server (versiunea de pe disc e neatinsă)',
+    (string) file_get_contents("$tmp/site/app/nucleu.php") === $nucleu_test && !is_file("$tmp/site/assets/proba-actualizare.txt"));
+
+$r = actualizare($kd, ['actiune' => 'sincronizeaza']);
+$rez_cod = (array) ($r['json']['rezultat'] ?? []);
+$copie_cod = (string) ($rez_cod['copie'] ?? '');
+verifica('Actualizare', 'sincronizarea scrie fișierele, cu copie de siguranță și autocontrol',
+    $r['cod'] === 200 && ($rez_cod['operatie'] ?? '') === 'actualizat' && (int) ($rez_cod['scrise'] ?? 0) >= 2
+    && preg_match('/^[0-9]{8}-[0-9]{6}$/', $copie_cod) === 1
+    && strpos((string) file_get_contents("$tmp/site/app/nucleu.php"), "'9.9.9'") !== false
+    && (string) @file_get_contents("$tmp/site/assets/proba-actualizare.txt") === 'pachetul nou a ajuns', $r['corp']);
+verifica('Actualizare', 'copia de siguranță conține versiunea dinainte',
+    strpos((string) @file_get_contents("$tmp/site/date/versiuni/cod/$copie_cod/app/nucleu.php"), "'9.9.9'") === false
+    && is_file("$tmp/site/date/versiuni/cod/$copie_cod/_versiune.txt"));
+$r = cerere('GET', '/');
+verifica('Actualizare', 'site-ul răspunde în continuare după actualizare', $r['cod'] === 200, "cod {$r['cod']}");
+
+$r = actualizare($kd, ['actiune' => 'sincronizeaza']);
+verifica('Actualizare', 'a doua oară nu mai are ce schimba', ($r['json']['rezultat']['operatie'] ?? '') === 'nimic de schimbat', $r['corp']);
+
+$r = actualizare($kd, ['actiune' => 'restaureaza', 'copie' => $copie_cod]);
+verifica('Actualizare', 'restaurarea pune înapoi versiunea dinainte',
+    $r['cod'] === 200 && (string) file_get_contents("$tmp/site/app/nucleu.php") === $nucleu_test, $r['corp']);
+
+fa_pachet_proba(['rau.sh' => 'rm -rf /'], ['in-afara.php' => '<?php echo "nu ai voie";']);
+$r = actualizare($kd, ['actiune' => 'sincronizeaza']);
+verifica('Securitate', 'un pachet cu fișiere din afara listei permise e refuzat, fără să scrie nimic',
+    $r['cod'] === 400 && strpos((string) ($r['json']['eroare'] ?? ''), 'extensie nepermisă') !== false
+    && !is_file("$tmp/site/rau.sh") && !is_file("$tmp/in-afara.php"), $r['corp']);
+
+fa_pachet_proba(['app/config.php' => '<?php return ["chei" => ["scriere" => "al atacatorului"]];']);
+$r = actualizare($kd, ['actiune' => 'sincronizeaza']);
+$config_test = (string) file_get_contents("$tmp/site/app/config.php");
+verifica('Securitate', 'app/config.php nu se atinge nici dacă vine în pachet',
+    strpos($config_test, 'al atacatorului') === false && strpos($config_test, hash('sha256', $ks)) !== false, substr($config_test, 0, 120));
+
+$nucleu_vechi = (string) preg_replace("/MINICMS_VERSIUNE = '[^']+'/", "MINICMS_VERSIUNE = '0.0.1'", $nucleu_test);
+fa_pachet_proba(['app/nucleu.php' => $nucleu_vechi]);
+$r = actualizare($kd, ['actiune' => 'sincronizeaza']);
+verifica('Securitate', 'o versiune mai veche decât cea instalată e refuzată (fără forta)',
+    $r['cod'] === 400 && strpos((string) ($r['json']['eroare'] ?? ''), 'mai veche') !== false
+    && (string) file_get_contents("$tmp/site/app/nucleu.php") === $nucleu_test, $r['corp']);
+
+// comanda de pe calculator, cap-coadă: cere starea, sincronizează, verifică din afară, apoi pune înapoi
+fa_pachet_proba(['app/nucleu.php' => $nucleu_nou, 'assets/proba-actualizare.txt' => 'pachetul nou a ajuns']);
+$dosar_act = "$tmp/actualizare-unealta";
+@mkdir($dosar_act, 0755, true);
+file_put_contents("$dosar_act/chei-127-0-0-1.json", json_encode([
+    'citire' => ['cheie' => $kc, 'amprenta' => hash('sha256', $kc)],
+    'scriere' => ['cheie' => $ks, 'amprenta' => hash('sha256', $ks)],
+    'cod' => ['cheie' => $kd, 'amprenta' => hash('sha256', $kd)]]));
+$rc = unealta_locala('actualizeaza.php', [$url, '--local', '--acum', "--dosar=$dosar_act"]);
+verifica('Actualizare', 'comanda de pe calculator face tot drumul: stare, sincronizare, verificare din afară',
+    $rc['cod'] === 0 && strpos($rc['iesire'], '9.9.9') !== false && strpos($rc['iesire'], 'fără zip') !== false
+    && strpos($rc['iesire'], $kd) === false, substr($rc['iesire'], -400));
+$copii_j = (array) (actualizare($kd, ['actiune' => 'stare'])['json']['copii'] ?? []);
+$rc = unealta_locala('actualizeaza.php', [$url, '--local', '--pune=' . ($copii_j[0]['copie'] ?? ''), "--dosar=$dosar_act"]);
+verifica('Actualizare', 'comanda pune înapoi o copie, la cerere',
+    $rc['cod'] === 0 && (string) file_get_contents("$tmp/site/app/nucleu.php") === $nucleu_test, $rc['iesire']);
+
 // --- plafon pe adresele care răspund fără cheie (OAuth) ------------------------------------------
 
 @unlink("$tmp/site/date/securitate/incercari.json");
@@ -777,7 +903,11 @@ file_put_contents($fisier, implode("\n", $linii) . "\n");
 verifica('Jurnal', 'un rând scos de la final e detectat', !jurnal_verifica()['intact']);
 file_put_contents($fisier, $original);
 
-$php_la_final = fisiere($tmp, '/\.(php[0-9]?|phtml|phar)$/i');   // înainte de instalarea de mai jos, care aduce fișierele ei
+// Se scot din numărătoare pachetul de probă (nu e pe server, e „depozitul" nostru) și copiile de siguranță
+// ale codului, făcute de actualizare — stau în date/, care e blocat din web și are testul lui separat.
+$php_la_final = array_values(array_filter(fisiere($tmp, '/\.(php[0-9]?|phtml|phar)$/i'),
+    fn($f) => strpos(str_replace('\\', '/', $f), '/pachet/') === false
+        && strpos(str_replace('\\', '/', $f), '/date/versiuni/cod/') === false));
 verifica('Securitate', 'după toate testele, niciun fișier executabil nou pe server', $php_la_final === $php_la_inceput,
     implode(', ', array_diff($php_la_final, $php_la_inceput)));
 

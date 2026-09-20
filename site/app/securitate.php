@@ -77,6 +77,30 @@ function rate_citeste(): array
 }
 
 // Scriere sub lacăt exclusiv: numai la eșecuri și la cererile fără cheie, nu la fiecare cerere.
+// A treia cheie: cea de cod. NU e cheie de MCP — rol_pentru_cheie() n-o recunoaște niciodată, deci nici
+// AI-ul, nici un token OAuth al conectorului din claude.ai nu pot ajunge la actualizarea codului.
+// Stă doar pe calculatorul omului, iar pe server e tot o amprentă.
+function verifica_acces_cod(string $cheie): array
+{
+    $amprenta = (string) config('chei.cod');
+    if (config('actualizare') === false) {
+        return ['cod' => 404, 'mesaj' => 'Actualizarea de pe depozit e oprită pe acest site („actualizare" => false în app/config.php).'];
+    }
+    if (!preg_match('/^[a-f0-9]{64}$/', $amprenta)) {
+        return ['cod' => 503, 'mesaj' => 'Cheia de cod nu e configurată în app/config.php. Rulează instalarea din nou și urcă pachetul.'];
+    }
+    if (ip_blocat()) {
+        jurnal_scrie(['punct' => 'actualizare', 'rezultat' => 'blocat']);
+        return ['cod' => 429, 'mesaj' => 'Prea multe încercări eșuate de pe această adresă. Reîncearcă peste 15 minute.'];
+    }
+    if (strlen($cheie) < 20 || strlen($cheie) > 200 || !hash_equals($amprenta, hash('sha256', $cheie))) {
+        inregistreaza_esec();
+        jurnal_scrie(['punct' => 'actualizare', 'rezultat' => 'auth_esuat', 'detalii' => ['cheie' => $cheie === '' ? 'lipsă' : 'greșită']]);
+        return ['cod' => 401, 'mesaj' => 'Cheie de cod lipsă sau greșită. Nu e cheia de scriere: e a treia, din fișierul de chei.'];
+    }
+    return ['cod' => 200];
+}
+
 function rate_actualizeaza(callable $callback)
 {
     $fp = @fopen(rate_fisier(), 'c+');
