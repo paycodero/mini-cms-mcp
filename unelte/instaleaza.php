@@ -9,6 +9,8 @@
 // Opțiuni:
 //   --oauth[=minute] deschide fereastra în care Claude se poate lega de site (implicit 15 minute) și arată
 //                    codul de conectare cerut pe pagina de aprobare; --oauth --inchide o închide imediat
+//   --date-afara     dosarul de date iese din rădăcina publică (../date-<nume>), ca protecția lui să nu depindă
+//                    de .htaccess; alegerea se păstrează la fiecare pachet următor
 //   --verifica       doar pasul 2 (după ce ai urcat pachetul)
 //   --nume=scurt     numele conexiunii din Claude și al fișierelor (implicit din adresă: test.paycode.ro → test-paycode)
 //   --dosar=CALE     unde stau cheile, pachetul și conexiunea Claude (implicit: folderul de deasupra repo-ului)
@@ -25,7 +27,7 @@ declare(strict_types=1);
 require __DIR__ . '/comun.php';
 
 ['opt' => $opt, 'site' => $site, 'nume' => $nume, 'dosar' => $dosar, 'fisier_chei' => $fisier_chei] = porneste($argv,
-    ['verifica', 'chei-noi', 'fara-claude', 'fara-teste', 'oauth', 'inchide'],
+    ['verifica', 'chei-noi', 'fara-claude', 'fara-teste', 'oauth', 'inchide', 'date-afara'],
     'php unelte/instaleaza.php https://site.ro [--verifica] [--chei-noi] [--oauth[=minute]] [--nume=scurt] [--dosar=CALE] [--fara-claude]');
 $S = DIRECTORY_SEPARATOR;
 $livrare = "$dosar{$S}_livrare{$S}$nume";
@@ -36,7 +38,7 @@ echo "Conexiunea Claude: $nume · cheile: $fisier_chei\n";
 
 // --- funcții -----------------------------------------------------------------------------------
 
-function text_config(string $site, array $chei, string $versiune): string
+function text_config(string $site, array $chei, string $versiune, string $date = ''): string
 {
     $e = fn($s) => var_export($s, true);
     return "<?php\n"
@@ -50,7 +52,17 @@ function text_config(string $site, array $chei, string $versiune): string
         . "        'citire' => " . $e($chei['citire']['amprenta']) . ",\n"
         . "        'scriere' => " . $e($chei['scriere']['amprenta']) . ",\n"
         . "    ],\n"
+        . ($date !== '' ? "    // dosarul de date, în afara rădăcinii publice (--date-afara): nu depinde de .htaccess\n"
+            . "    'date' => $date,\n" : '')
         . "];\n";
+}
+
+// Dosarul de date ales la o instalare anterioară: se păstrează la fiecare pachet nou, altfel un config
+// rescris ar trimite site-ul spre alt dosar, iar conținutul ar părea dispărut.
+function date_din_config(string $fisier): string
+{
+    if (!is_file($fisier)) return '';
+    return preg_match("/^\s*'date'\s*=>\s*(.+?),\s*$/m", (string) file_get_contents($fisier), $m) ? trim($m[1]) : '';
 }
 
 function fa_pachetul(string $repo, string $zip, string $config): int
@@ -220,8 +232,14 @@ if ($verifica) {
 
     titlu('Pachetul de urcat');
     if (!is_dir($livrare) && !mkdir($livrare, 0755, true)) opreste("nu pot crea $livrare.");
-    $config = text_config($site, $chei, $VERSIUNE);
     $fisier_config = "$livrare{$S}config.php";
+    $date_config = date_din_config($fisier_config);
+    if (isset($opt['date-afara'])) {
+        $date_config = "dirname(__DIR__, 2) . '/date-$nume'";
+    } elseif ($date_config !== '') {
+        info("dosarul de date rămâne cel ales înainte: $date_config");
+    }
+    $config = text_config($site, $chei, $VERSIUNE, $date_config);
     $vechi = is_file($fisier_config) ? (string) file_get_contents($fisier_config) : null;
     $fara_data = fn(string $t) => preg_replace('/^\/\/ Scris de .*$/m', '', $t);
     if ($vechi !== null && $fara_data($vechi) === $fara_data($config)) {
@@ -248,6 +266,11 @@ if ($verifica) {
     if ($lipsa) opreste('pachetul e incomplet, lipsesc: ' . implode(', ', $lipsa));
     ok("$n fișiere, inclusiv cele trei .htaccess și config.php");
     info($zip);
+    if ($date_config !== '') {
+        atentie("dosarul de date e în afara rădăcinii publice: $date_config");
+        info('La un site nou se creează singur. Dacă site-ul are deja conținut în <rădăcină>/date, mută dosarul acolo');
+        info('ÎNAINTE de a urca pachetul — altfel site-ul pornește gol (conținutul rămâne pe disc, în vechiul dosar).');
+    }
 
     titlu('Acum pe server, în cPanel');
     echo "  1. File Manager → folderul domeniului (" . parse_url($site, PHP_URL_HOST) . ")\n";
