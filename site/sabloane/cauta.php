@@ -11,7 +11,7 @@
   <ol class="rezultate">
 <?php foreach ($rezultate as $r): $e = $r['e']; ?>
     <li>
-      <p class="data"><?= $e['tip'] === 'articol' ? 'Articol · ' . esc(data_ro($e['publicat_la'] ?? null)) : 'Pagină' ?></p>
+      <p class="data"><?= $e['tip'] === 'articol' ? 'Articol' : 'Pagină' ?></p>
       <h3><a href="<?= esc(url_element($e)) ?>"><?= evidentiaza((string) $e['titlu'], $modele) ?></a></h3>
 <?php if ($r['fragment'] !== ''): ?>
       <p><?= evidentiaza($r['fragment'], $modele) ?></p>

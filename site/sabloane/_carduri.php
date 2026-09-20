@@ -6,7 +6,6 @@
     <a class="card-imagine" href="<?= esc(url_element($a)) ?>" tabindex="-1" aria-hidden="true"><img src="<?= esc($a['imagine']) ?>" alt="" loading="lazy" decoding="async"<?= $m_card ? ' width="' . (int) $m_card['latime'] . '" height="' . (int) $m_card['inaltime'] . '"' : '' ?>></a>
 <?php endif; ?>
     <div class="card-text">
-      <p class="data"><?= esc(data_ro($a['publicat_la'] ?? null)) ?></p>
       <h3><a href="<?= esc(url_element($a)) ?>"><?= esc($a['titlu']) ?></a></h3>
 <?php if (($a['descriere'] ?? '') !== ''): ?>
       <p><?= esc($a['descriere']) ?></p>

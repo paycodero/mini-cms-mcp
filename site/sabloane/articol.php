@@ -1,6 +1,8 @@
 <?php if (!defined('MINICMS')) { http_response_code(403); exit; } ?>
 <article class="text">
-  <p class="data"><?= esc(data_ro($e['publicat_la'] ?? null)) ?><?php if (($e['autor'] ?? '') !== ''): ?> · <?= esc($e['autor']) ?><?php endif; ?></p>
+<?php if (($e['autor'] ?? '') !== ''): ?>
+  <p class="semnatura"><?= esc($e['autor']) ?></p>
+<?php endif; ?>
   <h1><?= esc($e['titlu']) ?></h1>
 <?php if (($e['descriere'] ?? '') !== ''): ?>
   <p class="introducere"><?= esc($e['descriere']) ?></p>

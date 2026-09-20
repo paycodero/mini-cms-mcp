@@ -55,15 +55,15 @@ h1,h2,h3,h4{font-family:var(--titluri);font-weight:700;letter-spacing:-.02em;lin
 .cauta-antet input:focus{border-color:var(--accent);width:220px}
 
 main.lat{padding-top:clamp(36px,5vw,60px);padding-bottom:clamp(40px,5vw,64px)}
-.data{color:var(--text-slab);font-size:13.5px;font-weight:600;text-transform:none;letter-spacing:0}
+.data,.semnatura{color:var(--text-slab);font-size:13.5px;font-weight:600;text-transform:none;letter-spacing:0}
 
 /* ---------- articolul: antet pe 712 px, coperta pe 912, textul pe 672 (lățimile utile de pe simpluspv.eu) ---------- */
 article.text{max-width:912px;display:flex;flex-wrap:wrap;align-items:center}
 article.text>*{flex:0 0 100%;min-width:0;max-width:712px;margin-left:auto;margin-right:auto}
 /* etichetele urcă deasupra titlului, pe același rând cu data (ca pastila de categorie de pe simpluspv.eu) */
 article.text>.etichete{order:-2;flex:0 0 auto;margin:0 12px 18px max(0px,calc((100% - 712px)/2))}
-article.text>.data{order:-1;flex:1 1 0;margin:0 max(0px,calc((100% - 712px)/2)) 18px max(0px,calc((100% - 712px)/2))}
-article.text:has(>.etichete)>.data{margin-left:0}
+article.text>.semnatura{order:-1;flex:1 1 0;margin:0 max(0px,calc((100% - 712px)/2)) 18px max(0px,calc((100% - 712px)/2))}
+article.text:has(>.etichete)>.semnatura{margin-left:0}
 .eticheta{background:var(--accent-pal);color:var(--accent);font-size:13.5px;font-weight:600;padding:5px 13px;border-radius:100px}
 .eticheta:hover{filter:none;color:var(--accent-inchis)}
 article.text h1{font-size:clamp(32px,5.2vw,52px);line-height:1.04;margin-top:0;margin-bottom:0}   /* marginile laterale rămân auto: titlul stă pe coloana de 712 */
@@ -127,7 +127,6 @@ main.lat>section>h1{margin-bottom:clamp(28px,4vw,44px)}
 .card h3 a{color:var(--text)}
 .card h3 a::after{content:"";position:absolute;inset:0}   /* tot cardul e clicabil, ca pe simpluspv.eu */
 .card p{font-size:14px;line-height:1.55;color:var(--text-2);margin:10px 0 0;flex:1}
-.card .data{font-size:12.5px;margin:0 0 10px;flex:none}
 .buton{background:var(--accent);color:#fff;font-size:16px;font-weight:700;padding:16px 26px;border-radius:11px;box-shadow:0 3px 0 var(--accent-inchis);transition:transform .12s}
 .buton:hover{filter:none;color:#fff;transform:translateY(-1px)}
 .buton-gol{background:#fff;color:var(--text);border:1px solid rgba(20,29,46,.14);box-shadow:none}
@@ -162,7 +161,7 @@ main.lat>section>h1{margin-bottom:clamp(28px,4vw,44px)}
 }
 @media (max-width:520px){
   article.text>.etichete{margin-bottom:10px}
-  article.text>.data{flex:0 0 100%}   /* data și autorul pe rândul lor, sub etichete */
+  article.text>.semnatura{flex:0 0 100%}   /* autorul pe rândul lui, sub etichete */
   .continut th,.continut td{padding:8px 10px;font-size:14.5px}
   .continut pre{font-size:13px;padding:16px 14px;border-radius:10px}
 }
