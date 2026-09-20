@@ -131,6 +131,8 @@ main.lat>section>h1{margin-bottom:clamp(28px,4vw,44px)}
 .buton{background:var(--accent);color:#fff;font-size:16px;font-weight:700;padding:16px 26px;border-radius:11px;box-shadow:0 3px 0 var(--accent-inchis);transition:transform .12s}
 .buton:hover{filter:none;color:#fff;transform:translateY(-1px)}
 .buton-gol{background:#fff;color:var(--text);border:1px solid rgba(20,29,46,.14);box-shadow:none}
+/* .buton:hover impune text alb; fără regula asta, butonul gol rămâne alb pe alb și textul dispare */
+.buton-gol:hover{background:var(--panou);color:var(--text);border-color:rgba(20,29,46,.3)}
 .toate{margin-top:clamp(28px,4vw,40px)}
 
 /* ---------- căutarea, erorile ---------- */
