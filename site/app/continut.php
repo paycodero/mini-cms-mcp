@@ -282,6 +282,26 @@ function identitate_site(): array
     return $rez;
 }
 
+// Temele: foi de stil puse de om în assets/teme/<nume>.css (cu fonturile lor în assets/teme/<nume>/).
+// AI-ul doar alege una dintre ele; nu poate scrie CSS. Fără temă, site-ul are aspectul din assets/stil.css.
+function teme_disponibile(): array
+{
+    $teme = [];
+    foreach (glob(dirname(__DIR__) . '/assets/teme/*.css') ?: [] as $f) {
+        $nume = basename($f, '.css');
+        if (preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $nume)) $teme[] = $nume;
+    }
+    sort($teme);
+    return $teme;
+}
+
+// Tema aleasă, doar dacă foaia ei e încă pe server (o copie pusă pe alt site poate cere o temă pe care el nu o are).
+function tema_activa(): string
+{
+    $t = (string) config('site.tema');
+    return $t !== '' && in_array($t, teme_disponibile(), true) ? $t : '';
+}
+
 function seteaza_identitate(array $campuri): array
 {
     $nou = [];
@@ -307,7 +327,14 @@ function seteaza_identitate(array $campuri): array
         }
         if ($nou[$k] !== '' && !is_file(dir_media() . '/' . basename($nou[$k]))) throw new EroareCms("imaginea {$nou[$k]} nu există — urc-o întâi cu urca_imagine");
     }
-    if (!$nou) throw new EroareCms('trimite cel puțin un câmp: nume, descriere, autor, limba, culoare, logo sau favicon');
+    if (array_key_exists('tema', $campuri)) {
+        $nou['tema'] = trim((string) ($campuri['tema'] ?? ''));
+        $teme = teme_disponibile();
+        if ($nou['tema'] !== '' && !in_array($nou['tema'], $teme, true)) {
+            throw new EroareCms('"tema" e una dintre temele de pe server: ' . ($teme ? '"' . implode('", "', $teme) . '"' : 'nu e niciuna') . ' ("" = aspectul implicit)');
+        }
+    }
+    if (!$nou) throw new EroareCms('trimite cel puțin un câmp: nume, descriere, autor, limba, culoare, logo, favicon sau tema');
 
     return cu_blocare(function () use ($nou) {
         $fisier = dir_date() . '/site.json';

@@ -104,7 +104,7 @@ $schimba = fn(string $t) => strtr($t, $mapare);
 
 titlu('Identitatea');
 $identitate = [];
-foreach (['nume', 'descriere', 'autor', 'limba', 'culoare', 'logo', 'favicon'] as $k) {
+foreach (['nume', 'descriere', 'autor', 'limba', 'culoare', 'logo', 'favicon', 'tema'] as $k) {
     $v = (string) ($export['site'][$k] ?? '');
     if ($v !== '') $identitate[$k] = $schimba($v);
 }

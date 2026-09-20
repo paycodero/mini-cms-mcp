@@ -56,7 +56,7 @@ function unelte(): array
                         'HTML-ul trece printr-o listă de etichete permise; ce se scoate apare în "curatari" la răspuns.',
                         'Titlul elementului devine <h1>; în conținut începe cu <h2>.',
                         'Fiecare apel, inclusiv citirile, e scris în jurnal.',
-                        'Numele, descrierea, autorul, limba, culoarea, logo-ul și favicon-ul se schimbă cu seteaza_site, după acordul omului.',
+                        'Numele, descrierea, autorul, limba, culoarea, logo-ul, favicon-ul și tema se schimbă cu seteaza_site, după acordul omului.',
                         'Înainte de "publica", trimite-i omului linkul din previzualizeaza: vede pagina exact ca pe site.',
                         '"publica" cu "la" în viitor programează elementul: apare singur la ora aceea.',
                         'Când se schimbă adresa unui element, o redirecționare (redirectioneaza) duce vizitatorii de la adresa veche la cea nouă.',
@@ -65,6 +65,8 @@ function unelte(): array
                     'atribute_globale' => HTML_GLOBALE,
                     'iframe' => 'doar YouTube (youtube.com/embed, youtube-nocookie.com/embed) și Vimeo (player.vimeo.com/video)',
                     'imagini_acceptate' => 'JPEG, PNG, GIF, WebP, cel mult 5 MB; SVG nu',
+                    'teme' => ['disponibile' => teme_disponibile(), 'activa' => tema_activa(),
+                               'nota' => 'Aspectul site-ului. Se alege cu seteaza_site (tema); "" = aspectul implicit. Temele noi le pune omul pe server.'],
                 ];
             },
         ],
@@ -190,7 +192,7 @@ function unelte(): array
             'scriere' => true, 'titlu' => 'Setează numele și descrierea site-ului',
             'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
             'descriere' => 'Schimbă identitatea site-ului: numele (antet, titluri, feed), descrierea (Google, feed, llms.txt), '
-                . 'autorul implicit al articolelor, limba și culoarea de accent. Trimite doar câmpurile care se schimbă. '
+                . 'autorul implicit al articolelor, limba, culoarea de accent și tema (aspectul). Trimite doar câmpurile care se schimbă. '
                 . 'Schimbarea apare imediat pe tot site-ul; valorile anterioare se păstrează ca versiune și apar în răspuns.',
             'schema' => schema_obiect([
                 'nume' => ['type' => 'string', 'maxLength' => 80],
@@ -200,6 +202,8 @@ function unelte(): array
                 'culoare' => ['type' => 'string', 'pattern' => '^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$', 'description' => 'culoarea de accent, ex. "#6d2be8"'],
                 'logo' => ['type' => 'string', 'description' => 'sigla din antet: adresa /media/... întoarsă de urca_imagine; "" = fără logo'],
                 'favicon' => ['type' => 'string', 'description' => 'iconița din tab: adresa /media/... a unei imagini pătrate (PNG); "" = fără'],
+                'tema' => ['type' => 'string', 'enum' => array_merge([''], teme_disponibile()),
+                           'description' => 'aspectul site-ului: una dintre temele din despre_site; "" = aspectul implicit'],
             ]),
             'fn' => fn(array $a) => seteaza_identitate($a),
         ],

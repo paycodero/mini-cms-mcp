@@ -23,6 +23,8 @@
 <?php if ((string) config('site.favicon') !== ''): ?><link rel="icon" href="<?= esc(config('site.favicon')) ?>">
 <?php endif; ?>
 <link rel="stylesheet" href="/assets/stil.css?v=<?= (int) @filemtime(dirname(__DIR__) . '/assets/stil.css') ?>">
+<?php if (($tema = tema_activa()) !== ''): ?><link rel="stylesheet" href="/assets/teme/<?= esc($tema) ?>.css?v=<?= (int) @filemtime(dirname(__DIR__) . "/assets/teme/$tema.css") ?>">
+<?php endif; ?>
 <link rel="alternate" type="application/rss+xml" title="<?= esc(config('site.nume')) ?>" href="/feed.xml">
 <style nonce="<?= esc($nonce) ?>">:root{--accent:<?= culoare_accent() ?>}</style>
 <?php if ($jsonld): ?><script type="application/ld+json" nonce="<?= esc($nonce) ?>"><?= json_encode($jsonld, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>

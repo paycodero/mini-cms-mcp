@@ -192,6 +192,30 @@ verifica('Site', 'a doua schimbare păstrează versiunea anterioară', !$u['eroa
 $u = unealta($ks, 'seteaza_site', ['autor' => 'Autor Nou']);
 verifica('Site', 'aceleași valori de două ori → "neschimbat"', ($u['date']['operatie'] ?? '') === 'neschimbat', $u['text']);
 
+// --- teme: foi de stil puse de om, alese de AI --------------------------------------------------
+$u = unealta($kc, 'despre_site');
+verifica('Teme', 'despre_site arată temele de pe server și că niciuna nu e aleasă', in_array('simpluspv', $u['date']['teme']['disponibile'] ?? [], true)
+    && ($u['date']['teme']['activa'] ?? null) === '', $u['text']);
+$link_tema = '<link rel="stylesheet" href="/assets/teme/simpluspv.css?v=';
+verifica('Teme', 'fără temă, pagina încarcă doar foaia implicită', strpos(cerere('GET', '/')['corp'], '/assets/teme/') === false);
+$u = unealta($ks, 'seteaza_site', ['tema' => 'simpluspv']);
+$r = cerere('GET', '/');
+verifica('Teme', 'seteaza_site alege tema; pagina o încarcă după foaia implicită', !$u['eroare'] && ($u['date']['site']['tema'] ?? '') === 'simpluspv'
+    && strpos($r['corp'], $link_tema) > strpos($r['corp'], '/assets/stil.css'), $u['text']);
+$u = unealta($ks, 'seteaza_site', ['tema' => '../stil']);
+$u2 = unealta($ks, 'seteaza_site', ['tema' => 'nu-exista']);
+verifica('Securitate', 'tema poate fi doar una dintre foile de pe server (nici cale, nici nume inventat)', $u['eroare'] && $u2['eroare']
+    && strpos($u2['text'], '"simpluspv"') !== false && strpos(cerere('GET', '/')['corp'], $link_tema) !== false, $u['text'] . ' / ' . $u2['text']);
+rename("$tmp/site/assets/teme/simpluspv.css", "$tmp/site/assets/teme/simpluspv.scos");
+$r = cerere('GET', '/');
+rename("$tmp/site/assets/teme/simpluspv.scos", "$tmp/site/assets/teme/simpluspv.css");
+verifica('Teme', 'o temă aleasă dar scoasă de pe server nu strică pagina: revine aspectul implicit', $r['cod'] === 200 && strpos($r['corp'], '/assets/teme/') === false);
+$u = unealta($ks, 'seteaza_site', ['tema' => '']);
+$u2 = unealta($ks, 'seteaza_site', ['tema' => 'simpluspv']);
+verifica('Teme', 'tema se scoate cu "" și se pune la loc', !$u['eroare'] && ($u['date']['site']['tema'] ?? null) === '' && !$u2['eroare'], $u['text']);
+$r = cerere('GET', '/assets/teme/simpluspv/hanken-grotesk-latin.woff2');
+verifica('Teme', 'fonturile temei se servesc de pe site (CSP: font-src \'self\')', $r['cod'] === 200 && substr($r['corp'], 0, 4) === 'wOF2', "cod {$r['cod']}");
+
 $u = unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'primul-articol', 'titlu' => 'Primul articol', 'descriere' => 'Descriere scurtă.',
     'continut_html' => '<h2>Început</h2><p>Text cu diacritice: ă î â ș ț Ă Î Â Ș Ț.</p>', 'etichete' => ['Decizii', 'Timp']]);
 verifica('Conținut', 'articol nou → creat ca ciornă', !$u['eroare'] && ($u['date']['element']['stare'] ?? '') === 'ciorna', $u['text']);
@@ -661,6 +685,7 @@ $refacut = $rp['cod'] === 0 && cerere('GET', '/sedinta-de-luni')['cod'] === 200 
 $url = $url_principal;
 verifica('Export', 'copia pusă pe un site gol îl reface: elemente, stări, date, autori, identitate, imagini cu aceleași adrese, redirecționări',
     $refacut, $rp['iesire']);
+verifica('Export', 'copia păstrează și tema aleasă', strpos($acasa2['corp'], '/assets/teme/simpluspv.css') !== false);
 $rp2 = unealta_locala('copie.php', [$url2, '--local', "--dosar=$inst", "--pune=$dosar_copie"]);
 verifica('Export', 'peste un site cu conținut, copia nu se pune fără --peste', $rp2['cod'] === 1 && strpos($rp2['iesire'], '--peste') !== false, $rp2['iesire']);
 rename("$inst/server/app/config.php", "$inst/server/app/config.scos");

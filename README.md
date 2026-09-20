@@ -6,7 +6,7 @@ Un CMS mic pentru site-uri de câteva pagini și un blog, administrat de un asis
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache/cPanel). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Circa 2.450 de rânduri PHP pe server, plus teste automate (156 de verificări, inclusiv instalarea, copia de siguranță și OAuth cap-coadă).
+- Circa 2.480 de rânduri PHP pe server, plus teste automate (164 de verificări, inclusiv instalarea, copia de siguranță și OAuth cap-coadă).
 - Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
 - Instalarea: o comandă pe calculator și un zip urcat în cPanel.
 
@@ -18,7 +18,8 @@ site/                    ← se urcă pe server, ca rădăcină a site-ului
   mcp.php                punctul de intrare pentru AI  →  https://site/mcp
   jurnal.php             jurnalul, pentru om (cheia se trimite prin formular)
   .htaccess              reguli Apache (doar mod_rewrite și mod_headers, în IfModule)
-  assets/stil.css
+  assets/stil.css        aspectul implicit
+  assets/teme/           teme alese cu seteaza_site: <nume>.css + fonturile în <nume>/ (ex. simpluspv)
   app/                   codul (blocat din web)
   sabloane/              șabloanele HTML (blocate din web)
   date/                  creat automat: pagini, articole, versiuni, jurnal (blocat din web)
@@ -62,6 +63,17 @@ fi modificat prin MCP; ajunge pe server o singură dată, în pachetul urcat de 
 
 Dacă folderul avea deja un `.htaccess` pus de cPanel (MultiPHP), după Extract alegi din nou versiunea de PHP în
 MultiPHP Manager, ca cPanel să-și rescrie blocul.
+
+## Teme
+
+O temă e o foaie de stil pusă de om în `site/assets/teme/<nume>.css`, cu fonturile ei în `site/assets/teme/<nume>/`
+(găzduite pe site: CSP-ul permite fonturi doar de pe același domeniu). Se încarcă după `assets/stil.css` și schimbă doar
+aspectul, pe același HTML. AI-ul vede temele în `despre_site` și alege una cu `seteaza_site` (`tema`, `""` = aspectul
+implicit); nu poate scrie CSS. O temă aleasă dar scoasă de pe server e ignorată, fără eroare.
+
+Tema `simpluspv` copiază blogul de pe simpluspv.eu (Bricolage Grotesque, Hanken Grotesk, Newsreader, toate sub SIL OFL 1.1).
+Culoarea principală rămâne cea din identitate. Știe și două clase din articolele de acolo: `p.aerisit` (spațiu mai mare
+după paragraf) și `img.ingust` (captură de telefon, 340 px, centrată), plus containerul video `div.cai-video`.
 
 ## Copia de siguranță
 
@@ -130,7 +142,7 @@ Conectorul din claude.ai (web, telefon) cere OAuth, care e în lucru (vezi mai j
 | `exporta` | citire | tot conținutul, pentru copia de siguranță (vezi `unelte/copie.php`) |
 | `listeaza_conexiuni` | citire | aplicațiile legate prin OAuth (conectorul claude.ai): cine, cu ce drepturi, dacă au acces acum |
 | `salveaza` | scriere | creează (ca ciornă) sau modifică o pagină ori un articol |
-| `seteaza_site` | scriere | numele, descrierea, autorul, limba, culoarea, logo-ul și favicon-ul; păstrează versiunea anterioară |
+| `seteaza_site` | scriere | numele, descrierea, autorul, limba, culoarea, logo-ul, favicon-ul și tema; păstrează versiunea anterioară |
 | `publica` / `retrage` | scriere | pune pe site / scoate de pe site (rămâne ciornă); `publica` cu `la` în viitor programează, în trecut păstrează data |
 | `retrage_conexiune` | scriere | anulează accesul unei aplicații legate prin OAuth |
 | `redirectioneaza` | scriere | adresă veche → adresă nouă de pe site, 301 (doar când la adresa veche nu mai e nimic); `la` gol o scoate |
