@@ -32,7 +32,9 @@
 <?php if (($e['autor'] ?? '') !== ''): ?><meta name="author" content="<?= esc($e['autor']) ?>">
 <?php endif; ?><?php foreach ($e['etichete'] ?? [] as $t_og): ?><meta property="article:tag" content="<?= esc($t_og) ?>">
 <?php endforeach; ?><?php endif; ?>
+<meta name="theme-color" content="<?= esc(culoare_accent()) ?>">
 <?php if ((string) config('site.favicon') !== ''): ?><link rel="icon" href="<?= esc(config('site.favicon')) ?>">
+<link rel="apple-touch-icon" href="<?= esc(config('site.favicon')) ?>">
 <?php endif; ?>
 <link rel="stylesheet" href="/assets/stil.css?v=<?= (int) @filemtime(dirname(__DIR__) . '/assets/stil.css') ?>">
 <?php if (($tema = tema_activa()) !== ''): ?><link rel="stylesheet" href="/assets/teme/<?= esc($tema) ?>.css?v=<?= (int) @filemtime(dirname(__DIR__) . "/assets/teme/$tema.css") ?>">

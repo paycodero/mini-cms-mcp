@@ -25,6 +25,7 @@ function ruleaza_site(): void
     if ($cale === '/llms.txt') { fisier_llms(); return; }
     if ($cale === '/cauta') { pagina_cautare(); return; }
     if (preg_match('#^/([a-f0-9]{32})\.txt$#', $cale, $m)) { fisier_indexnow($m[1]); return; }   // dovada pentru IndexNow (Bing)
+    if ($cale === '/favicon.ico' || $cale === '/apple-touch-icon.png' || $cale === '/apple-touch-icon-precomposed.png') { fisier_favicon(); return; }
     if (preg_match('#^/previzualizare/([a-z0-9]+(?:-[a-z0-9]+)*)$#', $cale, $m)) { pagina_previzualizare($m[1]); return; }
     if (preg_match('#^/eticheta/([a-z0-9-]{1,60})$#', $cale, $m)) { pagina_lista($m[1]); return; }
     if (preg_match('#^/([a-z0-9]+(?:-[a-z0-9]+)*)$#', $cale, $m)) { pagina_element($m[1]); return; }
@@ -399,6 +400,16 @@ function fisier_feed(): void
 const ROBOTI = ['Googlebot', 'Googlebot-Image', 'Google-Extended', 'Bingbot', 'msnbot', 'Slurp', 'DuckDuckBot',
     'Applebot', 'Applebot-Extended', 'GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-User', 'Claude-SearchBot',
     'anthropic-ai', 'PerplexityBot', 'Perplexity-User', 'Gemini-Deep-Research', 'CCBot', 'Amazonbot', 'meta-externalagent', 'YandexBot'];
+
+// Boții și browserele vechi cer /favicon.ico fără să se uite în pagină; iOS cere /apple-touch-icon.png.
+// Nu punem fișiere în rădăcină (AI-ul n-are voie să scrie acolo): trimitem spre iconița din /media/.
+function fisier_favicon(): void
+{
+    $f = (string) config('site.favicon');
+    if ($f === '') { pagina_eroare(404); return; }
+    header('Location: ' . $f, true, 301);
+    header('Cache-Control: public, max-age=86400');
+}
 
 function fisier_indexnow(string $cerut): void
 {

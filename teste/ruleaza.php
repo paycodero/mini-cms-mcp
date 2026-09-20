@@ -492,6 +492,14 @@ $r = cerere('GET', '/');
 verifica('Site', 'logo în antet, favicon în tab, logo ca imagine de distribuire pe prima pagină', !$u['eroare']
     && strpos($r['corp'], 'class="sigla" href="/"><img src="' . $url_img . '"') !== false && strpos($r['corp'], '<link rel="icon" href="' . $url_img . '"') !== false
     && strpos($r['corp'], 'og:image" content="' . $url . $url_img . '"') !== false, $u['text']);
+verifica('SEO', 'iconița merge și pe telefon (apple-touch-icon) și dă culoarea barei de browser',
+    strpos($r['corp'], '<link rel="apple-touch-icon" href="' . $url_img . '"') !== false
+    && strpos($r['corp'], '<meta name="theme-color"') !== false);
+foreach (['/favicon.ico', '/apple-touch-icon.png'] as $c_icon) {
+    $r = cerere('GET', $c_icon);
+    verifica('SEO', "$c_icon trimite spre iconița site-ului (boții o cer fără să citească pagina)",
+        $r['cod'] === 301 && ($r['antete']['location'] ?? '') === $url_img, "cod {$r['cod']} " . ($r['antete']['location'] ?? ''));
+}
 $u = unealta($ks, 'seteaza_site', ['logo' => '/media/nu-exista-12345678.png']);
 $u2 = unealta($ks, 'seteaza_site', ['logo' => 'https://site-rau.example/x.png']);
 verifica('Site', 'logo-ul trebuie să fie o imagine urcată pe site', $u['eroare'] && $u2['eroare'], $u['text'] . ' / ' . $u2['text']);
