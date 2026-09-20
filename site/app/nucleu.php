@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 if (!defined('MINICMS')) { http_response_code(403); exit; }
 
-const MINICMS_VERSIUNE = '0.9.1';
+const MINICMS_VERSIUNE = '0.10.0';
 
 ini_set('display_errors', '0');   // un avertisment afișat ar strica JSON-ul MCP și ar scurge căi de pe server
 error_reporting(E_ALL);
@@ -17,7 +17,7 @@ class EroareCms extends RuntimeException {}   // eroare de validare, cu mesaj bu
 
 // Identitatea site-ului e conținut: AI-ul o schimbă cu seteaza_site, iar valorile stau în date/site.json.
 // Ce scrie în config.php e doar punctul de plecare. Adresa (url) și cheile rămân numai în config.php.
-const CAMPURI_IDENTITATE = ['nume', 'descriere', 'limba', 'autor', 'culoare', 'logo', 'favicon', 'tema', 'legaturi'];
+const CAMPURI_IDENTITATE = ['nume', 'descriere', 'limba', 'autor', 'culoare', 'logo', 'favicon', 'tema', 'legaturi', 'ga4'];
 const CAMPURI_LISTA = ['legaturi'];   // câmpurile de identitate care sunt liste, nu text
 
 function config(string $cale = '')
@@ -30,7 +30,7 @@ function config(string $cale = '')
         if (!is_array($dat)) oprire(503, 'app/config.php trebuie să întoarcă un array.');
         $implicit = [
             'site' => ['nume' => '', 'descriere' => '', 'url' => '', 'limba' => 'ro', 'autor' => '', 'culoare' => '#6d2be8',
-                       'logo' => '', 'favicon' => '', 'tema' => '', 'legaturi' => []],
+                       'logo' => '', 'favicon' => '', 'tema' => '', 'legaturi' => [], 'ga4' => ''],
             'chei' => ['citire' => '', 'scriere' => '', 'cod' => ''],
             'depozit' => 'paycodero/mini-cms-mcp',   // de unde își ia site-ul versiunea nouă, când i-o ceri tu
             'depozit_ramura' => 'main',
@@ -265,6 +265,14 @@ function csp_pagina(string $nonce, array $extra = []): string
         'form-action' => ["'self'"],
         'frame-ancestors' => ["'none'"],
     ];
+    // Măsurarea (GA4) își aduce singură sursele de care are nevoie, și numai dacă e pornită. Fără ea, nimic în plus.
+    if ((string) config('site.ga4') !== '') {
+        $extra = array_merge_recursive($extra, [
+            'script-src' => ['https://www.googletagmanager.com'],
+            'img-src' => ['https://www.googletagmanager.com'],
+            'connect-src' => ['https://*.google-analytics.com', 'https://*.analytics.google.com', 'https://www.googletagmanager.com'],
+        ]);
+    }
     foreach (array_merge_recursive((array) config('csp_extra'), $extra) as $directiva => $lista) {
         if (isset($surse[$directiva])) $surse[$directiva] = array_merge($surse[$directiva], (array) $lista);
     }

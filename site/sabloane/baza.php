@@ -33,6 +33,11 @@
 <?php endif; ?><?php foreach ($e['etichete'] ?? [] as $t_og): ?><meta property="article:tag" content="<?= esc($t_og) ?>">
 <?php endforeach; ?><?php endif; ?>
 <meta name="theme-color" content="<?= esc(culoare_accent()) ?>">
+<?php // Măsurarea: doar pe paginile publice. Jurnalul, actualizarea, previzualizările și aprobările nu se numără.
+if ((string) config('site.ga4') !== '' && !$noindex): $ga4 = (string) config('site.ga4'); ?>
+<script async nonce="<?= esc($nonce) ?>" src="https://www.googletagmanager.com/gtag/js?id=<?= rawurlencode($ga4) ?>"></script>
+<script nonce="<?= esc($nonce) ?>">window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','<?= esc($ga4) ?>');</script>
+<?php endif; ?>
 <?php if ((string) config('site.favicon') !== ''): ?><link rel="icon" href="<?= esc(config('site.favicon')) ?>">
 <link rel="apple-touch-icon" href="<?= esc(config('site.favicon')) ?>">
 <?php endif; ?>

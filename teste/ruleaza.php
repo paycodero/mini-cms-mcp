@@ -758,6 +758,36 @@ verifica('Jurnal', 'pagina jurnalului se deschide cu cheia de citire', $r['cod']
 $r = cerere('GET', '/jurnal.php?cheie=' . $kc);
 verifica('Jurnal', 'cheia pusă în adresă (GET) nu deschide jurnalul', $r['cod'] === 200 && strpos($r['corp'], 'Lanțul') === false);
 
+// --- măsurarea cu GA4 (0.10): doar identificatorul, codul îl compune site-ul ---------------------
+
+$u = unealta($ks, 'seteaza_site', ['ga4' => '<script>alert(1)</script>']);
+verifica('Securitate', 'la „ga4" nu se poate trimite cod, doar identificatorul', $u['eroare'], $u['text']);
+$u = unealta($ks, 'seteaza_site', ['ga4' => 'UA-12345-1']);
+verifica('Securitate', 'un identificator care nu e GA4 e refuzat', $u['eroare'], $u['text']);
+
+$u = unealta($ks, 'seteaza_site', ['ga4' => 'G-PROBA12345']);
+$r = cerere('GET', '/');
+$nonce_pagina = preg_match('/<script nonce="([^"]+)">window\.dataLayer/', $r['corp'], $mn) ? $mn[1] : '';
+verifica('Măsurare', 'eticheta GA4 apare pe paginile publice, cu nonce, nu ca script liber',
+    !$u['eroare'] && strpos($r['corp'], 'googletagmanager.com/gtag/js?id=G-PROBA12345') !== false
+    && $nonce_pagina !== '' && strpos($r['corp'], "gtag('config','G-PROBA12345')") !== false, $u['text']);
+$csp_ga = $r['antete']['content-security-policy'] ?? '';
+verifica('Măsurare', 'CSP primește singur sursele de care are nevoie măsurarea, fără unsafe-inline',
+    strpos($csp_ga, 'script-src') !== false && strpos($csp_ga, 'https://www.googletagmanager.com') !== false
+    && strpos($csp_ga, 'https://*.google-analytics.com') !== false && strpos($csp_ga, 'unsafe-inline') === false, $csp_ga);
+
+$r = cerere('POST', '/jurnal.php', http_build_query(['cheie' => $kc]), ['Content-Type' => 'application/x-www-form-urlencoded']);
+$r2 = cerere('GET', '/cauta?q=test');
+verifica('Măsurare', 'paginile care nu se indexează (jurnal, căutare) nu se măsoară',
+    strpos($r['corp'], 'googletagmanager') === false && strpos($r2['corp'], 'googletagmanager') === false);
+
+$u = unealta($ks, 'seteaza_site', ['ga4' => '']);
+$r = cerere('GET', '/');
+$csp_fara = $r['antete']['content-security-policy'] ?? '';
+verifica('Măsurare', 'fără identificator nu se încarcă nimic și CSP-ul rămâne strâns',
+    !$u['eroare'] && strpos($r['corp'], 'googletagmanager') === false
+    && strpos($csp_fara, 'googletagmanager') === false, $csp_fara);
+
 // --- actualizarea codului de pe depozit (0.9) ----------------------------------------------------
 
 elibereaza();

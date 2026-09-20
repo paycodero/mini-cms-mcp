@@ -205,6 +205,9 @@ function unelte(): array
                 'favicon' => ['type' => 'string', 'description' => 'iconița din tab: adresa /media/... a unei imagini pătrate (PNG); "" = fără'],
                 'tema' => ['type' => 'string', 'enum' => array_merge([''], teme_disponibile()),
                            'description' => 'aspectul site-ului: una dintre temele din despre_site; "" = aspectul implicit'],
+                'ga4' => ['type' => 'string', 'pattern' => '^(G-[A-Z0-9]{6,14})?$',
+                    'description' => 'identificatorul Google Analytics 4, ex. "G-798XLP278H"; site-ul compune singur eticheta, '
+                        . 'cu nonce și cu sursele adăugate în CSP. Se trimite DOAR identificatorul, niciodată cod. "" = fără măsurare'],
                 'legaturi' => ['type' => 'array', 'maxItems' => 15,
                     'description' => 'celelalte site-uri și conturi ale aceluiași autor: apar în subsol, pe fiecare pagină, '
                         . 'și în datele structurate ca "sameAs" (așa știu Google și Bing că sunt ale aceleiași entități). '

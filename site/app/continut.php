@@ -359,6 +359,15 @@ function seteaza_identitate(array $campuri): array
         if ($nou[$k] !== '' && !is_file(dir_media() . '/' . basename($nou[$k]))) throw new EroareCms("imaginea {$nou[$k]} nu există — urc-o întâi cu urca_imagine");
     }
     if (array_key_exists('legaturi', $campuri)) $nou['legaturi'] = legaturi_valide($campuri['legaturi'] ?? []);
+    if (array_key_exists('ga4', $campuri)) {
+        // Doar identificatorul, nu cod. Site-ul compune singur eticheta, cu nonce-ul paginii: așa se poate măsura
+        // traficul fără ca AI-ul să poată pune vreodată JavaScript în pagină.
+        $nou['ga4'] = strtoupper(trim((string) ($campuri['ga4'] ?? '')));
+        if ($nou['ga4'] !== '' && !preg_match('/^G-[A-Z0-9]{6,14}$/', $nou['ga4'])) {
+            throw new EroareCms('"ga4" e identificatorul de măsurare Google Analytics 4, ex. "G-798XLP278H" (gol = fără măsurare). '
+                . 'Nu se trimite eticheta de script, doar identificatorul.');
+        }
+    }
     if (array_key_exists('tema', $campuri)) {
         $nou['tema'] = trim((string) ($campuri['tema'] ?? ''));
         $teme = teme_disponibile();
