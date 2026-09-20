@@ -137,8 +137,8 @@ function imagine_valida($v): string
         if (!is_file(dir_media() . '/' . $m[1])) throw new EroareCms("imaginea $v nu există — urc-o întâi cu urca_imagine");
         return $v;
     }
-    if (url_sigur($v, false, ['https'])) return $v;
-    throw new EroareCms('"imagine" trebuie să fie o adresă /media/... întoarsă de urca_imagine sau un URL https');
+    // Doar imagini de pe acest site: o copertă de pe alt domeniu ar trimite adresa IP a fiecărui vizitator acolo.
+    throw new EroareCms('"imagine" e o adresă /media/... întoarsă de urca_imagine (imaginile de pe alte domenii nu se acceptă)');
 }
 
 function salveaza_element(string $tip, string $slug, array $campuri): array
@@ -460,9 +460,14 @@ function model_fara_diacritice(string $cuvant): string
     return $r;
 }
 
+// Căutarea vizitatorilor e singura pagină publică ce scanează tot conținutul, deci are un plafon:
+// primii 200 KB dintr-un element. Altfel, câteva articole foarte lungi ar transforma /cauta în pârghie de CPU.
+const CAUTARE_MAX_OCTETI = 200000;
+
 function text_simplu_element(array $e): string
 {
-    return trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace('<', ' <', (string) ($e['continut_html'] ?? ''))),
+    $html = substr((string) ($e['continut_html'] ?? ''), 0, CAUTARE_MAX_OCTETI);
+    return trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags(str_replace('<', ' <', $html)),
         ENT_QUOTES | ENT_HTML5, 'UTF-8')));
 }
 

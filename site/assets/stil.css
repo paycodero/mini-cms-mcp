@@ -97,6 +97,9 @@ h3{font-size:20px;margin:28px 0 8px}
 .aplicatia ul{padding-left:20px}
 .aplicatia li{margin-bottom:6px}
 .aplicatia .mic{font-size:14.5px;color:var(--text-slab);margin:8px 0 0}
+.detalii-client{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:10px 0 14px;font-size:14.5px}
+.detalii-client dt{color:var(--text-slab)}
+.detalii-client dd{margin:0;word-break:break-all}
 .butoane{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
 .buton-gol{background:var(--fond);color:var(--text);border:2px solid var(--linie)}
 

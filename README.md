@@ -6,7 +6,7 @@ Un CMS mic pentru site-uri de câteva pagini și un blog, administrat de un asis
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache/cPanel). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Circa 2.480 de rânduri PHP pe server, plus teste automate (164 de verificări, inclusiv instalarea, copia de siguranță și OAuth cap-coadă).
+- Circa 2.560 de rânduri PHP pe server, plus teste automate (177 de verificări, inclusiv instalarea, copia de siguranță și OAuth cap-coadă).
 - Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
 - Instalarea: o comandă pe calculator și un zip urcat în cPanel.
 
@@ -101,10 +101,24 @@ moment cheile vechi nu mai merg. Apoi `--verifica`, care înlocuiește și cheia
 
 ## Conectorul din claude.ai (web și telefon)
 
-În claude.ai: **Settings → Connectors → Add custom connector**, cu adresa `https://site/mcp`. Claude se înregistrează singur la
-site și deschide pagina de aprobare a site-ului: acolo introduci **cheia de scriere** (sau pe cea de citire, pentru acces doar
-de citire) și apeși *Permite*. De acolo, Claude primește token-uri temporare; conectorul apare și în aplicația de telefon.
+Legarea se face într-o **fereastră deschisă de tine**, de pe calculator (din 0.6 — înainte, oricine putea porni o aprobare pe
+site-ul tău, cu numele „Claude", și dacă o aprobai primea el token-urile):
 
+```
+php unelte/instaleaza.php https://site.ro --oauth
+```
+
+Comanda cere serverului, cu cheia de scriere, să deschidă înregistrarea 15 minute și îți arată în terminal un **cod de conectare**
+de 6 cifre. Apoi, în claude.ai: **Settings → Connectors → Add custom connector**, cu adresa `https://site/mcp`. Claude se
+înregistrează singur și deschide pagina de aprobare a site-ului: acolo introduci **codul din terminal** și **cheia de scriere**
+(sau pe cea de citire, pentru acces doar de citire) și apeși *Permite*. După aprobare fereastra se închide singură; o închizi mai
+devreme cu `--oauth --inchide`. De acolo, Claude primește token-uri temporare; conectorul apare și în aplicația de telefon.
+
+Reînnoirea token-urilor merge oricând, și cu fereastra închisă: o conexiune aprobată nu se rupe.
+
+- În afara ferestrei, `/oauth/inregistrare` și pagina de aprobare răspund „închis": un link de aprobare trimis de un străin nu
+  deschide nimic. Codul de 6 cifre e singurul lucru pe care nu-l poate avea cineva care îți citește codul sursă.
+- `'oauth' => 'deschis'` în `config.php` readuce purtarea din 0.5 (fără fereastră, fără cod), iar `false` scoate OAuth cu totul.
 - OAuth 2.1 cu PKCE (S256) obligatoriu, înregistrare automată a clientului (RFC 7591), descoperire prin
   `/.well-known/oauth-protected-resource` și `/.well-known/oauth-authorization-server`.
 - Codul de aprobare poate fi trimis doar spre `claude.ai`, `claude.com` sau calculatorul omului (`localhost`, pentru Claude Code);
@@ -161,7 +175,9 @@ Articolele programate apar singure la ora lor: nu e nevoie de sarcini programate
 - Nicio comandă nu scrie fișiere `.php`, șabloane, configurare sau jurnal. Conținutul stă în JSON, în `date/`.
 - HTML-ul trece printr-o listă de etichete și atribute permise, la scriere și la afișare. Se scot `script`, `style`, formulare, SVG, evenimentele `on*`, `javascript:`, iframe-urile care nu sunt YouTube/Vimeo. Răspunsul spune AI-ului ce s-a scos.
 - Două chei (citire / scriere). Pe server stau doar amprentele SHA-256, comparate cu `hash_equals`.
-- 8 încercări eșuate în 5 minute = IP blocat 15 minute, pe toate punctele de intrare.
+- 8 încercări eșuate în 5 minute = adresă blocată 15 minute, pe toate punctele de intrare. La IPv6 se blochează prefixul /64,
+  nu adresa exactă: cine are un bloc întreg nu trece prin plafon schimbând adresa la fiecare cerere.
+- Adresele care răspund fără cheie (fluxul OAuth) au și un plafon pe numărul de cereri, nu doar pe eșecuri.
 - Cererile din browser de pe alt site (antet `Origin` străin) sunt refuzate. Cererile peste 8 MB sunt refuzate înainte de a fi citite.
 - Înainte de orice modificare se salvează o versiune. Ștergerea mută fișierul între versiuni.
 - Paginile publice au Content-Security-Policy cu nonce (fără `unsafe-inline`), `nosniff`, `X-Frame-Options: DENY`.
@@ -177,6 +193,11 @@ Articolele programate apar singure la ora lor: nu e nevoie de sarcini programate
 Fiecare apel (citire, scriere, încercare eșuată, blocare) e un rând JSON în `date/jurnal/AAAA-LL.ndjson`: când, IP, cheie, comandă, țintă, rezultat, amprenta conținutului scris, durata. Fără rotație care să șteargă istoric.
 
 Fiecare rând poartă amprenta rândului anterior (lanț SHA-256): un rând modificat, scos sau adăugat pe dinafară rupe lanțul, iar verificarea arată unde. AI-ul poate citi jurnalul, nu îl poate modifica.
+
+Lanțul e **tamper-evident, nu tamper-proof**: prinde editarea sau ștergerea unui rând, dar cine are drept de scriere pe `date/`
+poate recalcula tot lanțul și rescrie `.lant`. Pentru dovadă în fața cuiva din afară, copiază periodic amprenta de final în altă
+parte. Adresele vizitatorilor care deschid linkuri de previzualizare se scriu trunchiate (ultimul octet la IPv4, prefixul /64 la
+IPv6). La 16 MB, fișierul lunii se arhivează singur sub un nume care îi păstrează locul în lanț.
 
 ## Teste
 

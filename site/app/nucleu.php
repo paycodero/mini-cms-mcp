@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 if (!defined('MINICMS')) { http_response_code(403); exit; }
 
-const MINICMS_VERSIUNE = '0.5.0';
+const MINICMS_VERSIUNE = '0.6.0';
 
 ini_set('display_errors', '0');   // un avertisment afișat ar strica JSON-ul MCP și ar scurge căi de pe server
 error_reporting(E_ALL);
@@ -37,6 +37,8 @@ function config(string $cale = '')
             'cloudflare' => 'auto',   // IP-ul real din CF-Connecting-IP, doar când cererea vine din rețeaua Cloudflare
             'hsts' => 'auto',         // antetul HSTS pe orice răspuns servit prin https
             'csp_extra' => [],
+            'oauth' => 'fereastra',   // 'fereastra' = înregistrarea și aprobarea merg doar în fereastra deschisă de om
+                                      // (cu --oauth, cod de 6 cifre în terminal) · 'deschis' = ca în 0.5 · false = fără OAuth
             'oauth_gazde' => [],      // gazde https în plus la care OAuth poate trimite codul (implicit: claude.ai, claude.com, localhost)
             'articole_pe_pagina' => 12,
         ];

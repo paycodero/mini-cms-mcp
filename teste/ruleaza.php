@@ -261,6 +261,8 @@ $rau = '<?php file_put_contents("pwn.txt", "RCE"); echo "RCE-EXECUTAT"; ?>'
     . '<iframe src="https://site-rau.example/"></iframe><svg onload="alert(5)"><circle/></svg>'
     . '<p style="background:url(javascript:alert(6))" onclick="alert(7)">stil</p><form action="https://x.example"><input name="p"></form>'
     . '<h1>Titlu în conținut</h1><iframe src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"></iframe>'
+    . '<iframe src="https://www.youtube.com/embed/abcdefghijk" allow="camera; microphone; fullscreen"></iframe>'
+    . '<img src="y.png" alt="Poză de probă" loading="lazy">'
     . '<a href="https://exemplu.ro" target="_blank">extern</a>';
 $u = unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'atac', 'titlu' => 'Atac', 'continut_html' => $rau]);
 unealta($ks, 'publica', ['tip' => 'pagina', 'slug' => 'atac']);
@@ -275,6 +277,11 @@ verifica('Securitate', 'scoase: <script>, on*, javascript:, //alt-site, SVG, sty
 verifica('Securitate', 'păstrate: textul, imaginea, videoclipul YouTube', strpos($salvat, 'Text bun') !== false && strpos($salvat, '<img src="x.png">') !== false
     && strpos($salvat, 'youtube-nocookie.com/embed/dQw4w9WgXcQ') !== false, $salvat);
 verifica('Securitate', 'link cu target=_blank primește rel="noopener noreferrer"', strpos($salvat, 'rel="noopener noreferrer"') !== false);
+verifica('Securitate', 'iframe-ul nu poate cere camera sau microfonul (atributul allow e curățat)',
+    stripos($salvat, 'camera') === false && stripos($salvat, 'microphone') === false && strpos($salvat, 'youtube.com/embed/abcdefghijk') !== false, $salvat);
+verifica('Conținut', 'textul alternativ al imaginii (alt) se păstrează', strpos($salvat, 'alt="Poză de probă"') !== false, $salvat);
+$u_cop = unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'primul-articol', 'imagine' => 'https://alt-domeniu.example/urmarire.png']);
+verifica('Securitate', 'coperta de pe alt domeniu e refuzată (ar trimite IP-ul vizitatorilor acolo)', $u_cop['eroare'], $u_cop['text']);
 verifica('Conținut', '<h1> din conținut devine <h2> (h1 e titlul)', strpos($salvat, '<h2>Titlu în conținut</h2>') !== false);
 verifica('Securitate', 'răspunsul spune AI-ului ce s-a scos ("curatari")', count($u['date']['curatari'] ?? []) >= 8, $u['text']);
 
@@ -429,6 +436,9 @@ verifica('Export', 'copie.php salvează copia pe calculator: export.json și ima
 
 // --- OAuth: conectorul din claude.ai --------------------------------------------------------------
 
+// Testele fac zeci de cereri OAuth la rând, mult peste ce face un client real; contorul de cereri
+// fără cheie se eliberează între blocuri, ca să nu se blocheze singure. Plafonul are testul lui, mai jos.
+function elibereaza(): void { @unlink($GLOBALS['tmp'] . '/site/date/securitate/incercari.json'); }
 function b64url(string $b): string { return rtrim(strtr(base64_encode($b), '+/', '-_'), '='); }
 function formular(array $d): array { return [http_build_query($d), ['Content-Type' => 'application/x-www-form-urlencoded']]; }
 function autorizare(string $client, string $intoarcere, string $provocare, array $in_plus = []): array
@@ -436,9 +446,10 @@ function autorizare(string $client, string $intoarcere, string $provocare, array
     return $in_plus + ['response_type' => 'code', 'client_id' => $client, 'redirect_uri' => $intoarcere, 'state' => 'st4te',
                        'code_challenge' => $provocare, 'code_challenge_method' => 'S256', 'resource' => $GLOBALS['url'] . '/mcp'];
 }
-function aproba(string $client, string $intoarcere, string $provocare, string $cheie): array
+function aproba(string $client, string $intoarcere, string $provocare, string $cheie, ?string $cod_conectare = null): array
 {
-    [$corp, $ant] = formular(autorizare($client, $intoarcere, $provocare) + ['cheie' => $cheie, 'decizie' => 'permite']);
+    $cod_conectare = $cod_conectare ?? (string) ($GLOBALS['COD'] ?? '');
+    [$corp, $ant] = formular(autorizare($client, $intoarcere, $provocare) + ['cheie' => $cheie, 'decizie' => 'permite', 'cod_conectare' => $cod_conectare]);
     $r = cerere('POST', '/oauth/autorizare', $corp, $ant);
     parse_str((string) parse_url($r['antete']['location'] ?? '', PHP_URL_QUERY), $q);
     return ['r' => $r, 'q' => $q, 'cod' => (string) ($q['code'] ?? '')];
@@ -451,6 +462,7 @@ function token(array $d): array
     return $r;
 }
 
+elibereaza();
 $prm = json_decode(cerere('GET', '/.well-known/oauth-protected-resource')['corp'], true) ?? [];
 $asm = json_decode(cerere('GET', '/.well-known/oauth-authorization-server')['corp'], true) ?? [];
 verifica('OAuth', 'descoperirea: resursa /mcp, serverul de autorizare, înregistrare, PKCE S256', ($prm['resource'] ?? '') === "$url/mcp"
@@ -458,6 +470,32 @@ verifica('OAuth', 'descoperirea: resursa /mcp, serverul de autorizare, înregist
     && ($asm['registration_endpoint'] ?? '') === "$url/oauth/inregistrare" && ($asm['code_challenge_methods_supported'] ?? []) === ['S256'], json_encode([$prm, $asm]));
 
 $claude = 'https://claude.ai/api/mcp/auth_callback';
+
+// 0.6: fereastra de conectare. Fără ea, un străin care citește codul sursă nu poate nici să se înregistreze,
+// nici să deschidă pagina care cere cheia — adică nu-ți poate trimite un link de aprobare care arată legitim.
+function fereastra_test(string $cheie, int $minute = 15): array
+{
+    $r = cerere('POST', '/oauth/deschide', json_encode(['minute' => $minute]), ['Authorization' => 'Bearer ' . $cheie]);
+    $r['json'] = json_decode($r['corp'], true) ?? [];
+    return $r;
+}
+$r = cerere('POST', '/oauth/inregistrare', json_encode(['client_name' => 'Claude', 'redirect_uris' => [$claude]]));
+verifica('Securitate', 'OAuth: fără fereastră deschisă de om, nimeni nu se poate înregistra', $r['cod'] === 403
+    && strpos($r['corp'], 'access_denied') !== false, $r['corp']);
+$r = cerere('GET', '/oauth/autorizare?' . http_build_query(['response_type' => 'code', 'client_id' => 'mcms_k_oricare']));
+verifica('Securitate', 'OAuth: fără fereastră, nici pagina care cere cheia nu se deschide', $r['cod'] === 400
+    && strpos($r['corp'], 'nu e deschisă acum') !== false, "cod {$r['cod']}");
+$r = fereastra_test($kc);
+verifica('Securitate', 'OAuth: fereastra nu se deschide cu cheia de citire', $r['cod'] === 403, "cod {$r['cod']} {$r['corp']}");
+$r = cerere('POST', '/oauth/deschide', json_encode(['minute' => 15]));
+verifica('Securitate', 'OAuth: fereastra nu se deschide fără nicio cheie', $r['cod'] === 401, "cod {$r['cod']}");
+$r = fereastra_test($ks);
+$COD = (string) ($r['json']['cod'] ?? '');
+verifica('OAuth', 'omul deschide fereastra cu cheia de scriere și primește un cod de 6 cifre', $r['cod'] === 200
+    && preg_match('/^[0-9]{6}$/', $COD) === 1, $r['corp']);
+$pe_disc = (string) @file_get_contents("$tmp/site/date/oauth/fereastra.json");
+verifica('Securitate', 'OAuth: pe server stă doar amprenta codului de conectare, nu codul', $COD !== '' && strpos($pe_disc, $COD) === false, $pe_disc);
+
 $r = cerere('POST', '/oauth/inregistrare', json_encode(['client_name' => 'Rău', 'redirect_uris' => ['https://site-rau.example/cb']]));
 verifica('OAuth', 'înregistrarea cu o adresă de întoarcere străină e refuzată', $r['cod'] === 400 && strpos($r['corp'], 'invalid_redirect_uri') !== false, $r['corp']);
 $r = cerere('POST', '/oauth/inregistrare', json_encode(['client_name' => 'Claude', 'redirect_uris' => [$claude], 'token_endpoint_auth_method' => 'none',
@@ -477,6 +515,9 @@ $r = cerere('GET', '/oauth/autorizare?' . http_build_query(autorizare($client, $
 verifica('Securitate', 'OAuth: fără PKCE S256 nu se aprobă nimic', $r['cod'] === 400, "cod {$r['cod']}");
 $a = aproba($client, $claude, $prov, 'cheie-gresita-dar-destul-de-lunga-1111');
 verifica('Securitate', 'OAuth: cu o cheie greșită nu se aprobă (și se numără la blocare)', $a['r']['cod'] === 401 && $a['cod'] === '', "cod {$a['r']['cod']}");
+$a = aproba($client, $claude, $prov, $ks, '000000' === $COD ? '111111' : '000000');
+verifica('Securitate', 'OAuth: cheia bună dar codul de conectare greșit → refuzat (atacatorul are linkul, nu are codul)',
+    $a['r']['cod'] === 401 && $a['cod'] === '' && strpos($a['r']['corp'], 'Codul de conectare') !== false, "cod {$a['r']['cod']}");
 [$corp, $ant] = formular(autorizare($client, $claude, $prov) + ['decizie' => 'refuza']);
 $r = cerere('POST', '/oauth/autorizare', $corp, $ant);
 verifica('OAuth', '„Refuză” → înapoi la Claude cu access_denied', $r['cod'] === 302 && strpos($r['antete']['location'] ?? '', 'error=access_denied') !== false);
@@ -490,6 +531,12 @@ verifica('Securitate', 'OAuth: un code_verifier greșit (PKCE) e refuzat', $r['c
 $r = token(['grant_type' => 'authorization_code', 'code' => $a['cod'], 'redirect_uri' => $claude, 'client_id' => $client, 'code_verifier' => $ver]);
 verifica('Securitate', 'OAuth: un cod se folosește o singură dată, chiar dacă prima încercare a fost greșită', $r['cod'] === 400, $r['corp']);
 
+// O fereastră = o conectare: după o aprobare reușită se închide singură, deci un al doilea link nu mai merge.
+$r = cerere('POST', '/oauth/inregistrare', json_encode(['client_name' => 'Al doilea', 'redirect_uris' => [$claude]]));
+verifica('Securitate', 'OAuth: după o aprobare reușită fereastra se închide singură', $r['cod'] === 403, "cod {$r['cod']}");
+$COD = (string) (fereastra_test($ks)['json']['cod'] ?? '');
+
+elibereaza();
 $ver = b64url(random_bytes(32));
 $a = aproba($client, $claude, b64url(hash('sha256', $ver, true)), $ks);
 $r = token(['grant_type' => 'authorization_code', 'code' => $a['cod'], 'redirect_uri' => $claude, 'client_id' => $client, 'code_verifier' => $ver]);
@@ -510,7 +557,9 @@ verifica('OAuth', 'reînnoirea dă token-uri noi; tokenul de reînnoire vechi nu
 $r = token(['grant_type' => 'refresh_token', 'refresh_token' => (string) ($r['json']['refresh_token'] ?? ''), 'client_id' => 'mcms_k_necunoscut']);
 verifica('Securitate', 'OAuth: un client necunoscut nu primește nimic', $r['cod'] === 401, $r['corp']);
 
+elibereaza();
 $ver = b64url(random_bytes(32));
+$COD = (string) (fereastra_test($ks)['json']['cod'] ?? '');
 $a = aproba($client, $claude, b64url(hash('sha256', $ver, true)), $kc);
 $r = token(['grant_type' => 'authorization_code', 'code' => $a['cod'], 'redirect_uri' => $claude, 'client_id' => $client, 'code_verifier' => $ver]);
 $r2 = mcp((string) ($r['json']['access_token'] ?? ''), 'tools/list');
@@ -568,11 +617,23 @@ verifica('Jurnal', 'schimbarea identității apare în jurnal, cu ținta "site" 
     && ($i['tinta'] ?? '') === 'site' && preg_match('/^[a-f0-9]{64}$/', (string) ($i['amprenta'] ?? ''))));
 verifica('Jurnal', 'vizualizările previzualizărilor sunt în jurnal, inclusiv cele refuzate', count(array_filter($intrari, fn($i) => ($i['punct'] ?? '') === 'previzualizare' && ($i['rezultat'] ?? '') === 'ok')) >= 2
     && count(array_filter($intrari, fn($i) => ($i['punct'] ?? '') === 'previzualizare' && ($i['rezultat'] ?? '') === 'respins')) >= 2);
+verifica('Jurnal', 'la previzualizări (pagini publice) se scrie adresa trunchiată, nu IP-ul întreg',
+    (bool) array_filter($intrari, fn($i) => ($i['punct'] ?? '') === 'previzualizare' && ($i['ip'] ?? '') === '127.0.0.0')
+    && !array_filter($intrari, fn($i) => ($i['punct'] ?? '') === 'previzualizare' && ($i['ip'] ?? '') === '127.0.0.1'));
 verifica('Jurnal', 'nicio comandă MCP nu scrie în jurnal', !array_filter($lista_s, fn($t) => strpos($t['name'], 'jurnal') !== false && $t['name'] !== 'citeste_jurnal'));
 $r = cerere('POST', '/jurnal.php', http_build_query(['cheie' => $kc]), ['Content-Type' => 'application/x-www-form-urlencoded']);
 verifica('Jurnal', 'pagina jurnalului se deschide cu cheia de citire', $r['cod'] === 200 && strpos($r['corp'], 'Lanțul e intact') !== false, "cod {$r['cod']}");
 $r = cerere('GET', '/jurnal.php?cheie=' . $kc);
 verifica('Jurnal', 'cheia pusă în adresă (GET) nu deschide jurnalul', $r['cod'] === 200 && strpos($r['corp'], 'Lanțul') === false);
+
+// --- plafon pe adresele care răspund fără cheie (OAuth) ------------------------------------------
+
+@unlink("$tmp/site/date/securitate/incercari.json");
+$coduri = [];
+for ($i = 0; $i < 70 && !in_array(429, $coduri, true); $i++) $coduri[] = cerere('GET', '/.well-known/oauth-authorization-server')['cod'];
+verifica('Securitate', 'adresele OAuth (care răspund fără cheie) au plafon pe numărul de cereri, nu doar pe eșecuri',
+    ($coduri[0] ?? 0) === 200 && in_array(429, $coduri, true), implode(',', $coduri));
+@unlink("$tmp/site/date/securitate/incercari.json");   // eliberăm adresa testelor pentru ce urmează
 
 // --- blocarea după încercări eșuate (la final: blochează IP-ul testelor) ------------------------
 

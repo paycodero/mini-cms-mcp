@@ -46,6 +46,7 @@ function atribut_permis(string $el, string $atr, string $v): bool
 {
     if (!in_array($atr, HTML_GLOBALE, true) && !in_array($atr, HTML_PERMISE[$el] ?? [], true)) return false;
     switch ($atr) {
+        case 'alt': return strlen($v) <= 300 && preg_match('/[\x00-\x1F\x7F]/', $v) !== 1;
         case 'class': return preg_match('/^[A-Za-z0-9_\- ]{1,120}$/', $v) === 1;
         case 'id': return preg_match('/^[A-Za-z][A-Za-z0-9_\-]{0,63}$/', $v) === 1;
         case 'title': return strlen($v) <= 300;
@@ -63,7 +64,10 @@ function atribut_permis(string $el, string $atr, string $v): bool
         case 'loading': return in_array($v, ['lazy', 'eager'], true);
         case 'decoding': return in_array($v, ['async', 'sync', 'auto'], true);
         case 'datetime': return preg_match('/^[0-9T:\-+ Z.]{4,40}$/', $v) === 1;
-        case 'allow': return preg_match('/^[a-z\-; ]{0,200}$/', $v) === 1;
+        // doar permisiunile de care are nevoie un video încorporat; camera, microfonul și locația nu intră niciodată
+        case 'allow': return preg_match('/^[a-z\-; ]{0,200}$/', $v) === 1
+            && !preg_grep('/^(camera|microphone|geolocation|display-capture|midi|payment|usb|serial|bluetooth|xr-spatial-tracking|idle-detection|local-fonts)$/',
+                preg_split('/\s*;\s*/', strtolower(trim($v))) ?: []);
         case 'referrerpolicy': return preg_match('/^[a-z\-]{0,40}$/', $v) === 1;
         case 'open': case 'reversed': case 'allowfullscreen': return true;
     }

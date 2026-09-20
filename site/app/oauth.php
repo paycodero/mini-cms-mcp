@@ -17,6 +17,59 @@ const OAUTH_ACCES_SECUNDE = 3600;
 const OAUTH_REINNOIRE_SECUNDE = 60 * 86400;
 const OAUTH_COD_SECUNDE = 600;
 const OAUTH_MAX_CLIENTI = 50;
+const OAUTH_CLIENT_NEAPROBAT = 600;        // un client înregistrat și neaprobat dispare după 10 minute
+const OAUTH_FEREASTRA_MAX = 3600;          // cât poate ține cel mult o fereastră de conectare
+const OAUTH_FEREASTRA_INREGISTRARI = 5;    // câte aplicații se pot înregistra într-o fereastră
+
+// --- fereastra de conectare (0.6) ---------------------------------------------------------------
+// Înregistrarea unei aplicații și pagina de aprobare NU sunt deschise permanent: se deschid de om, de pe
+// calculatorul lui, cu cheia de scriere (php unelte/instaleaza.php <site> --oauth). Atunci serverul dă un
+// cod de 6 cifre, afișat o singură dată în terminal, care se cere pe pagina de aprobare, lângă cheie.
+// Motivul: altfel oricine îți citește codul poate porni o aprobare de pe site-ul TĂU, cu numele „Claude",
+// și, dacă o aprobi, primește el token-urile. Codul din terminal e lucrul pe care un străin nu-l poate avea.
+function oauth_mod(): string
+{
+    $m = config('oauth');
+    if ($m === false || $m === 'inchis') return 'inchis';
+    return $m === 'deschis' ? 'deschis' : 'fereastra';
+}
+
+function fereastra_stare(): ?array
+{
+    $f = oauth_citeste('fereastra');
+    return ($f && ($f['expira'] ?? 0) > time()) ? $f : null;
+}
+
+function fereastra_deschisa(): bool
+{
+    return oauth_mod() === 'deschis' || fereastra_stare() !== null;
+}
+
+// Codul cerut pe pagina de aprobare. Cu 'deschis' nu se cere niciun cod (comportamentul vechi).
+function fereastra_cod_valid(string $cod): bool
+{
+    if (oauth_mod() === 'deschis') return true;
+    $f = fereastra_stare();
+    return $f !== null && hash_equals((string) ($f['cod'] ?? ''), hash('sha256', trim($cod)));
+}
+
+function fereastra_deschide(int $minute): array
+{
+    $minute = max(1, min((int) (OAUTH_FEREASTRA_MAX / 60), $minute));
+    $cod = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    $expira = time() + $minute * 60;
+    cu_blocare(function () use ($cod, $expira) {
+        oauth_scrie('fereastra', ['cod' => hash('sha256', $cod), 'expira' => $expira, 'creat' => time(), 'inregistrari' => 0]);
+    });
+    jurnal_scrie(['punct' => 'oauth', 'cerere' => 'fereastra', 'rezultat' => 'ok', 'cheie' => 'scriere',
+                  'detalii' => ['minute' => $minute]]);
+    return ['cod' => $cod, 'expira' => date('c', $expira), 'minute' => $minute];
+}
+
+function fereastra_inchide(): void
+{
+    cu_blocare(function () { oauth_scrie('fereastra', []); });
+}
 
 function oauth_emitent(): string { return url_site(); }
 function oauth_resursa(): string { return url_site() . '/mcp'; }
@@ -64,6 +117,32 @@ function redirect_permis(string $uri): bool
 function ruleaza_oauth(string $cale): void
 {
     $metoda = (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET');
+
+    // Site-ul care nu folosește conectorul din claude.ai poate închide tot fluxul din config: nu există adresă.
+    if (oauth_mod() === 'inchis') { oauth_eroare(404, 'invalid_request', 'adresă necunoscută'); return; }
+
+    // Toate adresele de aici răspund FĂRĂ cheie, deci au plafon pe numărul de cereri, nu pe eșecuri.
+    if (!limita_cereri('oauth')) { oauth_eroare(429, 'temporarily_unavailable', 'prea multe cereri de la această adresă'); return; }
+
+    // Deschiderea ferestrei de conectare: singura adresă OAuth care cere cheia de scriere.
+    if ($cale === '/oauth/deschide') {
+        if ($metoda !== 'POST') { header('Allow: POST'); oauth_eroare(405, 'invalid_request', 'metodă nepermisă'); return; }
+        $acces = verifica_acces('oauth', cheie_din_cerere());
+        if ($acces['cod'] !== 200 || $acces['rol'] !== 'scriere') {
+            if ($acces['cod'] === 200) inregistreaza_esec();
+            oauth_eroare($acces['cod'] === 200 ? 403 : $acces['cod'], 'invalid_client', $acces['cod'] === 200 ? 'cere cheia de scriere' : $acces['mesaj']);
+            return;
+        }
+        $j = json_decode((string) file_get_contents('php://input', false, null, 0, 2000), true);
+        if (($j['inchide'] ?? false) === true) {
+            fereastra_inchide();
+            oauth_json(200, ['fereastra' => 'închisă']);
+            return;
+        }
+        oauth_json(200, fereastra_deschide((int) ($j['minute'] ?? 15)) + ['mod' => oauth_mod()]);
+        return;
+    }
+
     if (preg_match('#^/\.well-known/oauth-protected-resource(/mcp)?$#', $cale)) {
         oauth_json(200, ['resource' => oauth_resursa(), 'authorization_servers' => [oauth_emitent()], 'scopes_supported' => ['citire', 'scriere'],
                          'bearer_methods_supported' => ['header'], 'resource_name' => (string) config('site.nume')]);
@@ -93,6 +172,12 @@ function ruleaza_oauth(string $cale): void
 
 function oauth_inregistrare(): void
 {
+    if (!fereastra_deschisa()) {   // fără fereastră deschisă de om, nimeni nu se poate înregistra
+        jurnal_scrie(['punct' => 'oauth', 'cerere' => 'inregistrare', 'rezultat' => 'respins', 'detalii' => ['motiv' => 'fereastră închisă']]);
+        oauth_eroare(403, 'access_denied', 'Înregistrarea e închisă pe acest site. Omul o deschide pentru câteva minute, de pe calculatorul lui, '
+            . 'cu "php unelte/instaleaza.php <site> --oauth". Reîncearcă după aceea.');
+        return;
+    }
     $j = json_decode((string) file_get_contents('php://input', false, null, 0, 20000), true);
     if (!is_array($j)) { oauth_eroare(400, 'invalid_client_metadata', 'corpul trebuie să fie JSON'); return; }
     $uris = array_values(array_filter((array) ($j['redirect_uris'] ?? []), 'is_string'));
@@ -114,10 +199,19 @@ function oauth_inregistrare(): void
         $clienti = oauth_citeste('clienti');
         $tokenuri = oauth_citeste('tokenuri');
         $folositi = array_flip(array_column($tokenuri, 'client'));
-        foreach ($clienti as $id => $c) {   // clienții înregistrați dar niciodată aprobați dispar după o zi
-            if (!isset($folositi[$id]) && ($c['creat'] ?? 0) < time() - 86400) unset($clienti[$id]);
+        foreach ($clienti as $id => $c) {   // clienții înregistrați și niciodată aprobați dispar în 10 minute
+            if (!isset($folositi[$id]) && ($c['creat'] ?? 0) < time() - OAUTH_CLIENT_NEAPROBAT) unset($clienti[$id]);
         }
         if (count($clienti) >= OAUTH_MAX_CLIENTI) throw new EroareCms('prea mulți clienți înregistrați');
+        // Într-o fereastră deschisă de om încap câteva înregistrări, nu oricâte: un client real cere una.
+        $f = oauth_citeste('fereastra');
+        if ($f && ($f['expira'] ?? 0) > time()) {
+            if ((int) ($f['inregistrari'] ?? 0) >= OAUTH_FEREASTRA_INREGISTRARI) {
+                throw new EroareCms('s-au înregistrat deja ' . OAUTH_FEREASTRA_INREGISTRARI . ' aplicații în această fereastră');
+            }
+            $f['inregistrari'] = (int) ($f['inregistrari'] ?? 0) + 1;
+            oauth_scrie('fereastra', $f);
+        }
         $clienti[$client_id] = ['nume' => $nume, 'redirect_uris' => $uris, 'metoda' => $metoda,
                                 'secret' => $secret ? hash('sha256', $secret) : null, 'creat' => time()];
         oauth_scrie('clienti', $clienti);
@@ -146,6 +240,11 @@ function oauth_autorizare(string $metoda): void
     foreach (['response_type', 'client_id', 'redirect_uri', 'state', 'code_challenge', 'code_challenge_method', 'scope', 'resource'] as $k) {
         $cerere[$k] = is_string($p[$k] ?? null) ? substr($p[$k], 0, 1000) : '';
     }
+    if (!fereastra_deschisa()) {   // pagina care cere cheia nu se poate deschide oricând, de către oricine
+        pagina_autorizare_eroare('Conectarea nu e deschisă acum. Fereastra se deschide de pe calculatorul omului, '
+            . 'cu „php unelte/instaleaza.php <site> --oauth”, și ține câteva minute.');
+        return;
+    }
     $client = oauth_citeste('clienti')[$cerere['client_id']] ?? null;
     // Fără client cunoscut și adresă de întoarcere înregistrată nu se trimite nimic nicăieri: doar o pagină de eroare.
     if (!$client || !in_array($cerere['redirect_uri'], (array) ($client['redirect_uris'] ?? []), true)) {
@@ -161,7 +260,8 @@ function oauth_autorizare(string $metoda): void
         return;
     }
 
-    $v = ['cerere' => $cerere, 'client' => $client, 'gazda_intoarcere' => (string) parse_url($cerere['redirect_uri'], PHP_URL_HOST), 'mesaj' => ''];
+    $v = ['cerere' => $cerere, 'client' => $client, 'gazda_intoarcere' => (string) parse_url($cerere['redirect_uri'], PHP_URL_HOST), 'mesaj' => '',
+          'cere_cod' => oauth_mod() !== 'deschis', 'varsta' => max(0, time() - (int) ($client['creat'] ?? time()))];
     if ($metoda === 'POST') {
         if (($_POST['decizie'] ?? '') !== 'permite') {
             jurnal_scrie(['punct' => 'oauth', 'cerere' => 'autorizare', 'rezultat' => 'refuzat', 'tinta' => $client['nume']]);
@@ -169,6 +269,14 @@ function oauth_autorizare(string $metoda): void
             return;
         }
         $acces = verifica_acces('oauth', (string) ($_POST['cheie'] ?? ''));
+        // Codul de conectare, afișat o singură dată în terminalul omului: un străin nu-l are nici dacă are linkul.
+        if ($acces['cod'] === 200 && !fereastra_cod_valid((string) ($_POST['cod_conectare'] ?? ''))) {
+            inregistreaza_esec();
+            jurnal_scrie(['punct' => 'oauth', 'cerere' => 'autorizare', 'rezultat' => 'respins', 'tinta' => $client['nume'],
+                          'detalii' => ['motiv' => 'cod de conectare greșit']]);
+            $acces = ['cod' => 401, 'mesaj' => 'Codul de conectare e greșit sau fereastra s-a închis. Codul apare în terminal, '
+                . 'când deschizi conectarea de pe calculatorul tău. Dacă n-ai pornit tu conectarea, închide pagina.'];
+        }
         if ($acces['cod'] === 200) {
             $cod = aleator('mcms_a_');
             $rol = $acces['rol'];
@@ -179,6 +287,7 @@ function oauth_autorizare(string $metoda): void
                     'expira' => time() + OAUTH_COD_SECUNDE];
                 oauth_scrie('coduri', $coduri);
             });
+            fereastra_inchide();   // o fereastră = o conectare; ce urmează (schimbul de token) nu mai are nevoie de ea
             jurnal_scrie(['punct' => 'oauth', 'cerere' => 'autorizare', 'rezultat' => 'ok', 'cheie' => $rol, 'tinta' => $client['nume'],
                           'detalii' => ['intoarcere' => $v['gazda_intoarcere']]]);
             redirectioneaza_client($cerere, ['code' => $cod]);

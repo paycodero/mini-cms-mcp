@@ -2,6 +2,11 @@
 // Cheile și limitarea încercărilor. Aceleași praguri ca la cinesunt.info și gabriel.paycode.ro,
 // dovedite pe server: 8 eșecuri în 5 minute = IP blocat 15 minute, pe TOATE punctele de intrare.
 // Pe server stau doar amprentele SHA-256 ale cheilor, nu cheile.
+//
+// 0.6: adresa se pune într-o găleată, nu se numără exact — la IPv6 contează primii 64 de biți, fiindcă
+// oricine are un /64 întreg și ar trece prin plafon schimbând adresa la fiecare cerere. Verificarea
+// „sunt blocat?" nu mai rescrie fișierul (înainte lua lacăt exclusiv la fiecare cerere, inclusiv la cele
+// bune). Punctele fără cheie (OAuth) au un plafon propriu, pe numărul de cereri, nu pe eșecuri.
 declare(strict_types=1);
 
 if (!defined('MINICMS')) { http_response_code(403); exit; }
@@ -9,6 +14,10 @@ if (!defined('MINICMS')) { http_response_code(403); exit; }
 const RATE_FEREASTRA = 300;
 const RATE_PRAG = 8;
 const RATE_BLOCARE = 900;
+const RATE_MAX_ADRESE = 5000;     // câte găleți ținem minte; peste, le scoatem pe cele mai vechi
+const RATE_CERERI_PRAG = 60;      // cereri fără cheie (OAuth) pe fereastră, de la aceeași găleată
+                                  // (o conectare reală face vreo 6; un atac de umplere face sute)
+const RATE_CERERI_FEREASTRA = 300;
 
 function cheie_din_cerere(): string
 {
@@ -39,19 +48,53 @@ function rol_pentru_cheie(string $cheie): ?string
     return $scriere ? 'scriere' : ($citire ? 'citire' : null);
 }
 
+// Găleata în care intră adresa: IPv4 întreg, IPv6 doar prefixul /64. Un atacator cu un bloc IPv6 are
+// miliarde de adrese, dar o singură găleată — altfel plafonul de mai jos n-ar însemna nimic pentru el.
+function rate_galeata(string $ip = ''): string
+{
+    $ip = $ip !== '' ? $ip : ip_client();
+    $b = @inet_pton($ip);
+    if ($b !== false && strlen($b) === 16) return bin2hex(substr($b, 0, 8)) . '::/64';
+    return $ip;
+}
+
+function rate_fisier(): string
+{
+    return dir_date('securitate') . '/incercari.json';
+}
+
+// Citire fără lacăt exclusiv și fără scriere: e drumul parcurs de fiecare cerere, inclusiv de cele bune.
+function rate_citeste(): array
+{
+    $fp = @fopen(rate_fisier(), 'r');
+    if (!$fp) return [];
+    flock($fp, LOCK_SH);
+    $text = (string) stream_get_contents($fp);
+    flock($fp, LOCK_UN);
+    fclose($fp);
+    $stare = json_decode($text ?: '{}', true);
+    return is_array($stare) ? $stare : [];
+}
+
+// Scriere sub lacăt exclusiv: numai la eșecuri și la cererile fără cheie, nu la fiecare cerere.
 function rate_actualizeaza(callable $callback)
 {
-    $fp = @fopen(dir_date('securitate') . '/incercari.json', 'c+');
+    $fp = @fopen(rate_fisier(), 'c+');
     if (!$fp) return null;
     flock($fp, LOCK_EX);
     $stare = json_decode(stream_get_contents($fp) ?: '{}', true);
     if (!is_array($stare)) $stare = [];
     $acum = time();
-    foreach ($stare as $ip => $intrare) {   // curățăm intrările expirate, ca fișierul să nu crească
+    foreach ($stare as $k => $intrare) {   // curățăm intrările expirate, ca fișierul să nu crească
         $recente = array_filter($intrare['esecuri'] ?? [], fn($t) => ($acum - $t) < RATE_FEREASTRA);
-        if (!$recente && ($intrare['blocat_pana'] ?? 0) <= $acum) unset($stare[$ip]);
+        $cereri = array_filter($intrare['cereri'] ?? [], fn($t) => ($acum - $t) < RATE_CERERI_FEREASTRA);
+        if (!$recente && !$cereri && ($intrare['blocat_pana'] ?? 0) <= $acum) unset($stare[$k]);
     }
     $rezultat = $callback($stare, $acum);
+    if (count($stare) > RATE_MAX_ADRESE) {   // plafon dur: un val de adrese noi nu umflă fișierul la nesfârșit
+        uasort($stare, fn($a, $b) => ($b['ultima'] ?? 0) <=> ($a['ultima'] ?? 0));
+        $stare = array_slice($stare, 0, RATE_MAX_ADRESE, true);
+    }
     ftruncate($fp, 0);
     rewind($fp);
     fwrite($fp, json_encode($stare));
@@ -62,23 +105,50 @@ function rate_actualizeaza(callable $callback)
 
 function ip_blocat(): bool
 {
-    $ip = ip_client();
-    return (bool) rate_actualizeaza(function (array &$stare, int $acum) use ($ip) {
-        return ($stare[$ip]['blocat_pana'] ?? 0) > $acum;
-    });
+    $k = rate_galeata();
+    $stare = rate_citeste();
+    return ($stare[$k]['blocat_pana'] ?? 0) > time();
 }
 
 function inregistreaza_esec(): void
 {
-    $ip = ip_client();
-    rate_actualizeaza(function (array &$stare, int $acum) use ($ip) {
-        $intrare = $stare[$ip] ?? ['esecuri' => [], 'blocat_pana' => 0];
-        $intrare['esecuri'] = array_values(array_filter($intrare['esecuri'], fn($t) => ($acum - $t) < RATE_FEREASTRA));
+    $k = rate_galeata();
+    rate_actualizeaza(function (array &$stare, int $acum) use ($k) {
+        $intrare = $stare[$k] ?? ['esecuri' => [], 'blocat_pana' => 0];
+        $intrare['esecuri'] = array_values(array_filter($intrare['esecuri'] ?? [], fn($t) => ($acum - $t) < RATE_FEREASTRA));
         $intrare['esecuri'][] = $acum;
+        $intrare['ultima'] = $acum;
         if (count($intrare['esecuri']) >= RATE_PRAG) $intrare['blocat_pana'] = $acum + RATE_BLOCARE;
-        $stare[$ip] = $intrare;
+        $stare[$k] = $intrare;
         return null;
     });
+}
+
+// Plafon pentru punctele care răspund FĂRĂ cheie (înregistrarea OAuth, tokenul, pagina de aprobare):
+// acolo nu există „eșec de autentificare" de numărat, deci se numără cererile. Peste prag, găleata
+// intră în aceeași blocare de 15 minute ca la chei greșite. Întoarce true dacă cererea trece.
+function limita_cereri(string $punct): bool
+{
+    if (ip_blocat()) {
+        jurnal_scrie(['punct' => $punct, 'rezultat' => 'blocat', 'detalii' => ['motiv' => 'prea multe cereri']]);
+        return false;
+    }
+    $k = rate_galeata();
+    $peste = rate_actualizeaza(function (array &$stare, int $acum) use ($k) {
+        $intrare = $stare[$k] ?? ['esecuri' => [], 'cereri' => [], 'blocat_pana' => 0];
+        $intrare['cereri'] = array_values(array_filter($intrare['cereri'] ?? [], fn($t) => ($acum - $t) < RATE_CERERI_FEREASTRA));
+        $intrare['cereri'][] = $acum;
+        $intrare['ultima'] = $acum;
+        $peste = count($intrare['cereri']) > RATE_CERERI_PRAG;
+        if ($peste) $intrare['blocat_pana'] = $acum + RATE_BLOCARE;
+        $stare[$k] = $intrare;
+        return $peste;
+    });
+    if ($peste) {
+        jurnal_scrie(['punct' => $punct, 'rezultat' => 'blocat', 'detalii' => ['motiv' => 'prea multe cereri fără cheie']]);
+        return false;
+    }
+    return true;
 }
 
 // Poarta comună pentru mcp.php, jurnal.php și aprobarea OAuth. Scrie singură în jurnal eșecurile.

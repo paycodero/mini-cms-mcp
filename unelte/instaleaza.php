@@ -7,6 +7,8 @@
 //      comanda verifică serverul, leagă Claude Code și îți arată jurnalul.
 //
 // Opțiuni:
+//   --oauth[=minute] deschide fereastra în care Claude se poate lega de site (implicit 15 minute) și arată
+//                    codul de conectare cerut pe pagina de aprobare; --oauth --inchide o închide imediat
 //   --verifica       doar pasul 2 (după ce ai urcat pachetul)
 //   --nume=scurt     numele conexiunii din Claude și al fișierelor (implicit din adresă: test.paycode.ro → test-paycode)
 //   --dosar=CALE     unde stau cheile, pachetul și conexiunea Claude (implicit: folderul de deasupra repo-ului)
@@ -23,8 +25,8 @@ declare(strict_types=1);
 require __DIR__ . '/comun.php';
 
 ['opt' => $opt, 'site' => $site, 'nume' => $nume, 'dosar' => $dosar, 'fisier_chei' => $fisier_chei] = porneste($argv,
-    ['verifica', 'chei-noi', 'fara-claude', 'fara-teste'],
-    'php unelte/instaleaza.php https://site.ro [--verifica] [--chei-noi] [--nume=scurt] [--dosar=CALE] [--fara-claude]');
+    ['verifica', 'chei-noi', 'fara-claude', 'fara-teste', 'oauth', 'inchide'],
+    'php unelte/instaleaza.php https://site.ro [--verifica] [--chei-noi] [--oauth[=minute]] [--nume=scurt] [--dosar=CALE] [--fara-claude]');
 $S = DIRECTORY_SEPARATOR;
 $livrare = "$dosar{$S}_livrare{$S}$nume";
 $nume_zip = "minicms-$VERSIUNE-$nume.zip";
@@ -95,6 +97,7 @@ function verifica_serverul(string $site, array $chei, string $nume_zip): ?string
     // spre pagina de eroare a site-ului): ambele sunt bune, cu condiția ca din răspuns să nu scape nimic din fișier.
     // Jurnalul lunii există sigur: cererea GET de mai sus, pe /mcp, tocmai a fost scrisă în el.
     $blocate = ['/app/config.php', '/date/', '/date/jurnal/' . date('Y-m') . '.ndjson', '/sabloane/baza.php',
+                '/date/securitate/previzualizare.cheie', '/date/oauth/tokenuri.json', '/date/site.json',
                 '/.htaccess', '/media/proba.php', "/$nume_zip"];
     $urme = ['<?php', 'RewriteEngine', 'Require all denied', '{"t":"', 'Index of /', "PK\x03\x04"];
     foreach ($blocate as $cale) {
@@ -165,6 +168,33 @@ function leaga_claude(string $nume, string $site, string $cheie, string $antet, 
     ok("conexiunea \"$nume\" e adăugată, cu cheia de scriere");
     info("Merge în sesiunile de Claude deschise în $dosar.");
     return true;
+}
+
+// --- fereastra de conectare (OAuth), deschisă de om, de aici ------------------------------------
+// Din 0.6, nimeni nu se poate înregistra ca aplicație pe site dacă omul n-a deschis o fereastră scurtă.
+// Codul de 6 cifre se arată o singură dată, aici, și se cere pe pagina de aprobare, lângă cheie.
+if (isset($opt['oauth'])) {
+    $chei = cheile($fisier_chei, true);
+    $minute = is_string($opt['oauth']) ? max(1, min(60, (int) $opt['oauth'])) : 15;
+    $inchide = isset($opt['inchide']);
+    titlu($inchide ? 'Închid fereastra de conectare' : 'Deschid fereastra de conectare');
+    $corp = json_encode($inchide ? ['inchide' => true] : ['minute' => $minute]);
+    $r = ['cod' => 0];
+    foreach (['Authorization' => 'Bearer ' . $chei['scriere']['cheie'], 'X-API-Key' => $chei['scriere']['cheie']] as $antet => $valoare) {
+        $r = cerere('POST', "$site/oauth/deschide", (string) $corp, ['Content-Type' => 'application/json', $antet => $valoare]);
+        if ($r['cod'] !== 401) break;
+    }
+    $d = json_decode($r['corp'], true);
+    if ($r['cod'] === 404) opreste("site-ul are OAuth închis din config.php ('oauth' => false) sau o versiune mai veche de 0.6.");
+    if ($r['cod'] !== 200 || !is_array($d)) opreste('serverul a răspuns ' . ($r['cod'] ?: 'nimic') . ': ' . substr(trim((string) ($d['error_description'] ?? $r['corp'] ?: $r['eroare'])), 0, 200));
+    if ($inchide) { ok('fereastra e închisă: nicio aplicație nu se mai poate înregistra sau aproba'); exit(0); }
+    ok("fereastra e deschisă $minute minute (până la " . date('H:i', (int) strtotime((string) $d['expira'])) . ')');
+    echo "\n       ", culoare('CODUL DE CONECTARE:  ' . $d['cod'], '1;33'), "\n\n";
+    info('Îl ceri pe pagina de aprobare a site-ului, lângă cheia de scriere. Nu-l trimite nimănui: e singurul lucru');
+    info('pe care un străin nu-l poate avea, chiar dacă îți citește codul sursă și îți trimite un link de aprobare.');
+    info("Acum, în claude.ai: Settings → Connectors → Add custom connector → $site/mcp");
+    info('După aprobare, fereastra se închide singură. O închizi manual cu: --oauth --inchide');
+    exit(0);
 }
 
 // --- pasul 1: pe calculator --------------------------------------------------------------------
