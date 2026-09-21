@@ -1,7 +1,8 @@
 <?php
 // Urcarea imaginilor din browser (calculator sau telefon), de mâna omului, fără să treacă prin conversația cu AI-ul.
-// Cere cheia de SCRIERE, trimisă prin formular (POST), niciodată în adresă. Fiecare fișier trece prin aceleași verificări
-// ca urca_imagine din MCP (tip aflat din conținut, 5 MB, fără cod ascuns) și e scris în jurnal.
+// Drumul obișnuit: AI-ul cheamă link_urcare și îi dă omului un link semnat, valabil puțin; cu el nu trebuie nicio cheie.
+// Fără link, pagina cere cheia de SCRIERE, trimisă prin formular (POST), niciodată în adresă. Fiecare fișier trece prin
+// aceleași verificări ca urca_imagine din MCP (tip aflat din conținut, 5 MB, fără cod ascuns) și e scris în jurnal.
 // Pagina micșorează pozele în browser înainte de trimitere (1600 px): pleacă mai repede de pe telefon și pierd locația GPS.
 // 'pagina_imagini' => false în config.php o scoate cu totul.
 declare(strict_types=1);
@@ -15,15 +16,33 @@ header('Cache-Control: no-store');
 
 $limite = ['fisier' => (string) ini_get('upload_max_filesize'), 'total' => (string) ini_get('post_max_size'),
            'numar' => (int) ini_get('max_file_uploads')];
-$v = ['rezultate' => null, 'mesaj' => '', 'limite' => $limite, 'noindex' => true, 'titlu_pagina' => 'Urcă imagini — ' . config('site.nume')];
+$v = ['rezultate' => null, 'mesaj' => '', 'limite' => $limite, 'link' => null, 'noindex' => true, 'titlu_pagina' => 'Urcă imagini — ' . config('site.nume')];
 $cod = 200;
+
+// Linkul dat de AI (link_urcare): cu el nu mai trebuie cheia. Fără link, pagina cere cheia de scriere, ca până acum.
+$link_e = (int) ($_POST['e'] ?? $_GET['e'] ?? 0);
+$link_s = (string) ($_POST['s'] ?? $_GET['s'] ?? '');
+if ($link_e > 0 || $link_s !== '') {
+    if (ip_blocat() || !link_urcare_valid($link_e, $link_s)) {
+        $cod = 403;
+        $v['mesaj'] = 'Linkul a expirat sau nu e bun. Cere-i lui Claude unul nou.';
+        jurnal_scrie(['punct' => 'imagini', 'cheie' => 'link', 'cerere' => 'deschidere', 'rezultat' => 'respins',
+                      'detalii' => ['motiv' => $link_e > 0 && $link_e < time() ? 'link expirat' : 'semnătură greșită']]);
+        if (!($link_e > 0 && $link_e < time())) inregistreaza_esec();
+        randeaza('imagini', $v, $cod);
+        exit;
+    }
+    $v['link'] = ['e' => $link_e, 's' => $link_s, 'pana_la' => date('H:i', $link_e)];
+    $v['titlu_pagina'] = 'Urcă poza — ' . config('site.nume');
+}
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!$_POST && !$_FILES && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
         $cod = 413;
         $v['mesaj'] = "Trimiterea depășește ce primește găzduirea deodată ({$limite['total']}). Urcă mai puține poze odată.";
     } else {
-        $acces = verifica_acces('imagini', (string) ($_POST['cheie'] ?? ''));
+        $acces = $v['link'] ? ['cod' => 200, 'rol' => 'scriere'] : verifica_acces('imagini', (string) ($_POST['cheie'] ?? ''));
+        $cine = $v['link'] ? 'link' : 'scriere';
         if ($acces['cod'] !== 200) {
             $cod = $acces['cod'];
             $v['mesaj'] = $acces['mesaj'];
@@ -46,11 +65,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     }
                     if ($eroare !== UPLOAD_ERR_OK || !is_uploaded_file((string) $f['tmp_name'][$i])) throw new EroareCms('nu a ajuns întreg (cod ' . $eroare . ')');
                     $r = urca_imagine_date($nume, (string) file_get_contents((string) $f['tmp_name'][$i]));
-                    jurnal_scrie(['punct' => 'imagini', 'cheie' => 'scriere', 'cerere' => 'urcare', 'tinta' => $r['url'], 'rezultat' => 'ok',
+                    jurnal_scrie(['punct' => 'imagini', 'cheie' => $cine, 'cerere' => 'urcare', 'tinta' => $r['url'], 'rezultat' => 'ok',
                                   'detalii' => ['octeti' => $r['octeti'], 'operatie' => $r['operatie'], 'amprenta' => $r['amprenta']]]);
                     $v['rezultate'][] = ['nume' => $nume, 'ok' => true] + $r;
                 } catch (EroareCms $e) {
-                    jurnal_scrie(['punct' => 'imagini', 'cheie' => 'scriere', 'cerere' => 'urcare', 'rezultat' => 'refuzat',
+                    jurnal_scrie(['punct' => 'imagini', 'cheie' => $cine, 'cerere' => 'urcare', 'rezultat' => 'refuzat',
                                   'detalii' => ['fisier' => text_simplu($nume, 120), 'motiv' => $e->getMessage()]]);
                     $v['rezultate'][] = ['nume' => $nume, 'ok' => false, 'eroare' => $e->getMessage()];
                 }

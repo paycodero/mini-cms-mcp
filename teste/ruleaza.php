@@ -159,7 +159,7 @@ $unelte_c = array_column($r['json']['result']['tools'] ?? [], 'name');
 verifica('Chei', 'cheia de citire vede doar cele 11 comenzi de citire', count($unelte_c) === 11 && !in_array('salveaza', $unelte_c, true), implode(', ', $unelte_c));
 $r = mcp($ks, 'tools/list');
 $lista_s = $r['json']['result']['tools'] ?? [];
-verifica('Protocol', 'cheia de scriere vede toate cele 21 de comenzi', count($lista_s) === 21, (string) count($lista_s));
+verifica('Protocol', 'cheia de scriere vede toate cele 22 de comenzi', count($lista_s) === 22, (string) count($lista_s));
 $bune = array_filter($lista_s, fn($t) => ($t['inputSchema']['type'] ?? '') === 'object' && isset($t['annotations']['readOnlyHint']));
 verifica('Protocol', 'fiecare comandă are schemă de tip obiect și adnotări', count($bune) === count($lista_s) && $lista_s);
 $r = mcp($kc, 'ping');
@@ -681,7 +681,7 @@ $pe_server = implode('', array_map('file_get_contents', glob("$tmp/site/date/oau
 verifica('Securitate', 'OAuth: pe server nu stă niciun token sau cod în clar, doar amprente', $acces !== '' && strpos($pe_server, $acces) === false
     && strpos($pe_server, $reinnoire) === false && strpos($pe_server, $a['cod']) === false && strpos($pe_server, hash('sha256', $acces)) !== false);
 $r = mcp($acces, 'tools/list');
-verifica('OAuth', 'Claude folosește tokenul pe /mcp și vede toate comenzile', $r['cod'] === 200 && count($r['json']['result']['tools'] ?? []) === 21, $r['corp']);
+verifica('OAuth', 'Claude folosește tokenul pe /mcp și vede toate comenzile', $r['cod'] === 200 && count($r['json']['result']['tools'] ?? []) === 22, $r['corp']);
 $r = token(['grant_type' => 'refresh_token', 'refresh_token' => $reinnoire, 'client_id' => $client]);
 $acces2 = (string) ($r['json']['access_token'] ?? '');
 $r2 = token(['grant_type' => 'refresh_token', 'refresh_token' => $reinnoire, 'client_id' => $client]);
@@ -905,6 +905,33 @@ $jurnal_img = array_filter(array_map(fn($l) => json_decode($l, true),
 verifica('Imagini', 'din browser, cu cheia de scriere: imaginea urcă, fișierul greșit e refuzat pe rând, totul în jurnal',
     $r['cod'] === 200 && preg_match('#/media/poza-de-pe-telefon-[a-f0-9]{8}\.png#', $r['corp']) === 1
     && strpos($r['corp'], 'nu-e-imagine.png') !== false && count($jurnal_img) >= 2, substr(strip_tags($r['corp']), 0, 400));
+
+// linkul de urcare (0.13): AI-ul îl cere, omul alege poza fără nicio cheie
+$u = unealta($kc, 'link_urcare');
+verifica('Chei', 'cheia de citire nu poate cere un link de urcare', $u['eroare'], $u['text']);
+$u = unealta($ks, 'link_urcare', ['minute' => 30]);
+$link = (string) ($u['date']['url'] ?? '');
+parse_str((string) parse_url($link, PHP_URL_QUERY), $q_link);
+$r = cerere('GET', cale_din($link));
+verifica('Imagini', 'linkul de urcare deschide pagina fără câmpul de cheie', !$u['eroare'] && $r['cod'] === 200
+    && strpos($r['corp'], 'name="cheie"') === false && strpos($r['corp'], 'name="s"') !== false, $u['text']);
+[$corp, $ant] = $multipart(['e' => (string) ($q_link['e'] ?? ''), 's' => (string) ($q_link['s'] ?? '')], [['Poza din link.png', $poza]]);
+$r = cerere('POST', '/imagini.php', $corp, $ant);
+$nume_imagini = array_column((array) (unealta($kc, 'listeaza_imagini')['date']['imagini'] ?? []), 'nume');
+verifica('Imagini', 'cu linkul, poza urcă fără cheie, iar AI-ul o găsește cu listeaza_imagini', $r['cod'] === 200 && strpos($r['corp'], 'Gata.') !== false
+    && preg_grep('#^poza-din-link-[a-f0-9]{8}\.png$#', $nume_imagini), substr(strip_tags($r['corp']), 0, 300));
+$inainte = $in_media();
+$slug_prev = (string) ((unealta($kc, 'listeaza', ['tip' => 'articol'])['date']['articole'][0]['slug']) ?? '');
+parse_str((string) parse_url((string) (unealta($ks, 'previzualizeaza', ['tip' => 'articol', 'slug' => $slug_prev])['date']['url'] ?? ''), PHP_URL_QUERY), $q_prev);
+$coduri_link = [];
+foreach ([['e' => (string) ($q_link['e'] ?? ''), 's' => str_repeat('0', 64)], ['e' => (string) (time() - 60), 's' => (string) ($q_link['s'] ?? '')],
+          ['e' => (string) ($q_prev['e'] ?? ''), 's' => (string) ($q_prev['s'] ?? '')]] as $falsificat) {
+    [$corp, $ant] = $multipart($falsificat, [['fals.png', $poza]]);
+    $coduri_link[] = cerere('POST', '/imagini.php', $corp, $ant)['cod'];
+}
+elibereaza();
+verifica('Securitate', 'un link de urcare falsificat, expirat sau luat dintr-o previzualizare e refuzat (403), nimic scris',
+    $coduri_link === [403, 403, 403] && $in_media() === $inainte && $slug_prev !== '', implode(',', $coduri_link));
 
 // de pe calculator, cu unealta: fără base64 prin conversație, fără cheie pe ecran
 file_put_contents("$tmp/de-pe-calculator.png", $poza);

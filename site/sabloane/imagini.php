@@ -1,6 +1,6 @@
 <?php if (!defined('MINICMS')) { http_response_code(403); exit; } ?>
 <section class="jurnal urcare-imagini">
-  <h1>Urcă imagini</h1>
+  <h1><?= $link ? 'Urcă poza' : 'Urcă imagini' ?></h1>
 <?php if ($mesaj !== ''): ?><p class="alerta"><?= esc($mesaj) ?></p><?php endif; ?>
 <?php if ($rezultate): ?>
   <ol class="imagini-urcate">
@@ -19,16 +19,29 @@
 <?php endif; ?>
 <?php endforeach; ?>
   </ol>
+<?php if ($link): ?>
+  <p class="gata-link"><strong>Gata.</strong> Întoarce-te la Claude și spune-i „am urcat-o”: el o găsește și o pune unde trebuie.</p>
+  <h2>Mai ai una?</h2>
+<?php else: ?>
   <p>Spune-i lui Claude adresa, de exemplu: „pune <code>/media/…</code> ca copertă la articolul X”.</p>
   <h2>Mai urci?</h2>
+<?php endif; ?>
+<?php elseif ($link): ?>
+  <p>Alege poza de pe telefon sau de pe calculator și apasă „Urcă”. Atât: Claude o găsește pe site după aceea.
+     Linkul merge până la ora <?= esc($link['pana_la']) ?>.</p>
 <?php else: ?>
   <p>Imaginile ajung în <code>/media/</code>, iar adresa lor o dai apoi lui Claude, pentru o pagină sau un articol.
-     Cheia de scriere nu se păstrează nicăieri: o trimiți o dată, cu pozele.</p>
+     Cheia de scriere nu se păstrează nicăieri: o trimiți o dată, cu pozele. Mai simplu: cere-i lui Claude un link de urcare.</p>
 <?php endif; ?>
   <form method="post" action="/imagini.php" enctype="multipart/form-data" class="formular" id="formular-imagini">
+<?php if ($link): ?>
+    <input type="hidden" name="e" value="<?= (int) $link['e'] ?>">
+    <input type="hidden" name="s" value="<?= esc($link['s']) ?>">
+<?php else: ?>
     <label for="cheie">Cheia de scriere</label>
     <input id="cheie" name="cheie" type="password" autocomplete="current-password" required minlength="20">
-    <label for="poze">Imaginile (JPEG, PNG, GIF sau WebP)</label>
+<?php endif; ?>
+    <label for="poze"><?= $link ? 'Poza' : 'Imaginile' ?> (JPEG, PNG, GIF sau WebP)</label>
     <input id="poze" name="poze[]" type="file" accept="image/jpeg,image/png,image/gif,image/webp" multiple required>
     <label class="bifa"><input id="micsoreaza" type="checkbox" checked> micșorează pozele mari la 1600 px înainte de trimitere
       (pleacă mai repede de pe telefon și nu mai poartă locația GPS)</label>

@@ -65,10 +65,10 @@ function unelte(): array
                     'atribute_globale' => HTML_GLOBALE,
                     'iframe' => 'doar YouTube (youtube.com/embed, youtube-nocookie.com/embed) și Vimeo (player.vimeo.com/video)',
                     'imagini_acceptate' => 'JPEG, PNG, GIF, WebP, cel mult 5 MB; SVG nu',
-                    'imagini_fara_base64' => 'Nu trimite fișiere mari prin base64. O imagine publică: urca_imagine cu "url" (https). '
-                        . 'O poză de pe calculatorul omului, în Claude Code: php unelte/urca-imagine.php <site> <fișiere> (o întoarce după '
-                        . 'telefon, o micșorează la 1600 px, scoate locația GPS). De pe telefon: omul o urcă singur pe ' . url_absolut('/imagini.php')
-                        . ' (cu cheia de scriere) și îți dă adresa /media/....',
+                    'imagini_fara_base64' => 'Nu trimite poze prin base64. Poza e la om (telefon, calculator, atașată în chat): cheamă '
+                        . 'link_urcare, dă-i linkul, el alege poza fără nicio cheie, apoi listeaza_imagini (cele mai noi primele). '
+                        . 'O imagine publică: urca_imagine cu "url" (https). Un fișier de pe calculator, când rulezi în Claude Code: '
+                        . 'php unelte/urca-imagine.php <site> <fișiere>. Nu-i cere omului cheia de scriere.',
                     'teme' => ['disponibile' => teme_disponibile(), 'activa' => tema_activa(),
                                'despre' => array_filter(array_combine(teme_disponibile(), array_map('tema_despre', teme_disponibile())) ?: []),
                                'nota' => 'Aspectul site-ului. Se alege cu seteaza_site (tema); "" = aspectul implicit. Temele noi le pune omul pe server. '
@@ -292,8 +292,8 @@ function unelte(): array
             'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
             'descriere' => 'Urcă o imagine JPEG/PNG/GIF/WebP (cel mult 5 MB) și întoarce adresa /media/... de folosit în conținut sau drept copertă. '
                 . 'Trimite FIE "url" (adresa https a unei imagini publice: serverul o descarcă singur, adresele interne sunt refuzate), '
-                . 'FIE "continut_base64". Pentru fișiere de pe calculator sau de pe telefon, fără base64 prin conversație: '
-                . 'în Claude Code rulează unelte/urca-imagine.php <site> <fișiere>; omul le poate urca și singur din browser, pe /imagini.php.',
+                . 'FIE "continut_base64" (doar pentru imagini mici). Când poza e la om (telefon, calculator, atașată în chat), nu o '
+                . 'coda: cheamă link_urcare și dă-i omului linkul.',
             'schema' => schema_obiect([
                 'nume' => ['type' => 'string', 'description' => 'nume descriptiv, ex. "coperta-ghid-dimineata.png"; extensia se stabilește din conținut; '
                     . 'la "url" poate lipsi (se ia din adresă)'],
@@ -307,6 +307,16 @@ function unelte(): array
                 if ($url !== null) return urca_imagine_din_url(trim($url), (string) arg_text($a, 'nume', false));
                 return urca_imagine((string) arg_text($a, 'nume'), $b64);
             },
+        ],
+        'link_urcare' => [
+            'scriere' => true, 'titlu' => 'Link de urcare a pozelor, pentru om',
+            'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'openWorldHint' => false],
+            'descriere' => 'Un link temporar (implicit 30 de minute) la care omul urcă poze de pe telefon sau de pe calculator, fără cheie și fără '
+                . 'nimic de completat: deschide linkul, alege poza, gata. Folosește-l ori de câte ori omul vrea să pună o poză pe site și poza e '
+                . 'la el (în telefon, sau atașată în chat — o poză din chat NU o poți trimite tu mai departe). După ce spune că a urcat-o, '
+                . 'cheamă listeaza_imagini (cele mai noi sunt primele) și folosește adresa /media/... unde trebuie.',
+            'schema' => schema_obiect(['minute' => ['type' => 'integer', 'minimum' => 5, 'maximum' => 120, 'default' => 30]]),
+            'fn' => fn(array $a) => link_urcare((int) ($a['minute'] ?? 30)),
         ],
         'sterge_imagine' => [
             'scriere' => true, 'titlu' => 'Șterge o imagine (reversibil)',

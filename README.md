@@ -6,7 +6,7 @@ Un CMS mic pentru site-uri de câteva pagini și un blog, administrat de un asis
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache/cPanel). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Circa 3.000 de rânduri PHP pe server, plus teste automate (246 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
+- Circa 3.000 de rânduri PHP pe server, plus teste automate (250 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
 - Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
 - Instalarea: o comandă pe calculator și un zip urcat în cPanel.
 
@@ -140,8 +140,13 @@ semnarea pachetului cu o cheie privată de pe calculatorul tău; nu e construit�
 
 ## Imaginile, fără base64 prin conversație
 
-`urca_imagine` primea imaginea codată base64: bun pentru o siglă mică, prea scump și prea lent pentru o poză. Din 0.12,
-trei drumuri, după unde e poza:
+`urca_imagine` primea imaginea codată base64: bun pentru o siglă mică, prea scump și prea lent pentru o poză. O poză atașată
+în chat nu ajută nici ea: ajunge la AI ca imagine de privit, nu ca fișier pe care să-l poată trimite mai departe. Drumurile:
+
+- **Poza e la om (telefon, calculator, chat) — drumul obișnuit, din 0.13:** AI-ul cheamă `link_urcare` și îi dă omului un link
+  semnat, valabil 30 de minute (5–120). Omul îl deschide, alege poza, apasă „Urcă”; nicio cheie, nimic de completat. Apoi AI-ul
+  o găsește cu `listeaza_imagini` și o pune unde trebuie. Semnătura folosește cheia previzualizărilor într-un domeniu separat,
+  deci un link de previzualizare nu merge ca link de urcare; un link falsificat se numără ca încercare eșuată.
 
 - **E deja pe internet:** `urca_imagine` cu `url` (doar https, portul 443). Serverul o descarcă singur. Apărarea contra
   SSRF: numele se rezolvă o dată și **toate** adresele găsite trebuie să fie publice (nu 127.x, 10.x, 192.168.x, 169.254.x,
@@ -157,7 +162,7 @@ trei drumuri, după unde e poza:
   Întoarce poza după orientarea din telefon, o micșorează la 1600 px pe latura mare și o rescrie, deci JPEG-ul pierde
   datele EXIF, inclusiv locația GPS. La final scrie adresele `/media/...`. Are nevoie de GD; pe Windows, dacă `php_gd.dll`
   stă lângă PHP dar e oprit în `php.ini`, comanda îl pornește doar pentru ea. Fără GD, pozele pleacă neatinse.
-- **E pe telefon:** `https://site.ro/imagini.php`, cu cheia de scriere în formular (niciodată în adresă, ca la jurnal).
+- **Fără AI:** `https://site.ro/imagini.php`, cu cheia de scriere în formular (niciodată în adresă, ca la jurnal).
   Pagina micșorează pozele în browser înainte de trimitere, deci pleacă repede și fără locația GPS; cheia de citire e
   refuzată, fiecare fișier e verificat și scris în jurnal, pagina nu se indexează. Apoi îi dai AI-ului adresa. Se scoate
   cu `'pagina_imagini' => false`.
@@ -251,6 +256,7 @@ Conectorul din claude.ai (web, telefon) cere OAuth, care e în lucru (vezi mai j
 | `redirectioneaza` | scriere | adresă veche → adresă nouă de pe site, 301 (doar când la adresa veche nu mai e nimic); `la` gol o scoate |
 | `sterge` | scriere | mută elementul între versiuni (reversibil) |
 | `restaureaza` | scriere | aduce înapoi o versiune, ca ciornă |
+| `link_urcare` | scriere | un link temporar la care omul urcă poze fără cheie; AI-ul le găsește apoi cu `listeaza_imagini` |
 | `urca_imagine` | scriere | JPEG/PNG/GIF/WebP, max 5 MB, din `url` (https, cu apărare SSRF) sau `continut_base64`; extensia se stabilește din conținut |
 | `sterge_imagine` | scriere | mută imaginea între versiuni; refuză dacă e folosită |
 

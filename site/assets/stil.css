@@ -143,6 +143,7 @@ h3{font-size:20px;margin:28px 0 8px}
 .imagine-ok code{display:block;font-size:14px;word-break:break-all;margin-bottom:8px;color:var(--text)}
 .imagine-ok .buton{padding:6px 14px;font-size:14px}
 .imagine-ok .mic{margin:8px 0 0;font-size:13.5px;color:var(--text-2)}
+.gata-link{background:var(--verde-fond);border-left:5px solid var(--verde);padding:12px 16px;border-radius:6px;color:var(--text)}
 .imagine-gresita{border:2px solid var(--rosu);background:var(--rosu-fond);color:var(--rosu);border-radius:var(--raza);padding:10px 14px}
 
 /* jurnalul */

@@ -187,6 +187,29 @@ function urca_imagine_din_url(string $url, string $nume): array
     return urca_imagine_date($nume, $r['corp']) + ['sursa' => $inceput] + ($url !== $inceput ? ['sursa_finala' => $url] : []);
 }
 
+// --- linkul de urcare: omul alege poza, AI-ul o folosește ----------------------------------------------------------------
+// O poză atașată în chat ajunge la AI ca imagine de privit, nu ca fișier pe care să-l poată trimite mai departe. Așa că AI-ul
+// îi dă omului un link semnat, valabil puțin: omul îl deschide, alege poza, iar AI-ul o găsește apoi cu listeaza_imagini.
+// Fără cheie și fără nimic de completat. Semnătura folosește cheia previzualizărilor, dar într-un domeniu separat
+// („imagini:urcare|" conține „:", deci nu poate fi un slug): un link de previzualizare nu devine niciodată link de urcare.
+
+function link_urcare(int $minute): array
+{
+    $minute = max(5, min(120, $minute));
+    $expira = time() + $minute * 60;
+    $semn = hash_hmac('sha256', "imagini:urcare|$expira", cheie_previzualizare(true));
+    return ['url' => url_absolut("/imagini.php?e=$expira&s=$semn"), 'expira' => date('c', $expira), 'minute' => $minute,
+            'pasul_urmator' => 'Dă-i omului linkul. După ce spune că a urcat, cheamă listeaza_imagini: cele mai noi sunt primele.',
+            'atentie' => 'oricine are linkul poate urca imagini până la expirare (doar imagini, verificate, scrise în jurnal)'];
+}
+
+function link_urcare_valid(int $expira, string $semn): bool
+{
+    $cheie = cheie_previzualizare(false);
+    if ($cheie === '' || $semn === '' || $expira < time() || $expira > time() + 120 * 60 + 60) return false;
+    return hash_equals(hash_hmac('sha256', "imagini:urcare|$expira", $cheie), $semn);
+}
+
 function listeaza_imagini(): array
 {
     $rez = [];
