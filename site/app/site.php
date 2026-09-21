@@ -129,6 +129,25 @@ function imagine_masuri(string $img): array
     return $stiute[$img] = ($i ? ['latime' => (int) $i[0], 'inaltime' => (int) $i[1]] : []);
 }
 
+// O imagine mai înaltă decât lată (captura unui telefon, o poză pe verticală) nu se întinde pe toată lățimea coloanei:
+// pe calculator ar ocupa două ecrane înainte de primul rând de text (cms.paycode.ro, 21 sept 2026). Se recunoaște din fișier.
+function e_portret(string $img): bool
+{
+    $m = imagine_masuri($img);
+    return $m && $m['inaltime'] > $m['latime'] * 1.1;
+}
+
+// În conținut, imaginile de pe site care sunt pe verticală primesc clasa "portret" (la afișare; ce e salvat nu se schimbă).
+function marcheaza_portret(string $html): string
+{
+    return (string) preg_replace_callback('#<img\b[^>]*\bsrc="(/media/[a-z0-9-]+\.(?:jpg|png|gif|webp))"[^>]*>#', function ($m) {
+        if (!e_portret($m[1])) return $m[0];
+        if (!preg_match('/\bclass="([^"]*)"/', $m[0], $c)) return (string) preg_replace('/^<img\b/', '<img class="portret"', $m[0], 1);
+        if (preg_match('/\b(portret|ingust)\b/', $c[1])) return $m[0];
+        return str_replace($c[0], 'class="' . trim($c[1] . ' portret') . '"', $m[0]);
+    }, $html);
+}
+
 // --- ce citesc motoarele de căutare și agenții --------------------------------------------------
 
 function editor_jsonld(): array
@@ -209,7 +228,7 @@ function variabile_acasa(?array $acasa): array
 {
     return [
         'acasa' => $acasa,
-        'html' => $acasa ? curata_html((string) $acasa['continut_html']) : '',
+        'html' => $acasa ? marcheaza_portret(curata_html((string) $acasa['continut_html'])) : '',
         'articole' => array_slice(listeaza_elemente('articol', 'vizibil'), 0, 6),
         'titlu_pagina' => $acasa ? titlu_pagina((string) $acasa['titlu']) : (string) config('site.nume'),
         'descriere' => ($acasa['descriere'] ?? '') ?: (string) config('site.descriere'),
@@ -240,7 +259,7 @@ function pagina_element(string $slug): void
 
 function variabile_element(string $tip, array $e): array
 {
-    $html = curata_html((string) ($e['continut_html'] ?? ''));
+    $html = marcheaza_portret(curata_html((string) ($e['continut_html'] ?? '')));
     $v = ['e' => $e, 'html' => $html,
           'titlu_pagina' => titlu_pagina((string) $e['titlu']),
           'descriere' => ($e['descriere'] ?? '') ?: (string) config('site.descriere'),

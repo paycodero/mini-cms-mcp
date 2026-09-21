@@ -51,6 +51,12 @@ h3{font-size:20px;margin:28px 0 8px}
 .continut img{border-radius:var(--raza)}
 .coperta{margin:8px 0 28px}
 .coperta img{width:100%;border-radius:var(--raza)}
+/* imaginile pe verticală (capturi de telefon): cel mult cât ecranul de înalte, centrate, niciodată pe toată lățimea */
+figure.coperta.coperta-portret img{display:block;width:auto;max-width:100%;max-height:min(75vh,640px);margin:0 auto}
+/* !important: temele pun width:100% pe imaginile din figure; o captură pe verticală nu se lasă întinsă de nicio temă */
+.continut > img.portret,.continut > p > img.portret,.continut > p > a > img.portret,.continut > figure > img.portret{
+  display:block;width:auto !important;max-width:min(100%,380px) !important;max-height:80vh;margin:24px auto}
+.card-imagine img.portret,.legat img.portret{object-position:top}
 
 .etichete{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px}
 .eticheta{display:inline-block;padding:3px 12px;border-radius:999px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;text-decoration:none}

@@ -933,6 +933,23 @@ elibereaza();
 verifica('Securitate', 'un link de urcare falsificat, expirat sau luat dintr-o previzualizare e refuzat (403), nimic scris',
     $coduri_link === [403, 403, 403] && $in_media() === $inainte && $slug_prev !== '', implode(',', $coduri_link));
 
+// capturile de telefon (imagini pe verticală) nu se întind pe toată lățimea: coperta, conținutul, cardurile
+$portret = (string) (unealta($ks, 'urca_imagine', ['nume' => 'captura telefon.png',
+    'continut_base64' => 'iVBORw0KGgoAAAANSUhEUgAAAAIAAAAECAIAAAArjXluAAAAFUlEQVR42mM8ISfHwMDAxMDAgEEBABueAQxuJioXAAAAAElFTkSuQmCC'])['date']['url'] ?? '');
+$portret2 = (string) (unealta($ks, 'urca_imagine', ['nume' => 'alta captura.png',   // coperta nu se repetă în text, deci în text alt fișier
+    'continut_base64' => 'iVBORw0KGgoAAAANSUhEUgAAAAIAAAAECAIAAAArjXluAAAAFUlEQVR42mM8ISfHwMDAxMDAgEEBABueAQxuJioXAAAAAElFTkSuQmCC'])['date']['url'] ?? '');
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'de-pe-telefon', 'titlu' => 'De pe telefon', 'imagine' => $portret, 'etichete' => ['Telefon'],
+    'continut_html' => '<p>Text.</p><p><img src="' . $portret2 . '" alt="captură"></p><figure><img src="' . $url_img . '" alt="pătrată"></figure>']);
+unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'de-pe-telefon']);
+$r = cerere('GET', '/de-pe-telefon');
+verifica('Imagini', 'o captură de telefon ca copertă nu se întinde pe toată lățimea (coperta-portret)', strpos($r['corp'], 'class="coperta coperta-portret"') !== false);
+verifica('Imagini', 'în text, doar imaginile pe verticală primesc clasa portret; ce e salvat nu se schimbă',
+    preg_match('#<img class="portret" src="' . preg_quote($portret2, '#') . '"#', $r['corp']) === 1
+    && strpos($r['corp'], '<img src="' . $url_img . '" alt="pătrată">') !== false
+    && strpos((string) (unealta($kc, 'citeste', ['tip' => 'articol', 'slug' => 'de-pe-telefon'])['date']['continut_html'] ?? ''), 'portret') === false);
+verifica('Imagini', 'pe carduri, captura se arată de sus, nu de la mijloc', strpos(cerere('GET', '/eticheta/telefon')['corp'], 'class="portret" alt=""') !== false);
+unealta($ks, 'sterge', ['tip' => 'articol', 'slug' => 'de-pe-telefon']);
+
 // de pe calculator, cu unealta: fără base64 prin conversație, fără cheie pe ecran
 file_put_contents("$tmp/de-pe-calculator.png", $poza);
 $rc = unealta_locala('urca-imagine.php', [$url, "$tmp/de-pe-calculator.png", '--local', "--dosar=$copii"]);

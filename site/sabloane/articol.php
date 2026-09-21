@@ -17,7 +17,7 @@
 <?php // coperta nu se repetă sus dacă aceeași imagine e deja în text (de ex. într-o comparație)
 if (($e['imagine'] ?? '') !== '' && strpos($html, (string) $e['imagine']) === false): ?>
   <?php $m_cop = imagine_masuri((string) $e['imagine']); ?>
-  <figure class="coperta"><img src="<?= esc($e['imagine']) ?>" alt="<?= esc($e['imagine_alt'] ?? '') ?>" fetchpriority="high"<?= $m_cop ? ' width="' . (int) $m_cop['latime'] . '" height="' . (int) $m_cop['inaltime'] . '"' : '' ?>></figure>
+  <figure class="coperta<?= e_portret((string) $e['imagine']) ? ' coperta-portret' : '' ?>"><img src="<?= esc($e['imagine']) ?>" alt="<?= esc($e['imagine_alt'] ?? '') ?>" fetchpriority="high"<?= $m_cop ? ' width="' . (int) $m_cop['latime'] . '" height="' . (int) $m_cop['inaltime'] . '"' : '' ?>></figure>
 <?php endif; ?>
   <div class="continut"><?= $html ?></div>
 <?php if ($legate ?? []): ?>
@@ -27,7 +27,7 @@ if (($e['imagine'] ?? '') !== '' && strpos($html, (string) $e['imagine']) === fa
 <?php foreach ($legate as $x): ?>
       <a class="legat" href="<?= esc(url_element($x)) ?>">
 <?php if (($x['imagine'] ?? '') !== ''): ?>
-        <img src="<?= esc($x['imagine']) ?>" alt="" width="88" height="66" loading="lazy" decoding="async">
+        <img src="<?= esc($x['imagine']) ?>"<?= e_portret((string) $x['imagine']) ? ' class="portret"' : '' ?> alt="" width="88" height="66" loading="lazy" decoding="async">
 <?php endif; ?>
         <span class="legat-text">
 <?php if ($x['etichete'] ?? []): ?>
