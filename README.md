@@ -11,7 +11,7 @@ cu capturi din cPanel, și articolele despre [de ce există](https://cms.paycode
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache/cPanel). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Circa 3.000 de rânduri PHP pe server, plus teste automate (253 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
+- Circa 3.000 de rânduri PHP pe server, plus teste automate (281 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
 - Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
 - Instalarea: o comandă pe calculator și un zip urcat în cPanel.
 
@@ -124,6 +124,28 @@ php unelte/instaleaza.php https://site.ro --tema=client  la instalare: tema se p
 - Fonturile se țin în cache un an. Când schimbi un font, dă-i fișierului alt nume. Foaia de stil se reîncarcă singură.
 - Copia de siguranță (`copie.php`) ține doar numele temei. Pusă pe alt site care nu are tema, copia pune restul
   identității și îți spune comanda cu care urci tema.
+
+## Blocurile comune și paginile de pornire
+
+Un site nou nu mai pornește gol. Pentru asta există două piese, amândouă conținut, nu cod pus de AI:
+
+- **Blocurile comune**, în `assets/stil.css`, deci pe orice site și sub orice temă: `bloc-carduri` (cu `bloc-card`), `bloc-pasi`
+  (pași numerotați), `bloc-citat` (cu `cite`), `bloc-actiune` (chemarea de la final, cu `a.buton`), `bloc-coloane`, `bloc-galerie`,
+  `bloc-nota` (plus `nota-verde`, `nota-galbena`, `nota-rosie`) și `bloc-cifre`. Întrebările frecvente rămân `h2` + `h3` + răspuns,
+  direct în conținut, fără cutie: altfel `FAQPage` nu le mai găsește. AI-ul le vede în `despre_site` (`blocuri`), fiecare cu rostul
+  lui și un exemplu de HTML. Testele verifică exemplele: fiecare trece prin filtru neatins și fiecare clasă are reguli în foaia de bază.
+  Regulile au prefixul `main .continut`, ca să stea deasupra regulilor generale ale unei teme; o temă le restilizează cu același prefix.
+- **Paginile de pornire**: comanda `pagini_de_pornire` (cheia de citire ajunge) întoarce scheletele paginilor acasă, despre, servicii,
+  contact și confidențialitate, făcute din blocuri, cu locuri `[[COMPLETEAZĂ: …]]`, plus întrebările de pus omului. **Nu creează
+  nimic.** AI-ul le completează cu ce află de la om, le salvează ca ciorne, trimite linkul de previzualizare, iar omul aprobă.
+  Răspunsul arată și care pagini există deja, ca să nu fie suprascrise.
+- **Un loc de completat oprește publicarea**: `publica` refuză un element care mai are `[[COMPLETEAZĂ…]]` în titlu, descriere sau
+  conținut, iar `salveaza` refuză să-l pună pe o pagină deja publicată. Un schelet uitat nu ajunge pe site.
+- **Pagina de confidențialitate** descrie ce face tehnic site-ul, verificat în cod: nu pune cookie-uri proprii, nu are formulare,
+  nu păstrează căutările, fonturile și imaginile vin de pe site, iar jurnalul lui scrie doar administrarea și încercările de a intra
+  în ea, nu vizitele. Ce e pornit la momentul cererii intră singur: Cloudflare, GA4 (cu atenționarea că site-ul nu are banner de
+  consimțământ) și videoclipurile YouTube/Vimeo din pagini. Datele firmei și ale găzduirii rămân locuri de completat. **Nu e
+  consultanță juridică:** proprietarul o verifică înainte de publicare.
 
 ## Actualizarea codului, fără zip și fără cPanel
 
@@ -276,7 +298,8 @@ Conectorul din claude.ai (web, telefon) cere OAuth, care e în lucru (vezi mai j
 
 | Comanda | Cheie | Ce face |
 |---|---|---|
-| `despre_site` | citire | regulile site-ului, HTML-ul permis, rolul cheii |
+| `despre_site` | citire | regulile site-ului, HTML-ul permis, blocurile comune, temele, rolul cheii |
+| `pagini_de_pornire` | citire | scheletele paginilor unui site nou (acasă, despre, servicii, contact, confidențialitate), de completat cu omul; nu creează nimic |
 | `listeaza` | citire | paginile și articolele, fără conținut |
 | `citeste` | citire | un element întreg |
 | `cauta` | citire | caută în titluri, descrieri, conținut |

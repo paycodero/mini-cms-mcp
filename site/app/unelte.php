@@ -60,7 +60,12 @@ function unelte(): array
                         'Înainte de "publica", trimite-i omului linkul din previzualizeaza: vede pagina exact ca pe site.',
                         '"publica" cu "la" în viitor programează elementul: apare singur la ora aceea.',
                         'Când se schimbă adresa unui element, o redirecționare (redirectioneaza) duce vizitatorii de la adresa veche la cea nouă.',
+                        'Un site nou sau gol: cheamă pagini_de_pornire (acasă, despre, servicii, contact, confidențialitate) și completează-le cu omul.',
+                        'Un loc [[COMPLETEAZĂ: …]] rămas în titlu, descriere sau conținut oprește publicarea.',
                     ],
+                    'blocuri' => ['nota' => 'Blocurile comune: merg sub orice temă (tema le poate restiliza). Folosește-le în conținut exact ca în exemple; '
+                        . 'poți schimba textele și numărul de elemente. Nu inventa cifre, citate sau clienți ca să umpli un bloc.',
+                        'lista' => blocuri_comune()],
                     'html_permis' => array_keys(HTML_PERMISE),
                     'atribute_globale' => HTML_GLOBALE,
                     'iframe' => 'doar YouTube (youtube.com/embed, youtube-nocookie.com/embed) și Vimeo (player.vimeo.com/video)',
@@ -79,6 +84,14 @@ function unelte(): array
                         . 'Sub articol apar singure două articole înrudite. Coperta nu se repetă sus dacă imaginea e deja în conținut.',
                 ];
             },
+        ],
+        'pagini_de_pornire' => [
+            'scriere' => false, 'titlu' => 'Paginile de pornire ale unui site nou', 'adnotari' => $citire,
+            'descriere' => 'Scheletele paginilor acasă, despre, servicii, contact și confidențialitate, făcute din blocurile comune, cu locuri '
+                . '[[COMPLETEAZĂ: …]]. Nu creează nimic: le completezi cu ce afli de la om, le salvezi ca ciorne cu salveaza, apoi omul le aprobă. '
+                . 'Pagina de confidențialitate descrie ce face tehnic acest site și ce e pornit acum pe el (GA4, Cloudflare, video).',
+            'schema' => schema_obiect([]),
+            'fn' => fn(array $a) => pagini_de_pornire(),
         ],
         'listeaza' => [
             'scriere' => false, 'titlu' => 'Listează paginile și articolele', 'adnotari' => $citire,

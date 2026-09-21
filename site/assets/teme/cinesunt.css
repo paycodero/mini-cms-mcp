@@ -238,6 +238,7 @@ main.lat{padding-top:24px;padding-bottom:76px}
 .text .continut ul,.text .continut ol{margin:0 0 1.15em;padding-left:22px}
 .text .continut li{margin-bottom:.4em}
 .text .continut a{color:var(--c-timp);text-decoration-thickness:1.5px;overflow-wrap:break-word}
+.text .continut a.buton{color:var(--text);text-decoration:none}   /* butonul din blocul „actiune” rămâne buton, nu link */
 .text .continut strong{font-weight:700}
 .text .continut table{display:block;overflow-x:auto;width:100%;max-width:100%;border-collapse:collapse;margin:0 0 1.3em;font-size:15px}
 .text .continut th,.text .continut td{padding:10px 14px;text-align:left;border:1px solid var(--linie);white-space:normal}

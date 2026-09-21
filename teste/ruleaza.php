@@ -156,10 +156,10 @@ $r = mcp($kc, 'notifications/initialized', [], null);
 verifica('Protocol', 'o notificare primește 202, fără corp', $r['cod'] === 202 && $r['corp'] === '', "cod {$r['cod']}");
 $r = mcp($kc, 'tools/list');
 $unelte_c = array_column($r['json']['result']['tools'] ?? [], 'name');
-verifica('Chei', 'cheia de citire vede doar cele 11 comenzi de citire', count($unelte_c) === 11 && !in_array('salveaza', $unelte_c, true), implode(', ', $unelte_c));
+verifica('Chei', 'cheia de citire vede doar cele 12 comenzi de citire', count($unelte_c) === 12 && !in_array('salveaza', $unelte_c, true), implode(', ', $unelte_c));
 $r = mcp($ks, 'tools/list');
 $lista_s = $r['json']['result']['tools'] ?? [];
-verifica('Protocol', 'cheia de scriere vede toate cele 22 de comenzi', count($lista_s) === 22, (string) count($lista_s));
+verifica('Protocol', 'cheia de scriere vede toate cele 23 de comenzi', count($lista_s) === 23, (string) count($lista_s));
 $bune = array_filter($lista_s, fn($t) => ($t['inputSchema']['type'] ?? '') === 'object' && isset($t['annotations']['readOnlyHint']));
 verifica('Protocol', 'fiecare comandă are schemă de tip obiect și adnotări', count($bune) === count($lista_s) && $lista_s);
 $r = mcp($kc, 'ping');
@@ -681,7 +681,7 @@ $pe_server = implode('', array_map('file_get_contents', glob("$tmp/site/date/oau
 verifica('Securitate', 'OAuth: pe server nu stă niciun token sau cod în clar, doar amprente', $acces !== '' && strpos($pe_server, $acces) === false
     && strpos($pe_server, $reinnoire) === false && strpos($pe_server, $a['cod']) === false && strpos($pe_server, hash('sha256', $acces)) !== false);
 $r = mcp($acces, 'tools/list');
-verifica('OAuth', 'Claude folosește tokenul pe /mcp și vede toate comenzile', $r['cod'] === 200 && count($r['json']['result']['tools'] ?? []) === 22, $r['corp']);
+verifica('OAuth', 'Claude folosește tokenul pe /mcp și vede toate comenzile', $r['cod'] === 200 && count($r['json']['result']['tools'] ?? []) === 23, $r['corp']);
 $r = token(['grant_type' => 'refresh_token', 'refresh_token' => $reinnoire, 'client_id' => $client]);
 $acces2 = (string) ($r['json']['access_token'] ?? '');
 $r2 = token(['grant_type' => 'refresh_token', 'refresh_token' => $reinnoire, 'client_id' => $client]);
@@ -697,7 +697,7 @@ $a = aproba($client, $claude, b64url(hash('sha256', $ver, true)), $kc);
 $r = token(['grant_type' => 'authorization_code', 'code' => $a['cod'], 'redirect_uri' => $claude, 'client_id' => $client, 'code_verifier' => $ver]);
 $r2 = mcp((string) ($r['json']['access_token'] ?? ''), 'tools/list');
 verifica('OAuth', 'aprobat cu cheia de citire, tokenul are doar drept de citire', ($r['json']['scope'] ?? '') === 'citire'
-    && count($r2['json']['result']['tools'] ?? []) === 11, $r['corp']);
+    && count($r2['json']['result']['tools'] ?? []) === 12, $r['corp']);
 $l = unealta($kc, 'listeaza_conexiuni');
 verifica('OAuth', 'listeaza_conexiuni arată conexiunea Claude, aprobată, cu drepturile ei', ($l['date']['conexiuni'][0]['nume'] ?? '') === 'Claude'
     && ($l['date']['conexiuni'][0]['aprobat'] ?? false) === true && in_array('scriere', $l['date']['conexiuni'][0]['drepturi'] ?? [], true), $l['text']);
@@ -842,6 +842,68 @@ unealta($ks, 'seteaza_site', ['subsol' => '', 'nume_articole' => '', 'arata_data
 foreach (['legat-unu', 'legat-doi', 'legat-trei', 'cu-de-toate'] as $s) unealta($ks, 'sterge', ['tip' => 'articol', 'slug' => $s]);
 verifica('Site', 'fără nume ales, articolele se numesc din nou „articole", iar subsolul dispare',
     strpos(cerere('GET', '/')['corp'], 'Toate articolele') !== false && strpos(cerere('GET', '/')['corp'], 'nota-subsol') === false);
+
+// --- 0.15: blocurile comune și paginile de pornire ------------------------------------------------
+
+$u = unealta($kc, 'despre_site');
+$blocuri = $u['date']['blocuri']['lista'] ?? [];
+verifica('Pornire', 'despre_site arată cele 9 blocuri comune, fiecare cu rostul și un exemplu', count($blocuri) === 9
+    && count(array_filter($blocuri, fn($b) => ($b['cand'] ?? '') !== '' && ($b['html'] ?? '') !== '')) === 9, substr($u['text'], 0, 300));
+$css_baza = (string) file_get_contents("$tmp/site/assets/stil.css");
+$clase_lipsa = [];
+foreach ($blocuri as $b) {
+    preg_match_all('/class="([^"]+)"/', (string) $b['html'], $mc);
+    foreach (preg_split('/\s+/', implode(' ', $mc[1])) ?: [] as $cl) if ($cl !== '' && strpos($css_baza, ".$cl") === false) $clase_lipsa[] = $cl;
+}
+verifica('Pornire', 'fiecare clasă din exemple are reguli în stil.css, deci blocul merge sub orice temă', !$clase_lipsa, implode(', ', array_unique($clase_lipsa)));
+$u = unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'proba-blocuri', 'titlu' => 'Proba blocurilor',
+    'continut_html' => implode("\n", array_column($blocuri, 'html'))]);
+verifica('Pornire', 'toate exemplele de blocuri trec prin filtrul HTML neatinse', !$u['eroare'] && ($u['date']['curatari'] ?? ['?']) === [],
+    json_encode($u['date']['curatari'] ?? $u['text'], JSON_UNESCAPED_UNICODE));
+unealta($ks, 'sterge', ['tip' => 'pagina', 'slug' => 'proba-blocuri']);
+
+$ga4_initial = (string) (unealta($kc, 'despre_site')['date']['site']['ga4'] ?? '');
+unealta($ks, 'seteaza_site', ['ga4' => '']);
+$u = unealta($kc, 'pagini_de_pornire');
+$schelete = $u['date']['pagini'] ?? [];
+$exista_bine = array_filter($schelete, fn($p) => $p['exista_deja'] === (is_file("$tmp/site/date/pagini/{$p['slug']}.json") || is_file("$tmp/site/date/articole/{$p['slug']}.json")));
+verifica('Pornire', 'pagini_de_pornire, cu cheia de citire: cele 5 schelete, fiecare cu locuri de completat, și știe ce e deja pe site',
+    !$u['eroare'] && array_column($schelete, 'slug') === ['acasa', 'despre', 'servicii', 'contact', 'confidentialitate']
+    && count($exista_bine) === 5 && min(array_column($schelete, 'locuri_de_completat') ?: [0]) > 0, substr($u['text'], 0, 300));
+$conf = (string) (array_column($schelete, 'continut_html', 'slug')['confidentialitate'] ?? '');
+verifica('Pornire', 'confidențialitatea spune doar ce e pornit: fără GA4 și fără Cloudflare, nimic despre ele',
+    strpos($conf, 'cookie-uri proprii') !== false && strpos($conf, 'Google Analytics') === false && strpos($conf, 'Cloudflare') === false, $conf);
+unealta($ks, 'seteaza_site', ['ga4' => 'G-TESTPORNIRE1']);
+$u = unealta($kc, 'pagini_de_pornire');
+$conf = (string) (array_column($u['date']['pagini'] ?? [], 'continut_html', 'slug')['confidentialitate'] ?? '');
+verifica('Pornire', 'cu GA4 pornit, pagina îl numește, iar AI-ul e atenționat că lipsește acordul pentru cookie-uri',
+    strpos($conf, 'Google Analytics') !== false && ($u['date']['atentie'] ?? []) !== [], json_encode($u['date']['atentie'] ?? null, JSON_UNESCAPED_UNICODE));
+unealta($ks, 'seteaza_site', ['ga4' => $ga4_initial]);
+
+$curate = 0;
+foreach ($schelete as $p) {
+    $u = unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => "pornire-{$p['slug']}", 'titlu' => $p['titlu'], 'descriere' => $p['descriere'],
+        'continut_html' => $p['continut_html']]);
+    if (!$u['eroare'] && ($u['date']['curatari'] ?? ['?']) === [] && count($u['date']['locuri_de_completat'] ?? []) > 0) $curate++;
+}
+verifica('Pornire', 'scheletele se salvează ca ciorne, neatinse de filtru, iar răspunsul arată locurile rămase', $curate === 5, "$curate din 5");
+$u = unealta($ks, 'publica', ['tip' => 'pagina', 'slug' => 'pornire-servicii']);
+verifica('Pornire', 'un schelet necompletat nu se poate publica', $u['eroare'] && strpos($u['text'], 'locuri de completat') !== false
+    && cerere('GET', '/pornire-servicii')['cod'] === 404, $u['text']);
+$completat = fn(string $h) => (string) preg_replace_callback('/\[\[COMPLETEAZ[ĂA][^\]]*\]\]/u', function () { static $n = 0; return 'Text real ' . ++$n; }, $h);
+$serv = array_column($schelete, null, 'slug')['servicii'];
+$u = unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'pornire-servicii', 'titlu' => 'Servicii', 'descriere' => $completat($serv['descriere']),
+    'continut_html' => $completat($serv['continut_html'])]);
+$u2 = unealta($ks, 'publica', ['tip' => 'pagina', 'slug' => 'pornire-servicii']);
+$r = cerere('GET', '/pornire-servicii');
+$faq = ld_de_tip(jsonld_din($r['corp']), 'FAQPage')['mainEntity'] ?? [];
+verifica('Pornire', 'completat, se publică: pașii și chemarea apar, iar întrebările frecvente devin FAQPage, fără chemarea de la final',
+    !$u2['eroare'] && $r['cod'] === 200 && strpos($r['corp'], '<ol class="bloc-pasi">') !== false && strpos($r['corp'], '<aside class="bloc-actiune">') !== false
+    && count($faq) === 3 && strpos(json_encode($faq, JSON_UNESCAPED_UNICODE), 'Scrie-ne') === false, $u2['text'] . ' ' . json_encode($faq, JSON_UNESCAPED_UNICODE));
+$u = unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'pornire-servicii', 'continut_html' => '<p>[[COMPLETEAZĂ: ceva]]</p>']);
+verifica('Pornire', 'pe o pagină publicată, un loc de completat e refuzat înainte să ajungă pe site',
+    $u['eroare'] && strpos(cerere('GET', '/pornire-servicii')['corp'], 'COMPLETEAZ') === false, $u['text']);
+foreach ($schelete as $p) unealta($ks, 'sterge', ['tip' => 'pagina', 'slug' => "pornire-{$p['slug']}"]);
 
 // --- 0.12: imagini fără base64 prin conversație (după adresă, din browser, de pe calculator) ------------
 

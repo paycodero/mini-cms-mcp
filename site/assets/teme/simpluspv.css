@@ -139,6 +139,9 @@ main.lat>section>h1{margin-bottom:clamp(28px,4vw,44px)}
 .buton-gol{background:#fff;color:var(--text);border:1px solid rgba(20,29,46,.14);box-shadow:none}
 /* .buton:hover impune text alb; fără regula asta, butonul gol rămâne alb pe alb și textul dispare */
 .buton-gol:hover{background:var(--panou);color:var(--text);border-color:rgba(20,29,46,.3)}
+/* un buton pus în conținut (blocul „actiune”): „.continut a” l-ar colora cu accentul, deci text pe fond de aceeași culoare */
+.continut a.buton{color:#fff}
+.continut a.buton-gol,.continut a.buton-gol:hover{color:var(--text)}
 .toate{margin-top:clamp(28px,4vw,40px)}
 
 /* ---------- căutarea, erorile ---------- */

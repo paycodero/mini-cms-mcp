@@ -191,6 +191,10 @@ function salveaza_element(string $tip, string $slug, array $campuri): array
                 return ['operatie' => 'neschimbat', 'element' => rezumat_element($vechi), 'curatari' => $raport];
             }
         }
+        $locuri = locuri_de_completat($nou);
+        if ($locuri && $nou['stare'] === 'publicat') {   // pe o pagină publicată, un loc de completat ar apărea imediat pe site
+            throw new EroareCms('elementul e publicat, iar conținutul nou mai are ' . count($locuri) . ' locuri de completat, de ex. ' . $locuri[0]);
+        }
         $nou['actualizat'] = date('c');
         $json = json_text($nou, true);
         $versiune = $vechi !== null ? versioneaza_element($tip, $slug) : null;
@@ -202,6 +206,7 @@ function salveaza_element(string $tip, string $slug, array $campuri): array
             if (e_vizibil($nou)) indexnow_pentru($nou);   // Bing află de schimbare fără să aștepte următorul crawl
         }
         if ($vechi === null) $rez['atentie'] = 'creat ca ciornă — nu apare pe site până nu îl publici cu "publica"';
+        if ($locuri) $rez['locuri_de_completat'] = $locuri;
         return $rez;
     });
 }
@@ -222,6 +227,10 @@ function schimba_stare(string $tip, string $slug, string $stare, ?string $la = n
     return cu_blocare(function () use ($tip, $slug, $stare, $moment) {
         $e = citeste_element($tip, $slug);
         if ($e === null) throw new EroareCms("nu există $tip cu slugul \"$slug\"");
+        if ($stare === 'publicat' && ($locuri = locuri_de_completat($e))) {   // un schelet de pornire necompletat nu ajunge pe site
+            throw new EroareCms('elementul mai are ' . count($locuri) . ' locuri de completat, de ex. ' . $locuri[0]
+                . ' — completează-le (sau scoate blocul) cu salveaza, apoi publică');
+        }
         $data = $e['publicat_la'] ?? null;
         if ($stare === 'publicat') {
             $data = $moment ?? ((empty($data) || strtotime((string) $data) > time()) ? date('c') : $data);
