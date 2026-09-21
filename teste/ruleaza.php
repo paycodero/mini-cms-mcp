@@ -879,6 +879,10 @@ $conf = (string) (array_column($u['date']['pagini'] ?? [], 'continut_html', 'slu
 verifica('Pornire', 'cu GA4 pornit, pagina îl numește, iar AI-ul e atenționat că lipsește acordul pentru cookie-uri',
     strpos($conf, 'Google Analytics') !== false && ($u['date']['atentie'] ?? []) !== [], json_encode($u['date']['atentie'] ?? null, JSON_UNESCAPED_UNICODE));
 unealta($ks, 'seteaza_site', ['ga4' => $ga4_initial]);
+$r = mcp($kc, 'tools/call', ['name' => 'pagini_de_pornire', 'arguments' => new stdClass()], 1, ['CF-Ray' => '8f00aa11bb22cc33-OTP']);
+$conf = (string) (array_column(json_decode((string) ($r['json']['result']['content'][0]['text'] ?? '{}'), true)['pagini'] ?? [], 'continut_html', 'slug')['confidentialitate'] ?? '');
+verifica('Pornire', 'în spatele Cloudflare (antetul CF-Ray, chiar dacă găzduirea pune IP-ul real în REMOTE_ADDR), pagina îl numește',
+    strpos($conf, 'Cloudflare') !== false, substr($conf, 0, 200));
 
 $curate = 0;
 foreach ($schelete as $p) {

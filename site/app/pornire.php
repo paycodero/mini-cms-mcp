@@ -56,7 +56,10 @@ function fapte_confidentialitate(): array
             if (preg_match('#<iframe[^>]+(youtube|vimeo)#i', (string) ($e['continut_html'] ?? ''))) { $video = true; break 2; }
         }
     }
-    return ['ga4' => (string) config('site.ga4'), 'cloudflare' => din_cloudflare(), 'video' => $video];
+    // Cloudflare: după adresa cererii (din_cloudflare) SAU după antetul CF-Ray, pe care Cloudflare îl trimite mereu serverului.
+    // LiteSpeed-ul de pe găzduirea paycode.ro pune singur IP-ul real în REMOTE_ADDR, deci doar adresa nu ajunge (21 sept 2026).
+    $cf = din_cloudflare() || (string) ($_SERVER['HTTP_CF_RAY'] ?? '') !== '';
+    return ['ga4' => (string) config('site.ga4'), 'cloudflare' => $cf, 'video' => $video];
 }
 
 function pagini_de_pornire(): array
