@@ -12,8 +12,8 @@
 <?php endif; ?>
 <?php if ($articole): ?>
 <section class="ultimele">
-  <h2>Ultimele articole</h2>
+  <h2>Ultimele <?= esc(nume_articole()) ?></h2>
 <?php require __DIR__ . '/_carduri.php'; ?>
-  <p class="toate"><a class="buton" href="/articole">Toate articolele</a></p>
+  <p class="toate"><a class="buton" href="/articole">Toate <?= esc(nume_articole(true)) ?></a></p>
 </section>
 <?php endif; ?>

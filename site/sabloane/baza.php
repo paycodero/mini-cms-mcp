@@ -49,7 +49,7 @@ if ((string) config('site.ga4') !== '' && !$noindex): $ga4 = (string) config('si
 <?php foreach (array_merge($jsonld ? [$jsonld] : [], $jsonld_extra) as $bloc_ld): ?><script type="application/ld+json" nonce="<?= esc($nonce) ?>"><?= json_encode($bloc_ld, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <?php endforeach; ?>
 </head>
-<body>
+<body class="pagina-<?= esc($sablon) ?>">
 <?php if ($previzualizare): ?>
 <div class="bara-previzualizare">Previzualizare · <?= esc($previzualizare['stare']) ?> · linkul expiră la <?= esc($previzualizare['expira']) ?></div>
 <?php endif; ?>
@@ -83,6 +83,26 @@ if ((string) config('site.ga4') !== '' && !$noindex): $ga4 = (string) config('si
     <span>© <?= date('Y') ?> <?= esc(config('site.nume')) ?></span>
     <a href="/feed.xml">RSS</a>
   </div>
+<?php if ((string) config('site.subsol') !== ''): ?>
+  <div class="lat nota-subsol"><p><?= esc(config('site.subsol')) ?></p></div>
+<?php endif; ?>
 </footer>
+<?php // Butonul „Copiază" pe blocurile <pre> (prompturi, comenzi). Scriptul e al șablonului, cu nonce: conținutul nu poate aduce cod.
+if (strpos($corp_pagina, '<pre') !== false): ?>
+<script nonce="<?= esc($nonce) ?>">
+document.querySelectorAll('main pre').forEach(function (pre) {
+  var cutie = document.createElement('div'), b = document.createElement('button');
+  cutie.className = 'cod-copiabil'; b.type = 'button'; b.className = 'copiaza'; b.textContent = 'Copiază';
+  b.addEventListener('click', function () {
+    var gata = function () { b.textContent = 'Copiat ✓'; setTimeout(function () { b.textContent = 'Copiază'; }, 1800); };
+    if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(pre.innerText).then(gata, function () {}); return; }
+    var r = document.createRange(), s = window.getSelection();
+    r.selectNodeContents(pre); s.removeAllRanges(); s.addRange(r);
+    try { if (document.execCommand('copy')) gata(); } catch (e) {}
+  });
+  pre.parentNode.insertBefore(cutie, pre); cutie.appendChild(b); cutie.appendChild(pre);
+});
+</script>
+<?php endif; ?>
 </body>
 </html>

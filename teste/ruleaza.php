@@ -788,6 +788,60 @@ verifica('Măsurare', 'fără identificator nu se încarcă nimic și CSP-ul ră
     !$u['eroare'] && strpos($r['corp'], 'googletagmanager') === false
     && strpos($csp_fara, 'googletagmanager') === false, $csp_fara);
 
+// --- 0.11: ce avea cinesunt.info și îi trebuie oricărui site ------------------------------------
+
+$u = unealta($ks, 'seteaza_site', ['subsol' => 'Nu oferim <b>consiliere</b>; ținta o alegi tu.', 'nume_articole' => 'ghiduri']);
+$r = cerere('GET', '/');
+$subsol = preg_match('#<footer.*?</footer>#s', $r['corp'], $mf) ? $mf[0] : '';
+verifica('Site', 'textul din subsol apare pe pagină, fără HTML', !$u['eroare'] && strpos($subsol, '<p>Nu oferim consiliere; ținta o alegi tu.</p>') !== false, $u['text']);
+verifica('SEO', 'textul din subsol ajunge și în llms.txt', strpos(cerere('GET', '/llms.txt')['corp'], 'ținta o alegi tu') !== false);
+verifica('Site', 'articolele se pot numi altfel: în meniu, pe prima pagină, în listă',
+    strpos($r['corp'], '>Ghiduri</a>') !== false && strpos($r['corp'], 'Ultimele ghiduri') !== false && strpos($r['corp'], 'Toate ghidurile') !== false
+    && strpos(cerere('GET', '/articole')['corp'], '<h1>Ghiduri</h1>') !== false);
+$u = unealta($ks, 'seteaza_site', ['nume_articole' => 'Ghiduri <script>']);
+$u2 = unealta($ks, 'seteaza_site', ['arata_data' => 'poate']);
+verifica('Securitate', 'numele articolelor e un cuvânt cu litere mici, iar arata_data doar "da" sau ""', $u['eroare'] && $u2['eroare'], $u['text'] . ' / ' . $u2['text']);
+$u = unealta($kc, 'despre_site');
+verifica('Teme', 'despre_site arată ce spune fiecare temă despre ea (primul comentariu din foaie)',
+    strpos((string) ($u['date']['teme']['despre']['simpluspv'] ?? ''), 'simpluspv') !== false, substr($u['text'], 0, 300));
+
+foreach ([['legat-unu', 'Decizii', '2026-01-02 10:00'], ['legat-doi', 'Timp', '2026-01-03 10:00'], ['legat-trei', 'Decizii', '2026-01-01 10:00']] as [$s, $t, $la]) {
+    unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => $s, 'titlu' => "Titlu $s", 'continut_html' => '<p>Text.</p>', 'etichete' => [$t], 'imagine' => $url_img]);
+    unealta($ks, 'publica', ['tip' => 'articol', 'slug' => $s, 'la' => $la]);
+}
+$u = unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'cu-de-toate', 'titlu' => 'Cu de toate', 'etichete' => ['Decizii'], 'imagine' => $url_img,
+    'continut_html' => '<p>Început.</p><figure><img src="' . $url_img . '" alt="Comparație"></figure><pre>Ești asistentul meu.</pre>'
+        . '<h2>Întrebări frecvente</h2><h3>Prima întrebare?</h3><p>Primul răspuns.</p><h3>A doua întrebare?</h3><p>Al doilea răspuns.</p>'
+        . '<aside class="final-articol"><p>Scrie-mi pe WhatsApp.</p></aside>']);
+unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'cu-de-toate']);
+$r = cerere('GET', '/cu-de-toate');
+$legate = preg_match('#<aside class="legate">.*?</aside>#s', $r['corp'], $ml) ? $ml[0] : '';
+verifica('Site', '„Citește mai departe": întâi articolele cu aceeași etichetă', strpos($legate, 'href="/legat-unu"') !== false
+    && strpos($legate, 'href="/legat-trei"') !== false && strpos($legate, 'href="/legat-doi"') === false, $legate);
+verifica('Site', 'coperta nu se repetă sus când imaginea e deja în text, dar rămâne imaginea de distribuire',
+    strpos($r['corp'], 'class="coperta"') === false && strpos($r['corp'], 'property="og:image"') !== false
+    && strpos(cerere('GET', '/legat-unu')['corp'], 'class="coperta"') !== false);
+verifica('Site', 'fiecare pagină își spune tipul pe <body> (tema o poate așeza diferit)',
+    strpos($r['corp'], '<body class="pagina-articol">') !== false && strpos(cerere('GET', '/')['corp'], '<body class="pagina-acasa">') !== false);
+verifica('Site', 'etichetele poartă clasa lor, pe articol și pe carduri', strpos($r['corp'], 'class="eticheta eticheta-decizii"') !== false
+    && strpos(cerere('GET', '/articole')['corp'], 'class="card-eticheta eticheta-decizii"') !== false);
+verifica('Site', 'pagina etichetei are numele ei ca titlu', strpos(cerere('GET', '/eticheta/decizii')['corp'], '<h1>Decizii</h1>') !== false);
+verifica('Site', 'butonul „Copiază" vine din șablon, cu nonce, doar pe paginile cu <pre>',
+    preg_match('/<script nonce="[^"]+">\s*document\.querySelectorAll\(\'main pre\'\)/', $r['corp']) === 1
+    && strpos(cerere('GET', '/legat-unu')['corp'], "querySelectorAll('main pre')") === false);
+$faq = ld_de_tip(jsonld_din($r['corp']), 'FAQPage')['mainEntity'] ?? [];
+verifica('SEO', 'blocul de la finalul articolului nu se lipește de ultimul răspuns din întrebările frecvente',
+    count($faq) === 2 && ($faq[1]['acceptedAnswer']['text'] ?? '') === 'Al doilea răspuns.', json_encode($faq, JSON_UNESCAPED_UNICODE));
+verifica('Site', 'data nu apare implicit', strpos($r['corp'], 'data-publicarii') === false && strpos(cerere('GET', '/articole')['corp'], '<p class="data">') === false);
+$u = unealta($ks, 'seteaza_site', ['arata_data' => 'da']);
+$r = cerere('GET', '/legat-unu');
+verifica('Site', 'cu arata_data = "da", data apare pe articol și pe carduri', !$u['eroare'] && strpos($r['corp'], '<span class="data-publicarii">2 ianuarie 2026</span>') !== false
+    && strpos(cerere('GET', '/articole')['corp'], '<p class="data">2 ianuarie 2026</p>') !== false, $u['text']);
+unealta($ks, 'seteaza_site', ['subsol' => '', 'nume_articole' => '', 'arata_data' => '']);
+foreach (['legat-unu', 'legat-doi', 'legat-trei', 'cu-de-toate'] as $s) unealta($ks, 'sterge', ['tip' => 'articol', 'slug' => $s]);
+verifica('Site', 'fără nume ales, articolele se numesc din nou „articole", iar subsolul dispare',
+    strpos(cerere('GET', '/')['corp'], 'Toate articolele') !== false && strpos(cerere('GET', '/')['corp'], 'nota-subsol') === false);
+
 // --- actualizarea codului de pe depozit (0.9) ----------------------------------------------------
 
 elibereaza();
@@ -1024,6 +1078,7 @@ $url = $url_principal;
 verifica('Export', 'copia pusă pe un site gol îl reface: elemente, stări, date, autori, identitate, imagini cu aceleași adrese, redirecționări',
     $refacut, $rp['iesire']);
 verifica('Export', 'copia păstrează și tema aleasă', strpos($acasa2['corp'], '/assets/teme/simpluspv.css') !== false);
+verifica('Export', 'copia păstrează și legăturile din subsol', strpos($acasa2['corp'], '>Celălalt site</a>') !== false);
 $rp2 = unealta_locala('copie.php', [$url2, '--local', "--dosar=$inst", "--pune=$dosar_copie"]);
 verifica('Export', 'peste un site cu conținut, copia nu se pune fără --peste', $rp2['cod'] === 1 && strpos($rp2['iesire'], '--peste') !== false, $rp2['iesire']);
 rename("$inst/server/app/config.php", "$inst/server/app/config.scos");

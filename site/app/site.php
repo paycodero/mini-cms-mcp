@@ -60,8 +60,43 @@ function meniu(): array
     foreach (listeaza_elemente('pagina', 'vizibil') as $p) {
         if (($p['meniu'] ?? null) !== null) $m[] = ['titlu' => $p['titlu'], 'url' => url_element($p)];
     }
-    if (listeaza_elemente('articol', 'vizibil')) $m[] = ['titlu' => 'Articole', 'url' => '/articole'];
+    if (listeaza_elemente('articol', 'vizibil')) $m[] = ['titlu' => nume_articole(false, true), 'url' => '/articole'];
     return $m;
+}
+
+// Cum se numesc articolele pe site („ghiduri", „rețete"; implicit „articole"). $articulat adaugă „le" („ghidurile"),
+// $majuscula pune prima literă mare („Ghiduri"). Adresa rămâne /articole oricum.
+function nume_articole(bool $articulat = false, bool $majuscula = false): string
+{
+    $n = (string) config('site.nume_articole');
+    if ($n === '') $n = 'articole';
+    if ($articulat) $n .= 'le';
+    if ($majuscula && preg_match('/^(.)(.*)$/us', $n, $m)) {
+        $n = strtr($m[1], ['ă' => 'Ă', 'â' => 'Â', 'î' => 'Î', 'ș' => 'Ș', 'ş' => 'Ş', 'ț' => 'Ț', 'ţ' => 'Ţ']);
+        $n = strtoupper($n) . $m[2];
+    }
+    return $n;
+}
+
+// Data publicării pe pagini: doar dacă site-ul a cerut-o (arata_data = "da"). Implicit nu apare: pe un site de
+// documentație, o dată lângă titlu doar face conținutul să pară vechi.
+function data_vizibila(array $e): string
+{
+    return (string) config('site.arata_data') === 'da' ? data_ro($e['publicat_la'] ?? null) : '';
+}
+
+// Două articole de citit mai departe: întâi cele cu prima etichetă a articolului, apoi cele mai noi.
+function articole_legate(array $e, int $cate = 2): array
+{
+    $alte = array_values(array_filter(listeaza_elemente('articol', 'vizibil'), fn($x) => $x['slug'] !== $e['slug']));
+    $prima = slug_din_text((string) (($e['etichete'] ?? [])[0] ?? ''));
+    $aceeasi = $prima === '' ? [] : array_filter($alte, fn($x) => in_array($prima, array_map(fn($t) => slug_din_text((string) $t), $x['etichete'] ?? []), true));
+    $rez = [];
+    foreach (array_merge($aceeasi, $alte) as $x) {
+        $rez[$x['slug']] = $x;
+        if (count($rez) >= $cate) break;
+    }
+    return array_values($rez);
 }
 
 function culoare_accent(): string
@@ -109,7 +144,7 @@ function editor_jsonld(): array
 function firimituri_jsonld(array $e): array
 {
     $cale = [['@type' => 'ListItem', 'position' => 1, 'name' => 'Acasă', 'item' => url_absolut('/')]];
-    if (($e['tip'] ?? '') === 'articol') $cale[] = ['@type' => 'ListItem', 'position' => 2, 'name' => 'Articole', 'item' => url_absolut('/articole')];
+    if (($e['tip'] ?? '') === 'articol') $cale[] = ['@type' => 'ListItem', 'position' => 2, 'name' => nume_articole(false, true), 'item' => url_absolut('/articole')];
     $cale[] = ['@type' => 'ListItem', 'position' => count($cale) + 1, 'name' => $e['titlu'] ?? '', 'item' => url_absolut(url_element($e))];
     return ['@context' => 'https://schema.org', '@type' => 'BreadcrumbList', 'itemListElement' => $cale];
 }
@@ -137,6 +172,12 @@ function faq_jsonld(string $html): ?array
         if ($nume === 'h2') {
             if ($curenta) { $intrebari[] = $curenta; $curenta = null; }
             $in_sectiune = preg_match('/^(întrebări frecvente|intrebari frecvente|faq)/iu', $text) === 1;
+            continue;
+        }
+        // un bloc separat (ex. chemarea de la finalul articolului) încheie secțiunea, nu se lipește de ultimul răspuns
+        if ($nume === 'aside' || $nume === 'section') {
+            if ($curenta) { $intrebari[] = $curenta; $curenta = null; }
+            $in_sectiune = false;
             continue;
         }
         if (!$in_sectiune) continue;
@@ -208,6 +249,7 @@ function variabile_element(string $tip, array $e): array
     $faq = faq_jsonld($html);
     if ($faq) $v['jsonld_extra'][] = $faq;
     if ($tip === 'articol') {
+        $v['legate'] = articole_legate($e);
         $v['tip_og'] = 'article';
         $v['imagine_og'] = imagine_absoluta((string) ($e['imagine'] ?? ''));
         $v['jsonld'] = array_filter(['@context' => 'https://schema.org', '@type' => 'Article',
@@ -301,9 +343,9 @@ function pagina_lista(?string $eticheta): void
     $total_pagini = max(1, (int) ceil(count($toate) / $pe_pagina));
     $nr = max(1, min($total_pagini, (int) ($_GET['pagina'] ?? 1)));
     $baza = $eticheta === null ? '/articole' : '/eticheta/' . $eticheta;
-    $titlu = $eticheta === null ? 'Articole' : 'Eticheta: ' . $nume_eticheta;
+    $titlu = $eticheta === null ? nume_articole(false, true) : (string) $nume_eticheta;
     randeaza('lista', [
-        'titlu' => $titlu, 'articole' => array_slice($toate, ($nr - 1) * $pe_pagina, $pe_pagina),
+        'titlu' => $titlu, 'eticheta' => $eticheta, 'articole' => array_slice($toate, ($nr - 1) * $pe_pagina, $pe_pagina),
         'nr' => $nr, 'total_pagini' => $total_pagini, 'baza' => $baza,
         'titlu_pagina' => $titlu . ' — ' . config('site.nume'),
         'canonic' => url_absolut($baza . ($nr > 1 ? '?pagina=' . $nr : '')),
@@ -438,6 +480,7 @@ function fisier_llms(): void
     antete_text('text/plain');
     echo '# ', config('site.nume'), "\n\n";
     if (config('site.descriere')) echo '> ', config('site.descriere'), "\n\n";
+    if ((string) config('site.subsol') !== '') echo config('site.subsol'), "\n\n";   // ce stă pe fiecare pagină, citesc și modelele
     echo 'Adresa site-ului: ', url_absolut('/'), ' · limba: ', config('site.limba');
     if ((string) config('site.autor') !== '') echo ' · autor: ', config('site.autor');
     echo "\n", 'Conținutul se poate citi și prin ', url_absolut('/feed.xml'), ' (RSS) sau ', url_absolut('/sitemap.xml'), ' (toate adresele).', "\n\n";
@@ -447,7 +490,7 @@ function fisier_llms(): void
         foreach ($legaturi as $l) echo '- [', $l['titlu'], '](', $l['url'], ")\n";
         echo "\n";
     }
-    foreach (['pagina' => 'Pagini', 'articol' => 'Articole'] as $tip => $titlu) {
+    foreach (['pagina' => 'Pagini', 'articol' => nume_articole(false, true)] as $tip => $titlu) {
         $lista = listeaza_elemente($tip, 'vizibil');
         if (!$lista) continue;
         echo '## ', $titlu, "\n\n";

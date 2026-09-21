@@ -326,6 +326,16 @@ function teme_disponibile(): array
     return $teme;
 }
 
+// Ce spune tema despre ea: primul comentariu din foaia de stil. Acolo își descrie autorul temei blocurile (clasele)
+// pe care le știe, ca AI-ul să le poată folosi în conținut fără să ghicească.
+function tema_despre(string $tema): string
+{
+    if (!in_array($tema, teme_disponibile(), true)) return '';
+    $css = (string) @file_get_contents(dirname(__DIR__) . "/assets/teme/$tema.css", false, null, 0, 8000);
+    if (!preg_match('#^\s*/\*(.*?)\*/#s', $css, $m)) return '';
+    return trim((string) preg_replace('/[ \t]*\n[ \t]*/', "\n", $m[1]));
+}
+
 // Tema aleasă, doar dacă foaia ei e încă pe server (o copie pusă pe alt site poate cere o temă pe care el nu o are).
 function tema_activa(): string
 {
@@ -375,7 +385,21 @@ function seteaza_identitate(array $campuri): array
             throw new EroareCms('"tema" e una dintre temele de pe server: ' . ($teme ? '"' . implode('", "', $teme) . '"' : 'nu e niciuna') . ' ("" = aspectul implicit)');
         }
     }
-    if (!$nou) throw new EroareCms('trimite cel puțin un câmp: nume, descriere, autor, limba, culoare, logo, favicon, tema sau legaturi');
+    // Textul din subsol, pe fiecare pagină: o mențiune care trebuie să fie peste tot (ce nu e site-ul, firma și CUI-ul).
+    if (array_key_exists('subsol', $campuri)) $nou['subsol'] = text_simplu($campuri['subsol'] ?? '', 300);
+    // Cum se numesc articolele pe site („ghiduri", „rețete"): în meniu, pe prima pagină, în liste. Adresa rămâne /articole.
+    if (array_key_exists('nume_articole', $campuri)) {
+        $nou['nume_articole'] = text_simplu($campuri['nume_articole'] ?? '', 30);
+        if ($nou['nume_articole'] !== '' && !preg_match('/^[\p{Ll}]{3,30}$/u', $nou['nume_articole'])) {
+            throw new EroareCms('"nume_articole" e un singur cuvânt la plural, cu litere mici, ex. "ghiduri" (gol = "articole")');
+        }
+    }
+    if (array_key_exists('arata_data', $campuri)) {
+        $nou['arata_data'] = (string) ($campuri['arata_data'] ?? '');
+        if (!in_array($nou['arata_data'], ['', 'da'], true)) throw new EroareCms('"arata_data" e "da" (data publicării apare pe pagini) sau "" (nu apare)');
+    }
+    if (!$nou) throw new EroareCms('trimite cel puțin un câmp: nume, descriere, autor, limba, culoare, logo, favicon, tema, legaturi, ga4, '
+        . 'subsol, nume_articole sau arata_data');
 
     return cu_blocare(function () use ($nou) {
         $fisier = dir_date() . '/site.json';

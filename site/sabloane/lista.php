@@ -1,5 +1,8 @@
 <?php if (!defined('MINICMS')) { http_response_code(403); exit; } ?>
 <section>
+<?php if (!empty($eticheta)): ?>
+  <p class="eticheta-sus">Eticheta</p>
+<?php endif; ?>
   <h1><?= esc($titlu) ?></h1>
 <?php require __DIR__ . '/_carduri.php'; ?>
 <?php if ($total_pagini > 1): ?>

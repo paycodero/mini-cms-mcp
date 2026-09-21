@@ -105,6 +105,13 @@ article.text>h1+.continut{margin-top:clamp(24px,3vw,34px)}
 .continut pre{background:var(--accent-pal);border:1px solid #d6e0f0;border-left:5px solid var(--accent);border-radius:12px;padding:20px 22px;margin:26px 0;
   overflow-x:auto;max-width:100%;font:14px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--text);white-space:pre-wrap;word-break:break-word}
 .continut pre code{background:none;color:inherit;padding:0;border:0;font:inherit}
+/* butonul „Copiază" pus de șablon: blocul de cod e deschis la culoare aici, deci butonul e închis */
+.continut .cod-copiabil{margin:26px 0}
+.continut .cod-copiabil pre{margin:0;padding-top:46px}
+.copiaza{color:var(--accent-inchis);background:#fff;border:1px solid #d6e0f0}
+.copiaza:hover{background:var(--accent);border-color:var(--accent);color:#fff}
+article.text>.legate{max-width:672px}
+article.text>.legate+.inapoi{margin-top:28px}
 .continut :not(pre)>code{background:#eef1f5;border-radius:5px;padding:2px 6px;font:.92em/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--text)}
 /* video încorporat: se stilează containerul, iframe-ul se întinde în el */
 .continut .cai-video{display:flex;aspect-ratio:16/9;max-width:672px;margin:28px auto;border-radius:12px;overflow:hidden;background:#000}

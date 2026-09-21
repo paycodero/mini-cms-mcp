@@ -154,7 +154,10 @@ function curata_element(DOMElement $el, array &$raport): void
         raport_adauga($raport, "<$nume> fără sursă permisă scos");
         return;
     }
-    if ($nume === 'a' && $el->getAttribute('target') === '_blank') $el->setAttribute('rel', 'noopener noreferrer');
+    if ($nume === 'a' && $el->getAttribute('target') === '_blank') {   // noopener noreferrer obligatoriu, fără să piardă nofollow/sponsored
+        $rel = array_filter(preg_split('/\s+/', trim($el->getAttribute('rel'))) ?: []);
+        $el->setAttribute('rel', implode(' ', array_unique(array_merge(['noopener', 'noreferrer'], $rel))));
+    }
     if ($nume === 'iframe') {
         $el->setAttribute('loading', 'lazy');
         $el->setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');

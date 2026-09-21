@@ -104,10 +104,11 @@ $schimba = fn(string $t) => strtr($t, $mapare);
 
 titlu('Identitatea');
 $identitate = [];
-foreach (['nume', 'descriere', 'autor', 'limba', 'culoare', 'logo', 'favicon', 'tema'] as $k) {
+foreach (['nume', 'descriere', 'autor', 'limba', 'culoare', 'logo', 'favicon', 'tema', 'ga4', 'subsol', 'nume_articole', 'arata_data'] as $k) {
     $v = (string) ($export['site'][$k] ?? '');
     if ($v !== '') $identitate[$k] = $schimba($v);
 }
+if (!empty($export['site']['legaturi']) && is_array($export['site']['legaturi'])) $identitate['legaturi'] = array_values($export['site']['legaturi']);
 try {
     if ($identitate) $mcp('seteaza_site', $identitate);
     ok($identitate ? 'numele, descrierea și restul identității puse' : 'copia nu are identitate proprie');

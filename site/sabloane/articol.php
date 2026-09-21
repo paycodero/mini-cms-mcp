@@ -1,7 +1,7 @@
 <?php if (!defined('MINICMS')) { http_response_code(403); exit; } ?>
 <article class="text">
-<?php if (($e['autor'] ?? '') !== ''): ?>
-  <p class="semnatura"><?= esc($e['autor']) ?></p>
+<?php if (($e['autor'] ?? '') !== '' || data_vizibila($e) !== ''): ?>
+  <p class="semnatura"><?= esc($e['autor'] ?? '') ?><?php if (data_vizibila($e) !== ''): ?><span class="data-publicarii"><?= esc(data_vizibila($e)) ?></span><?php endif; ?></p>
 <?php endif; ?>
   <h1><?= esc($e['titlu']) ?></h1>
 <?php if (($e['descriere'] ?? '') !== ''): ?>
@@ -9,15 +9,36 @@
 <?php endif; ?>
 <?php if ($e['etichete'] ?? []): ?>
   <p class="etichete">
-<?php foreach ($e['etichete'] as $t): ?>
-    <a class="eticheta" href="/eticheta/<?= esc(slug_din_text((string) $t)) ?>"><?= esc($t) ?></a>
+<?php foreach ($e['etichete'] as $t): $s_t = slug_din_text((string) $t); ?>
+    <a class="eticheta eticheta-<?= esc($s_t) ?>" href="/eticheta/<?= esc($s_t) ?>"><?= esc($t) ?></a>
 <?php endforeach; ?>
   </p>
 <?php endif; ?>
-<?php if (($e['imagine'] ?? '') !== ''): ?>
+<?php // coperta nu se repetă sus dacă aceeași imagine e deja în text (de ex. într-o comparație)
+if (($e['imagine'] ?? '') !== '' && strpos($html, (string) $e['imagine']) === false): ?>
   <?php $m_cop = imagine_masuri((string) $e['imagine']); ?>
   <figure class="coperta"><img src="<?= esc($e['imagine']) ?>" alt="<?= esc($e['imagine_alt'] ?? '') ?>" fetchpriority="high"<?= $m_cop ? ' width="' . (int) $m_cop['latime'] . '" height="' . (int) $m_cop['inaltime'] . '"' : '' ?>></figure>
 <?php endif; ?>
   <div class="continut"><?= $html ?></div>
-  <p class="inapoi"><a href="/articole">← Toate articolele</a></p>
+<?php if ($legate ?? []): ?>
+  <aside class="legate">
+    <h2>Citește mai departe</h2>
+    <div class="legate-lista">
+<?php foreach ($legate as $x): ?>
+      <a class="legat" href="<?= esc(url_element($x)) ?>">
+<?php if (($x['imagine'] ?? '') !== ''): ?>
+        <img src="<?= esc($x['imagine']) ?>" alt="" width="88" height="66" loading="lazy" decoding="async">
+<?php endif; ?>
+        <span class="legat-text">
+<?php if ($x['etichete'] ?? []): ?>
+          <span class="legat-eticheta eticheta-<?= esc(slug_din_text((string) $x['etichete'][0])) ?>"><?= esc($x['etichete'][0]) ?></span>
+<?php endif; ?>
+          <span class="legat-titlu"><?= esc($x['titlu']) ?></span>
+        </span>
+      </a>
+<?php endforeach; ?>
+    </div>
+  </aside>
+<?php endif; ?>
+  <p class="inapoi"><a href="/articole">← Toate <?= esc(nume_articole(true)) ?></a></p>
 </article>
