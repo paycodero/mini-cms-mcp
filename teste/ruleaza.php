@@ -1082,6 +1082,125 @@ $ra = actualizare($kd, ['actiune' => 'restaureaza', 'copie' => '20200101-000000'
 verifica('Securitate', 'punerea înapoi a unei copii vechi nu scrie paza dosarului de date peste .htaccess-ul site-ului (site-ul nu se închide)',
     $ra['cod'] === 200 && (string) file_get_contents("$tmp/site/.htaccess") === $ht_site && cerere('GET', '/')['cod'] === 200, json_encode($ra['json'] ?? null));
 
+// --- teme proprii (0.14): lucrări pentru un client, puse de om cu cheia de cod, ocolite de sincronizare ----------
+
+elibereaza();
+$b64 = fn(string $s): string => base64_encode($s);
+$css_proprie = "/* Tema „client-proba\" — tema unui client, făcută doar pentru teste. */\n"
+    . "@font-face{font-family:'Proba';src:url(client-proba/proba.woff2) format('woff2')}\nbody{font-family:'Proba',sans-serif}\n";
+$font_proba = 'wOF2' . str_repeat("\0", 60);
+$tema_proba = ['client-proba.css' => $b64($css_proprie), 'client-proba/proba.woff2' => $b64($font_proba),
+               'client-proba/fundal.png' => $b64("\x89PNG\r\n\x1a\n" . str_repeat("\0", 20))];
+
+$r = actualizare($ks, ['actiune' => 'pune_tema', 'nume' => 'client-proba', 'fisiere' => $tema_proba]);
+verifica('Securitate', 'o temă proprie NU se poate pune cu cheia de scriere (AI-ul nu scrie CSS pe site)',
+    $r['cod'] === 401 && !is_file("$tmp/site/assets/teme/client-proba.css"), "cod {$r['cod']}");
+
+$r = actualizare($kd, ['actiune' => 'pune_tema', 'nume' => 'client-proba', 'fisiere' => $tema_proba]);
+$rez_t = (array) ($r['json']['rezultat'] ?? []);
+verifica('Teme proprii', 'cu cheia de cod, tema proprie se pune pe site și se servește de acolo',
+    $r['cod'] === 200 && ($rez_t['operatie'] ?? '') === 'pusă' && ($rez_t['fisiere'] ?? 0) === 3
+    && (string) @file_get_contents("$tmp/site/assets/teme/client-proba.css") === $css_proprie
+    && cerere('GET', '/assets/teme/client-proba/proba.woff2')['corp'] === $font_proba, $r['corp']);
+$u = unealta($kc, 'despre_site');
+verifica('Teme proprii', 'AI-ul vede tema în despre_site, marcată proprie, cu descrierea din foaie',
+    in_array('client-proba', $u['date']['teme']['disponibile'] ?? [], true) && ($u['date']['teme']['proprii'] ?? []) === ['client-proba']
+    && strpos((string) ($u['date']['teme']['despre']['client-proba'] ?? ''), 'tema unui client') !== false, $u['text']);
+$u = unealta($ks, 'seteaza_site', ['tema' => 'client-proba']);
+verifica('Teme proprii', 'AI-ul o alege cu seteaza_site, ca pe oricare altă temă',
+    !$u['eroare'] && strpos(cerere('GET', '/')['corp'], '/assets/teme/client-proba.css?v=') !== false, $u['text']);
+
+$simpluspv_css = (string) file_get_contents("$tmp/site/assets/teme/simpluspv.css");
+$r = actualizare($kd, ['actiune' => 'pune_tema', 'nume' => 'simpluspv', 'fisiere' => ['simpluspv.css' => $b64('body{color:red}')]]);
+verifica('Teme proprii', 'o temă de bază (din depozit) nu poate fi înlocuită cu una proprie: se cere alt nume',
+    $r['cod'] === 400 && strpos((string) ($r['json']['eroare'] ?? ''), 'temă de bază') !== false
+    && (string) file_get_contents("$tmp/site/assets/teme/simpluspv.css") === $simpluspv_css, $r['corp']);
+
+$rele = [
+    'o cale care iese din dosar' => ['client-rau.css' => $b64('a{}'), 'client-rau/../../../app/x.css' => $b64('a{}')],
+    'un fișier PHP' => ['client-rau.css' => $b64('a{}'), 'client-rau/x.php' => $b64('<?php echo 1;')],
+    'un SVG' => ['client-rau.css' => $b64('a{}'), 'client-rau/x.svg' => $b64('<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"/>')],
+    'un fișier ascuns' => ['client-rau.css' => $b64('a{}'), 'client-rau/.htaccess' => $b64('Require all granted')],
+    'foaia altei teme' => ['client-rau.css' => $b64('a{}'), 'simpluspv.css' => $b64('a{}')],
+    'fără foaia de stil' => ['client-rau/x.woff2' => $b64('wOF2')],
+];
+$refuzate = [];
+foreach ($rele as $ce => $f) {
+    $r = actualizare($kd, ['actiune' => 'pune_tema', 'nume' => 'client-rau', 'fisiere' => $f]);
+    if ($r['cod'] !== 400) $refuzate[] = "$ce: cod {$r['cod']}";
+}
+$r = actualizare($kd, ['actiune' => 'pune_tema', 'nume' => '../app', 'fisiere' => ['../app.css' => $b64('a{}')]]);
+verifica('Securitate', 'tema proprie refuză căi în afara dosarului ei, PHP, SVG, fișiere ascunse, foaia altei teme și un nume care e cale',
+    !$refuzate && $r['cod'] === 400 && !is_file("$tmp/site/assets/teme/client-rau.css") && !is_dir("$tmp/site/assets/teme/client-rau")
+    && !is_file("$tmp/site/app/x.css") && !is_file("$tmp/site/app.css") && !is_file("$tmp/site/assets/app.css")
+    && (string) file_get_contents("$tmp/site/assets/teme/simpluspv.css") === $simpluspv_css, implode('; ', $refuzate));
+
+$css_proprie2 = str_replace('sans-serif}', 'serif}', $css_proprie);
+$r = actualizare($kd, ['actiune' => 'pune_tema', 'nume' => 'client-proba',
+    'fisiere' => ['client-proba.css' => $b64($css_proprie2), 'client-proba/proba.woff2' => $b64($font_proba)]]);
+$rez_t = (array) ($r['json']['rezultat'] ?? []);
+$copie_t = "$tmp/site/date/versiuni/teme/client-proba/" . ($rez_t['copie'] ?? 'x');
+verifica('Teme proprii', 'înlocuirea păstrează întâi versiunea de pe server, apoi pune tema întreagă (ce lipsește din cea nouă iese)',
+    $r['cod'] === 200 && ($rez_t['operatie'] ?? '') === 'înlocuită' && ($rez_t['scoase'] ?? []) === ['client-proba/fundal.png']
+    && (string) @file_get_contents("$tmp/site/assets/teme/client-proba.css") === $css_proprie2 && !is_file("$tmp/site/assets/teme/client-proba/fundal.png")
+    && (string) @file_get_contents("$copie_t/client-proba.css") === $css_proprie && is_file("$copie_t/client-proba/fundal.png"), $r['corp']);
+
+fa_pachet_proba(['app/nucleu.php' => $nucleu_nou, 'assets/teme/client-proba.css' => 'body{color:red} /* din depozit */',
+                 'assets/teme/client-proba/proba.woff2' => 'din depozit']);
+$r = actualizare($kd, ['actiune' => 'stare']);
+$st = (array) ($r['json']['stare'] ?? []);
+verifica('Teme proprii', 'starea arată că depozitul are o temă cu același nume, iar tema proprie nu e printre fișierele de schimbat',
+    ($st['teme_proprii_ocolite'] ?? []) === ['client-proba']
+    && !preg_grep('#^assets/teme/client-proba#', array_merge((array) ($st['de_schimbat'] ?? []), (array) ($st['noi'] ?? []))), $r['corp']);
+$r = actualizare($kd, ['actiune' => 'sincronizeaza']);
+$copie_sinc = (string) ($r['json']['rezultat']['copie'] ?? '');
+$sinc_ok = ($r['json']['rezultat']['operatie'] ?? '') === 'actualizat' && strpos((string) file_get_contents("$tmp/site/app/nucleu.php"), "'9.9.9'") !== false;
+$ra = actualizare($kd, ['actiune' => 'restaureaza', 'copie' => $copie_sinc]);   // înapoi la codul testat
+verifica('Teme proprii', 'sincronizarea cu depozitul nu scrie peste tema proprie, nici când depozitul are una cu același nume',
+    $sinc_ok && (string) file_get_contents("$tmp/site/assets/teme/client-proba.css") === $css_proprie2
+    && (string) file_get_contents("$tmp/site/assets/teme/client-proba/proba.woff2") === $font_proba
+    && $ra['cod'] === 200 && (string) file_get_contents("$tmp/site/app/nucleu.php") === $nucleu_test, $r['corp']);
+
+$mare = (string) json_encode(['actiune' => 'pune_tema', 'nume' => 'client-mare',
+    'fisiere' => ['client-mare.css' => $b64('a{}'), 'client-mare/mare.woff2' => $b64(random_bytes(1 << 20))]]);
+$r = cerere('POST', '/actualizare.php', $mare, ['Content-Type' => 'application/json', 'Accept' => 'application/json']);
+verifica('Securitate', 'fără cheia de cod în antet, o cerere mare nu se citește (doar 20 KB)', $r['cod'] === 413
+    && !is_file("$tmp/site/assets/teme/client-mare.css"), "cod {$r['cod']}");
+$r = cerere('POST', '/actualizare.php', $mare, ['Content-Type' => 'application/json', 'Accept' => 'application/json', 'Authorization' => 'Bearer ' . $kd]);
+verifica('Teme proprii', 'cu cheia de cod, o temă de 1 MB trece într-o singură cerere', $r['cod'] === 200
+    && is_file("$tmp/site/assets/teme/client-mare/mare.woff2"), substr($r['corp'], 0, 300));
+actualizare($kd, ['actiune' => 'scoate_tema', 'nume' => 'client-mare']);
+
+// unealta de pe calculator: dosarul teme/ de lângă depozit, așezat ca assets/teme/
+$dosar_teme = "$tmp/unealta-teme";
+@mkdir("$dosar_teme/teme/client-unealta", 0755, true);
+copy("$dosar_act/chei-127-0-0-1.json", "$dosar_teme/chei-127-0-0-1.json");
+file_put_contents("$dosar_teme/teme/client-unealta.css", "/* Tema de probă a uneltei. */\n"
+    . "@font-face{font-family:'U';src:url(client-unealta/u.woff2) format('woff2')}\n"
+    . "@font-face{font-family:'V';src:url(cinesunt/inter-latin.woff2) format('woff2')}\nbody{font-family:'U'}\n");
+file_put_contents("$dosar_teme/teme/client-unealta/u.woff2", $font_proba);
+file_put_contents("$dosar_teme/teme/client-unealta/Thumbs.db", 'pus de Windows');
+$rc = unealta_locala('tema.php', [$url, '--local', '--pune=client-unealta', "--dosar=$dosar_teme"]);
+verifica('Teme proprii', 'unealta de pe calculator pune tema din dosarul teme/, o verifică din afară și nu arată cheia',
+    $rc['cod'] === 0 && strpos($rc['iesire'], 'verificat din afară') !== false && strpos($rc['iesire'], $kd) === false
+    && is_file("$tmp/site/assets/teme/client-unealta/u.woff2") && !is_file("$tmp/site/assets/teme/client-unealta/Thumbs.db"), $rc['iesire']);
+verifica('Teme proprii', 'unealta atrage atenția când foaia încarcă fonturile altei teme (o temă copiată, redenumită pe jumătate)',
+    strpos($rc['iesire'], 'cinesunt/inter-latin.woff2') !== false, $rc['iesire']);
+$rc = unealta_locala('tema.php', [$url, '--local', "--dosar=$dosar_teme"]);
+verifica('Teme proprii', 'fără opțiuni, unealta arată temele de bază și pe cele proprii',
+    $rc['cod'] === 0 && strpos($rc['iesire'], 'simpluspv') !== false && strpos($rc['iesire'], 'proprie: client-unealta') !== false
+    && strpos($rc['iesire'], 'proprie: client-proba') !== false, $rc['iesire']);
+$rc = unealta_locala('tema.php', [$url, '--local', '--scoate=client-proba', "--dosar=$dosar_teme"]);
+$r = cerere('GET', '/');
+verifica('Teme proprii', 'scoaterea temei alese: site-ul revine la aspectul implicit, iar o copie rămâne pe server',
+    $rc['cod'] === 0 && strpos($rc['iesire'], 'aspectul implicit') !== false && !is_file("$tmp/site/assets/teme/client-proba.css")
+    && !is_dir("$tmp/site/assets/teme/client-proba") && $r['cod'] === 200 && strpos($r['corp'], '/assets/teme/') === false
+    && count(glob("$tmp/site/date/versiuni/teme/client-proba/*") ?: []) === 2, $rc['iesire']);
+$rc = unealta_locala('tema.php', [$url, '--local', '--scoate=simpluspv', "--dosar=$dosar_teme"]);
+verifica('Teme proprii', 'o temă de bază nu se scoate de aici', $rc['cod'] === 1 && strpos($rc['iesire'], 'temă de bază') !== false
+    && is_file("$tmp/site/assets/teme/simpluspv.css"), $rc['iesire']);
+unealta($ks, 'seteaza_site', ['tema' => 'simpluspv']);
+
 // --- plafon pe adresele care răspund fără cheie (OAuth) ------------------------------------------
 
 @unlink("$tmp/site/date/securitate/incercari.json");
@@ -1210,6 +1329,24 @@ verifica('Export', 'copia păstrează și tema aleasă', strpos($acasa2['corp'],
 verifica('Export', 'copia păstrează și legăturile din subsol', strpos($acasa2['corp'], '>Celălalt site</a>') !== false);
 $rp2 = unealta_locala('copie.php', [$url2, '--local', "--dosar=$inst", "--pune=$dosar_copie"]);
 verifica('Export', 'peste un site cu conținut, copia nu se pune fără --peste', $rp2['cod'] === 1 && strpos($rp2['iesire'], '--peste') !== false, $rp2['iesire']);
+$exp_tema = json_decode((string) file_get_contents("$dosar_copie/export.json"), true);
+$exp_tema = ['format' => $exp_tema['format'], 'exportat_la' => $exp_tema['exportat_la'] ?? '',
+             'site' => ['tema' => 'tema-clientului'] + (array) $exp_tema['site'], 'pagini' => [], 'articole' => [], 'redirectionari' => [], 'imagini' => []];
+$dosar_copie2 = "$tmp/copie-cu-tema-proprie";
+@mkdir("$dosar_copie2/media", 0755, true);
+file_put_contents("$dosar_copie2/export.json", json_encode($exp_tema));
+$rp3 = unealta_locala('copie.php', [$url2, '--local', "--dosar=$inst", "--pune=$dosar_copie2", '--peste']);
+$url = $url2;
+$acasa3 = cerere('GET', '/');
+$url = $url_principal;
+verifica('Export', 'o copie cu o temă proprie care lipsește pe site-ul nou își pune restul identității și spune cum se urcă tema',
+    $rp3['cod'] === 0 && strpos($rp3['iesire'], 'tema-clientului') !== false && strpos($rp3['iesire'], 'tema.php') !== false
+    && strpos($acasa3['corp'], 'Atelierul Test') !== false, $rp3['iesire']);
+$ri = instaleaza([$url2, '--verifica', '--local', "--dosar=$inst", '--fara-claude', "--tema=$dosar_teme/teme/client-unealta.css"]);
+verifica('Instalare', '--tema pune tema proprie după verificare, pe drumul temelor proprii, nu în pachet',
+    $ri['cod'] === 0 && strpos($ri['iesire'], 'Gata') !== false && is_file("$inst/server/assets/teme/client-unealta/u.woff2")
+    && isset((json_decode((string) @file_get_contents("$inst/server/date/teme-proprii.json"), true) ?? [])['client-unealta'])
+    && !preg_grep('#client-unealta#', $in_pachet), $ri['iesire']);
 rename("$inst/server/app/config.php", "$inst/server/app/config.scos");
 $r4 = instaleaza([$url2, '--verifica', '--local', "--dosar=$inst", '--fara-claude']);
 verifica('Instalare', 'verificarea se oprește și spune cauza când serverul nu e în regulă (config.php lipsă)',

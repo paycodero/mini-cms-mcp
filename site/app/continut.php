@@ -336,6 +336,16 @@ function tema_despre(string $tema): string
     return trim((string) preg_replace('/[ \t]*\n[ \t]*/', "\n", $m[1]));
 }
 
+// Temele proprii: puse pe acest site de om, cu cheia de cod (unelte/tema.php), nu venite din depozitul public — lucrări
+// pentru un client, care nu au ce căuta pe GitHub. Registrul lor stă în date/, pe care sincronizarea nu-l atinge; după el,
+// sincronizarea le ocolește, ca o temă publică nouă cu același nume să nu scrie peste ele.
+function teme_proprii(): array
+{
+    $r = json_citeste(config('date') . '/teme-proprii.json') ?? [];
+    return array_filter($r, fn($info, $nume) => is_string($nume) && is_array($info) && preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $nume),
+        ARRAY_FILTER_USE_BOTH);
+}
+
 // Tema aleasă, doar dacă foaia ei e încă pe server (o copie pusă pe alt site poate cere o temă pe care el nu o are).
 function tema_activa(): string
 {

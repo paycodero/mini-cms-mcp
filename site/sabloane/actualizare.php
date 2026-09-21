@@ -9,6 +9,9 @@
 <?php if ($stare): ?>
   <div class="aplicatia">
     <p>Pe server: <b><?= esc($stare['versiune_instalata']) ?></b> · în depozit: <b><?= esc($stare['versiune_in_pachet']) ?></b></p>
+<?php if (!empty($stare['teme_proprii_ocolite'])): ?>
+    <p>Depozitul are o temă cu același nume ca tema proprie a site-ului (<?= esc(implode(', ', $stare['teme_proprii_ocolite'])) ?>): tema proprie rămâne neatinsă.</p>
+<?php endif; ?>
 <?php if (!$stare['de_schimbat'] && !$stare['noi']): ?>
     <p>Nimic de schimbat: codul de pe server e deja cel din depozit.</p>
 <?php else: ?>
@@ -41,6 +44,10 @@
       <button class="buton" type="submit" name="actiune" value="sincronizeaza">Adu versiunea din depozit</button>
     </div>
   </form>
+<?php if (!empty($teme['proprii'])): ?>
+  <p>Teme proprii pe acest site, puse cu <code>php unelte/tema.php</code>:
+     <?= esc(implode(', ', array_column($teme['proprii'], 'nume'))) ?>. Sincronizarea cu depozitul nu le atinge.</p>
+<?php endif; ?>
 <?php if ($copii): ?>
   <h2>Copii de siguranță</h2>
   <p>Fiecare actualizare salvează întâi fișierele pe care le înlocuiește. De aici se pun la loc.</p>

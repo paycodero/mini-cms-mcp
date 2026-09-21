@@ -18,6 +18,8 @@
 //                    iar la verificare conexiunea Claude primește cheia nouă
 //   --fara-claude    verifică serverul, dar nu leagă Claude Code
 //   --fara-teste     sare peste teste (nerecomandat)
+//   --tema=NUME      după verificare pune pe site tema proprie din <dosar>/teme/NUME.css + NUME/ (sau --tema=CALE);
+//                    temele proprii nu intră în pachet și nici în depozit — vezi unelte/tema.php
 //   --local          acceptă http:// — doar pentru probe pe calculator
 //
 // Cheile se scriu într-un fișier, niciodată pe ecran. Nimic nu se suprascrie: ce există se refolosește
@@ -27,14 +29,17 @@ declare(strict_types=1);
 require __DIR__ . '/comun.php';
 
 ['opt' => $opt, 'site' => $site, 'nume' => $nume, 'dosar' => $dosar, 'fisier_chei' => $fisier_chei] = porneste($argv,
-    ['verifica', 'chei-noi', 'fara-claude', 'fara-teste', 'oauth', 'inchide', 'date-afara'],
-    'php unelte/instaleaza.php https://site.ro [--verifica] [--chei-noi] [--oauth[=minute]] [--nume=scurt] [--dosar=CALE] [--fara-claude]');
+    ['verifica', 'chei-noi', 'fara-claude', 'fara-teste', 'oauth', 'inchide', 'date-afara', 'tema'],
+    'php unelte/instaleaza.php https://site.ro [--verifica] [--chei-noi] [--oauth[=minute]] [--tema=NUME] [--nume=scurt] [--dosar=CALE] [--fara-claude]');
 $S = DIRECTORY_SEPARATOR;
 $livrare = "$dosar{$S}_livrare{$S}$nume";
 $nume_zip = "minicms-$VERSIUNE-$nume.zip";
 
 echo culoare("mini-cms-mcp $VERSIUNE — instalarea site-ului $site", '1'), "\n";
 echo "Conexiunea Claude: $nume · cheile: $fisier_chei\n";
+// Tema proprie se citește de la început, ca o cale greșită să oprească totul înainte de pachet, nu după urcare.
+if (isset($opt['tema']) && (!is_string($opt['tema']) || $opt['tema'] === '')) opreste('--tema are nevoie de numele temei sau de calea ei, ex. --tema=client');
+$tema = isset($opt['tema']) ? tema_locala($opt['tema'], $dosar) : null;
 
 // --- funcții -----------------------------------------------------------------------------------
 
@@ -281,7 +286,7 @@ if ($verifica) {
     echo "     de PHP în MultiPHP Manager (8.0 sau mai nouă), ca cPanel să-și pună blocul înapoi.\n";
 
     if (!$INTERACTIV) {
-        echo "\nDupă ce ai urcat pachetul: php unelte/instaleaza.php $site --verifica\n";
+        echo "\nDupă ce ai urcat pachetul: php unelte/instaleaza.php $site --verifica" . ($tema ? " --tema=\"{$opt['tema']}\"" : '') . "\n";
         exit(0);
     }
     if (!asteapta_enter('Apasă Enter după Extract (sau q și Enter ca să ieși; reiei cu --verifica):')) exit(0);
@@ -293,6 +298,15 @@ while (($antet = verifica_serverul($site, $chei, $nume_zip)) === null) {
     if (!$INTERACTIV || !asteapta_enter('Repari pe server și apeși Enter ca să verific din nou (q = ieșire):')) {
         echo "\nReiei oricând cu: php unelte/instaleaza.php $site --verifica\n";
         exit(1);
+    }
+}
+
+// Tema proprie merge pe drumul temelor proprii (cheia de cod), nu în pachet: așa o recunoaște serverul ca proprie,
+// iar sincronizarea cu depozitul n-o atinge niciodată.
+if ($tema) {
+    titlu("Tema proprie {$tema['nume']}");
+    if (!pune_tema($site, (string) $chei['cod']['cheie'], $tema)) {
+        opreste("site-ul e instalat, dar tema nu s-a pus. După ce repari, o pui cu: php unelte/tema.php $site --pune=\"{$opt['tema']}\"");
     }
 }
 

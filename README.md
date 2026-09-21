@@ -25,7 +25,7 @@ site/                    ← se urcă pe server, ca rădăcină a site-ului
   imagini.php            urcarea imaginilor din browser, pentru om (cheia de scriere, prin formular)
   .htaccess              reguli Apache (doar mod_rewrite și mod_headers, în IfModule)
   assets/stil.css        aspectul implicit
-  assets/teme/           teme alese cu seteaza_site: <nume>.css + fonturile în <nume>/ (simpluspv, cinesunt)
+  assets/teme/           teme alese cu seteaza_site: <nume>.css + fonturile în <nume>/ (de bază: simpluspv, cinesunt)
   app/                   codul (blocat din web)
   sabloane/              șabloanele HTML (blocate din web)
   date/                  creat automat: pagini, articole, versiuni, jurnal (blocat din web)
@@ -35,7 +35,8 @@ unelte/instaleaza.php    instalarea: teste, chei, config.php, pachetul .zip, ver
 unelte/actualizeaza.php  actualizarea codului de pe depozit, cerută de om (cheia de cod), cu copie și punere înapoi
 unelte/copie.php         copia de siguranță: salvează tot site-ul pe calculator și îl poate pune la loc (sau pe alt site)
 unelte/urca-imagine.php  urcă poze de pe calculator: le întoarce după telefon, le micșorează, scoate locația GPS
-unelte/comun.php         funcțiile comune ale celor două
+unelte/tema.php          temele proprii ale unui site (lucrări pentru un client): le pune, le înlocuiește, le scoate (cheia de cod)
+unelte/comun.php         funcțiile comune ale uneltelor
 unelte/genereaza-cheie.php, unelte/router-local.php
 ```
 
@@ -93,6 +94,36 @@ eticheta peste imagine. Prima pagină se așază în aceeași grilă cu titlul d
 Acolo își descrie autorul temei blocurile (clasele) pe care le știe, ca AI-ul să le folosească în conținut fără să
 ghicească. Pagina poartă și clasa tipului ei pe `<body>` (`pagina-acasa`, `pagina-articol`, `pagina-lista`…), iar
 fiecare etichetă clasa `eticheta-<slug>`, deci o temă poate așeza diferit prima pagină și poate colora etichetele.
+
+### Teme de bază și teme proprii
+
+În depozit stau doar **temele de bază** (`simpluspv`, `cinesunt`): vin cu fiecare pachet, pe orice site. O temă făcută
+pentru un client e o **temă proprie**: nu intră în depozit și nici în pachet. Stă doar pe calculatorul tău și pe serverul
+acelui client. Dosarul ei de lucru e `teme/`, lângă depozit (implicit `<dosar>/teme/`, deci în afara repo-ului), așezat
+exact ca `assets/teme/`: `client.css` și, lângă ea, dosarul `client/` cu fonturile și imaginile.
+
+```
+php unelte/tema.php https://site.ro                    temele de pe site: de bază și proprii, plus cea aleasă
+php unelte/tema.php https://site.ro --pune=client      pune sau înlocuiește tema din teme/client.css + teme/client/
+php unelte/tema.php https://site.ro --scoate=client    scoate tema proprie de pe site
+php unelte/instaleaza.php https://site.ro --tema=client  la instalare: tema se pune imediat după verificarea serverului
+```
+
+- **Merge cu cheia de cod**, ca actualizarea codului: AI-ul (cheia de scriere, conectorul din claude.ai) nu poate pune CSS
+  pe site. După ce tema e pe server, AI-ul o vede în `despre_site` (`teme.proprii`) și o alege cu `seteaza_site`.
+- **Tema se pune întreagă.** Ce era pe server și lipsește din versiunea nouă iese. Versiunea înlocuită sau scoasă se
+  păstrează întâi în `date/versiuni/teme/<nume>/<data>/`.
+- **Sincronizarea cu depozitul nu atinge temele proprii**, nici dacă depozitul capătă cândva o temă cu același nume:
+  registrul lor stă în `date/teme-proprii.json`, iar `date/` nu vine niciodată din depozit. Invers, o temă de bază nu
+  poate fi înlocuită cu una proprie: tema clientului primește alt nume.
+- **Ce intră într-o temă:** `.css`, `.woff2`, `.woff`, `.ttf`, `.otf`, `.png`, `.jpg`, `.gif`, `.webp`, `.avif`; cel mult
+  80 de fișiere, 2 MB fiecare, 6 MB în total. Nu intră SVG (deschis direct, ar rula script pe domeniul site-ului) și nici
+  fișiere ascunse; `Thumbs.db` și `desktop.ini` se sar singure.
+- Unealta verifică adresele din foaie: un font care lipsește, sau care vine din dosarul altei teme (o temă făcută din
+  copia uneia de bază, redenumită doar pe jumătate), e semnalat înainte de trimitere.
+- Fonturile se țin în cache un an. Când schimbi un font, dă-i fișierului alt nume. Foaia de stil se reîncarcă singură.
+- Copia de siguranță (`copie.php`) ține doar numele temei. Pusă pe alt site care nu are tema, copia pune restul
+  identității și îți spune comanda cu care urci tema.
 
 ## Actualizarea codului, fără zip și fără cPanel
 

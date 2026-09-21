@@ -12,11 +12,6 @@ header('Cache-Control: no-store');
 
 $json = strpos((string) ($_SERVER['HTTP_ACCEPT'] ?? ''), 'application/json') !== false
     || strpos((string) ($_SERVER['CONTENT_TYPE'] ?? ''), 'application/json') !== false;
-$corp = [];
-if ($json && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-    $corp = (array) (json_decode((string) file_get_contents('php://input', false, null, 0, 20000), true) ?: []);
-}
-$p = $corp + $_POST;
 
 function raspunde_json(int $cod, array $date): void
 {
@@ -27,14 +22,33 @@ function raspunde_json(int $cod, array $date): void
     exit;
 }
 
-$v = ['mesaj' => '', 'rezultat' => null, 'stare' => null, 'copii' => [], 'noindex' => true,
+// Cheia din antet se verifică înainte de a citi corpul: o cerere mare (o temă, cu fonturile ei) se citește
+// întreagă doar pentru cine are deja cheia de cod. Fără ea, corpul se citește până la 20 KB.
+$acces_antet = null;
+$corp = [];
+if ($json && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $cheie_antet = cheie_din_cerere();
+    if ($cheie_antet !== '') $acces_antet = verifica_acces_cod($cheie_antet);
+    $limita = ($acces_antet['cod'] ?? 0) === 200 ? TEMA_MAX_CERERE : 20000;
+    $brut = (string) file_get_contents('php://input', false, null, 0, $limita + 1);
+    $corp = json_decode($brut, true);
+    if ($brut !== '' && !is_array($corp)) {
+        raspunde_json(strlen($brut) > $limita ? 413 : 400, ['eroare' => strlen($brut) > $limita
+            ? 'cererea depășește ' . ($limita >= 1 << 20 ? ($limita >> 20) . ' MB' : ($limita >> 10) . ' KB') . ' (fără cheia de cod în antet, 20 KB)'
+            : 'corpul cererii nu e JSON']);
+    }
+    $corp = (array) ($corp ?: []);
+}
+$p = $corp + $_POST;
+
+$v = ['mesaj' => '', 'rezultat' => null, 'stare' => null, 'copii' => [], 'teme' => null, 'noindex' => true,
       'titlu_pagina' => 'Actualizare — ' . config('site.nume')];
 $cod_http = 200;
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $cheie = (string) ($p['cheie'] ?? '');
-    if ($cheie === '') $cheie = cheie_din_cerere();
-    $acces = verifica_acces_cod($cheie);
+    // cheia din antet, verificată deja mai sus: a doua verificare ar număra de două ori o încercare greșită
+    $acces = $cheie === '' && $acces_antet !== null ? $acces_antet : verifica_acces_cod($cheie !== '' ? $cheie : cheie_din_cerere());
     if ($acces['cod'] !== 200) {
         if ($json) raspunde_json($acces['cod'], ['eroare' => $acces['mesaj']]);
         $cod_http = $acces['cod'];
@@ -46,12 +60,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 $v['rezultat'] = cod_sincronizeaza(!empty($p['forta']));
             } elseif ($actiune === 'restaureaza') {
                 $v['rezultat'] = cod_restaureaza((string) ($p['copie'] ?? ''));
-            } else {
+            } elseif ($actiune === 'pune_tema') {
+                if (!$json) throw new EroareCms('o temă se pune din comanda php unelte/tema.php, nu din formular');
+                $v['rezultat'] = tema_pune((string) ($p['nume'] ?? ''), (array) ($p['fisiere'] ?? []));
+            } elseif ($actiune === 'scoate_tema') {
+                $v['rezultat'] = tema_scoate((string) ($p['nume'] ?? ''));
+            } elseif ($actiune !== 'teme') {
                 $s = cod_stare();
                 unset($s['_fisiere']);
                 $v['stare'] = $s;
             }
             $v['copii'] = cod_copii();
+            $v['teme'] = teme_stare();
         } catch (Throwable $e) {
             $cod_http = 400;
             $v['mesaj'] = $e instanceof EroareCms ? $e->getMessage() : 'Eroare internă. Detaliile sunt în jurnal.';
@@ -62,7 +82,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
         if ($json) {
             raspunde_json($cod_http, $v['mesaj'] !== '' ? ['eroare' => $v['mesaj']]
-                : ['rezultat' => $v['rezultat'], 'stare' => $v['stare'], 'copii' => $v['copii']]);
+                : ['rezultat' => $v['rezultat'], 'stare' => $v['stare'], 'copii' => $v['copii'], 'teme' => $v['teme']]);
         }
     }
 } elseif ($json) {

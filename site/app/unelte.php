@@ -70,8 +70,10 @@ function unelte(): array
                         . 'O imagine publică: urca_imagine cu "url" (https). Un fișier de pe calculator, când rulezi în Claude Code: '
                         . 'php unelte/urca-imagine.php <site> <fișiere>. Nu-i cere omului cheia de scriere.',
                     'teme' => ['disponibile' => teme_disponibile(), 'activa' => tema_activa(),
+                               'proprii' => array_values(array_intersect(array_keys(teme_proprii()), teme_disponibile())),
                                'despre' => array_filter(array_combine(teme_disponibile(), array_map('tema_despre', teme_disponibile())) ?: []),
-                               'nota' => 'Aspectul site-ului. Se alege cu seteaza_site (tema); "" = aspectul implicit. Temele noi le pune omul pe server. '
+                               'nota' => 'Aspectul site-ului. Se alege cu seteaza_site (tema); "" = aspectul implicit. Temele noi le pune omul pe server; '
+                                   . '"proprii" sunt cele făcute anume pentru acest site. '
                                    . 'În "despre", fiecare temă spune ce blocuri (clase) știe; folosește-le în conținut așa cum sunt descrise.'],
                     'pe_pagini' => 'Fiecare etichetă poartă clasa eticheta-<slug> (tema o poate colora). Blocurile <pre> primesc singure un buton „Copiază". '
                         . 'Sub articol apar singure două articole înrudite. Coperta nu se repetă sus dacă imaginea e deja în conținut.',

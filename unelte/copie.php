@@ -108,6 +108,20 @@ foreach (['nume', 'descriere', 'autor', 'limba', 'culoare', 'logo', 'favicon', '
     $v = (string) ($export['site'][$k] ?? '');
     if ($v !== '') $identitate[$k] = $schimba($v);
 }
+// Copia ține doar numele temei. O temă proprie (făcută pentru acel client) nu vine cu site-ul nou: fără ea, restul
+// identității se pune oricum, iar tema se alege după ce e urcată.
+if (isset($identitate['tema'])) {
+    try {
+        $teme_site = (array) ($mcp('despre_site')['teme']['disponibile'] ?? []);
+    } catch (Throwable $e) {
+        $teme_site = [];
+    }
+    if (!in_array($identitate['tema'], $teme_site, true)) {
+        atentie("tema \"{$identitate['tema']}\" nu e pe $site, deci site-ul rămâne deocamdată cu aspectul implicit.");
+        info("O pui cu: php unelte/tema.php $site --pune={$identitate['tema']} — apoi AI-ul o alege cu seteaza_site.");
+        unset($identitate['tema']);
+    }
+}
 if (!empty($export['site']['legaturi']) && is_array($export['site']['legaturi'])) $identitate['legaturi'] = array_values($export['site']['legaturi']);
 try {
     if ($identitate) $mcp('seteaza_site', $identitate);

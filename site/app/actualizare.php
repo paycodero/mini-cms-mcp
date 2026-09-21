@@ -11,8 +11,12 @@
 // - app/config.php nu se atinge niciodată (adresa și amprentele cheilor rămân ale tale);
 // - date/ și media/ nu se ating (conținutul și jurnalul tău);
 // - o versiune mai veche decât cea instalată e refuzată, dacă nu ceri anume asta;
+// - temele proprii ale site-ului (vezi mai jos) nu se ating, chiar dacă depozitul are una cu același nume;
 // - cheia de scriere (cea a AI-ului) NU deschide nimic de aici: e nevoie de cheia de cod, care stă doar
 //   pe calculatorul omului. Un token OAuth al conectorului din claude.ai, cu atât mai puțin.
+//
+// Tot de aici, cu aceeași cheie, omul pune pe site o TEMĂ PROPRIE: o temă făcută pentru un client, care stă doar pe
+// calculatorul lui (dosarul teme/) și pe serverul acelui client, niciodată în depozitul public.
 declare(strict_types=1);
 
 if (!defined('MINICMS')) { http_response_code(403); exit; }
@@ -21,6 +25,13 @@ const COD_EXTENSII = ['php', 'css', 'js', 'woff2', 'woff', 'ttf', 'png', 'jpg', 
 const COD_NEATINSE = ['app/config.php'];
 const COD_MAX_FISIER = 4 * 1024 * 1024;
 const COD_MAX_TOTAL = 40 * 1024 * 1024;
+
+// O temă proprie: foaia de stil, fonturi și imagini. Nimic care rulează (nici SVG: deschis direct, ar rula script pe domeniul site-ului).
+const TEMA_EXTENSII = ['css', 'woff2', 'woff', 'ttf', 'otf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'avif'];
+const TEMA_MAX_FISIERE = 80;
+const TEMA_MAX_FISIER = 2 * 1024 * 1024;
+const TEMA_MAX_TOTAL = 6 * 1024 * 1024;
+const TEMA_MAX_CERERE = 9 * 1024 * 1024;   // tema întreagă, în base64, într-o singură cerere JSON
 
 function cod_sursa(): string
 {
@@ -117,6 +128,15 @@ function cod_stare(): array
     } finally {
         @unlink($zip);
     }
+    // Temele proprii rămân ale site-ului: o temă publică nouă cu același nume nu scrie peste ele.
+    $proprii = array_keys(teme_proprii());
+    $ocolite = [];
+    foreach (array_keys($fisiere) as $rel) {
+        if (preg_match('#^assets/teme/([a-z0-9-]+)(\.css$|/)#', $rel, $m) && in_array($m[1], $proprii, true)) {
+            unset($fisiere[$rel]);
+            $ocolite[$m[1]] = true;
+        }
+    }
     $rad = cod_radacina();
     $schimbate = $noi = [];
     foreach ($fisiere as $rel => $continut) {
@@ -128,7 +148,7 @@ function cod_stare(): array
     sort($noi);
     return ['versiune_instalata' => MINICMS_VERSIUNE, 'versiune_in_pachet' => cod_versiune_din($fisiere['app/nucleu.php']),
             'sursa' => $sursa, 'fisiere_in_pachet' => count($fisiere), 'de_schimbat' => $schimbate, 'noi' => $noi,
-            '_fisiere' => $fisiere];
+            'teme_proprii_ocolite' => array_keys($ocolite), '_fisiere' => $fisiere];
 }
 
 // Sincronizarea propriu-zisă: copie de siguranță, scriere, autocontrol, iar la nevoie restaurare.
@@ -259,4 +279,153 @@ function cod_restaureaza(string $eticheta): array
                   'rezultat' => 'ok', 'detalii' => ['fisiere' => $n]]);
     return ['operatie' => 'pus înapoi', 'copie' => $eticheta, 'fisiere' => $n,
             'atentie' => 'versiunea de dinaintea acelei actualizări e din nou pe server'];
+}
+
+// --- temele proprii ------------------------------------------------------------------------------
+// Puse de om cu cheia de cod (php unelte/tema.php <site> --pune=<nume>), din dosarul teme/ de pe calculatorul lui.
+// Pe server stau lângă temele de bază, în assets/teme/, iar registrul lor în date/teme-proprii.json.
+
+function tema_dosar(): string
+{
+    return cod_radacina() . '/assets/teme';
+}
+
+function tema_nume_valid(string $nume): void
+{
+    if (strlen($nume) > 40 || !preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $nume)) {
+        throw new EroareCms('numele temei are doar litere mici, cifre și cratime (cel mult 40), ex. "client-nou"');
+    }
+}
+
+// Fișierele unei teme de pe server, cu calea față de assets/teme/: <nume>.css și tot ce e în <nume>/.
+function tema_fisiere_pe_server(string $nume): array
+{
+    $dir = tema_dosar();
+    $rez = is_file("$dir/$nume.css") ? ["$nume.css"] : [];
+    if (is_dir("$dir/$nume")) {
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator("$dir/$nume", FilesystemIterator::SKIP_DOTS)) as $f) {
+            if ($f->isFile()) $rez[] = str_replace('\\', '/', substr($f->getPathname(), strlen($dir) + 1));
+        }
+    }
+    sort($rez);
+    return $rez;
+}
+
+// Versiunea de pe server se salvează înainte de a fi înlocuită sau scoasă: date/versiuni/teme/<nume>/<AAAALLZZ-HHMMSS>/.
+function tema_copie(string $nume): ?string
+{
+    $fisiere = tema_fisiere_pe_server($nume);
+    if (!$fisiere) return null;
+    $baza = dir_date('versiuni/teme') . "/$nume";
+    $copie = "$baza/" . date('Ymd-His');
+    for ($n = 2; is_dir($copie); $n++) $copie = "$baza/" . date('Ymd-His') . "-$n";
+    foreach ($fisiere as $rel) {
+        $tinta = "$copie/$rel";
+        if (!is_dir(dirname($tinta)) && !@mkdir(dirname($tinta), 0755, true)) throw new EroareCms("nu pot pregăti copia temei ($rel)");
+        if (!@copy(tema_dosar() . "/$rel", $tinta)) throw new EroareCms("nu am putut salva versiunea anterioară a $rel — nu schimb nimic");
+    }
+    return basename($copie);
+}
+
+function tema_curata_dosare(string $dir): void   // dosarele rămase goale după scoaterea unor fișiere
+{
+    if (!is_dir($dir)) return;
+    foreach (scandir($dir) ?: [] as $f) if ($f !== '.' && $f !== '..' && is_dir("$dir/$f")) tema_curata_dosare("$dir/$f");
+    @rmdir($dir);   // reușește doar dacă e gol
+}
+
+function teme_proprii_scrie(array $proprii): void
+{
+    ksort($proprii);
+    if (!scrie_atomic(dir_date() . '/teme-proprii.json', json_text($proprii, true))) throw new EroareCms('nu am putut scrie registrul temelor proprii');
+}
+
+// Tema se pune întreagă: ce era pe server și lipsește din versiunea nouă iese (rămâne în copie).
+// $trimise: calea față de assets/teme/ („<nume>.css", „<nume>/font.woff2") => conținutul în base64.
+function tema_pune(string $nume, array $trimise): array
+{
+    tema_nume_valid($nume);
+    if (!$trimise) throw new EroareCms('tema nu are niciun fișier');
+    if (count($trimise) > TEMA_MAX_FISIERE) throw new EroareCms('tema are prea multe fișiere (cel mult ' . TEMA_MAX_FISIERE . ')');
+    $fisiere = [];
+    $total = 0;
+    foreach ($trimise as $rel => $b64) {
+        $rel = (string) $rel;
+        $parti = explode('/', $rel);
+        $in_dosar = $parti[0] === $nume && count($parti) >= 2 && count($parti) <= 4
+            && !array_filter(array_slice($parti, 1), fn($p) => !preg_match('/^[A-Za-z0-9_][A-Za-z0-9._-]{0,99}$/', $p));
+        if (($rel !== "$nume.css" && !$in_dosar) || strpos($rel, '..') !== false) {
+            throw new EroareCms("cale nepermisă în temă: \"$rel\" (doar $nume.css și fișiere în $nume/)");
+        }
+        $ext = strtolower((string) pathinfo($rel, PATHINFO_EXTENSION));
+        if (!in_array($ext, TEMA_EXTENSII, true)) throw new EroareCms("fișier nepermis în temă: $rel (merg: " . implode(', ', TEMA_EXTENSII) . ')');
+        $continut = is_string($b64) ? base64_decode($b64, true) : false;
+        if ($continut === false) throw new EroareCms("$rel nu e trimis în base64");
+        if (strlen($continut) > TEMA_MAX_FISIER) throw new EroareCms("$rel depășește " . (TEMA_MAX_FISIER >> 20) . ' MB');
+        $total += strlen($continut);
+        if ($total > TEMA_MAX_TOTAL) throw new EroareCms('tema depășește ' . (TEMA_MAX_TOTAL >> 20) . ' MB în total');
+        $fisiere[$rel] = $continut;
+    }
+    if (!isset($fisiere["$nume.css"])) throw new EroareCms("tema nu are foaia de stil $nume.css");
+    if (preg_match('//u', $fisiere["$nume.css"]) !== 1) throw new EroareCms("$nume.css nu e text UTF-8");
+
+    return cu_blocare(function () use ($nume, $fisiere, $total) {
+        $proprii = teme_proprii();
+        $inainte = tema_fisiere_pe_server($nume);
+        if (!isset($proprii[$nume]) && $inainte) {
+            throw new EroareCms("\"$nume\" e o temă de bază, venită din depozit: n-o înlocuiesc cu una proprie. Dă-i temei tale alt nume.");
+        }
+        $copie = tema_copie($nume);
+        // Registrul se scrie primul: o scriere întreruptă lasă o temă proprie neterminată (se repune), nu una luată drept temă de bază.
+        $proprii[$nume] = ['pusa_la' => date('c'), 'fisiere' => count($fisiere), 'octeti' => $total,
+                           'amprenta' => hash('sha256', $fisiere["$nume.css"])];
+        teme_proprii_scrie($proprii);
+        $dir = tema_dosar();
+        foreach ($fisiere as $rel => $continut) {
+            $cale = "$dir/$rel";
+            if (!is_dir(dirname($cale)) && !@mkdir(dirname($cale), 0755, true)) throw new EroareCms("nu pot crea dosarul pentru $rel");
+            if (!scrie_atomic($cale, $continut)) throw new EroareCms("scrierea a eșuat la $rel" . ($copie ? "; versiunea anterioară e în copia $copie" : ''));
+        }
+        $scoase = array_values(array_diff($inainte, array_keys($fisiere)));
+        foreach ($scoase as $rel) @unlink("$dir/$rel");
+        tema_curata_dosare("$dir/$nume");
+        $rez = ['operatie' => $inainte ? 'înlocuită' : 'pusă', 'tema' => $nume, 'fisiere' => count($fisiere), 'octeti' => $total,
+                'scoase' => $scoase, 'copie' => $copie, 'activa' => tema_activa() === $nume];
+        jurnal_scrie(['punct' => 'actualizare', 'cerere' => 'tema', 'cheie' => 'cod', 'tinta' => $nume, 'rezultat' => 'ok',
+                      'detalii' => ['operatie' => $rez['operatie'], 'fisiere' => count($fisiere), 'octeti' => $total, 'copie' => $copie]]);
+        return $rez;
+    });
+}
+
+function tema_scoate(string $nume): array
+{
+    tema_nume_valid($nume);
+    return cu_blocare(function () use ($nume) {
+        $proprii = teme_proprii();
+        if (!isset($proprii[$nume])) {
+            throw new EroareCms(tema_fisiere_pe_server($nume) ? "\"$nume\" e o temă de bază, venită din depozit: nu se scoate de aici"
+                : "pe site nu există tema proprie \"$nume\"");
+        }
+        $era_activa = tema_activa() === $nume;
+        $copie = tema_copie($nume);
+        foreach (tema_fisiere_pe_server($nume) as $rel) @unlink(tema_dosar() . "/$rel");
+        tema_curata_dosare(tema_dosar() . "/$nume");
+        unset($proprii[$nume]);
+        teme_proprii_scrie($proprii);
+        jurnal_scrie(['punct' => 'actualizare', 'cerere' => 'scoate_tema', 'cheie' => 'cod', 'tinta' => $nume, 'rezultat' => 'ok',
+                      'detalii' => ['copie' => $copie]]);
+        return ['operatie' => 'scoasă', 'tema' => $nume, 'copie' => $copie]
+            + ($era_activa ? ['atentie' => 'era tema aleasă: site-ul are acum aspectul implicit. Dacă pui tema înapoi, revine singură.'] : []);
+    });
+}
+
+function teme_stare(): array
+{
+    $proprii = teme_proprii();
+    $rez = ['activa' => tema_activa(), 'de_baza' => [], 'proprii' => []];
+    foreach (teme_disponibile() as $t) {
+        if (isset($proprii[$t])) $rez['proprii'][] = ['nume' => $t] + $proprii[$t];
+        else $rez['de_baza'][] = $t;
+    }
+    return $rez;
 }
