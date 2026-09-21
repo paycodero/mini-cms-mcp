@@ -154,7 +154,10 @@ function cod_sincronizeaza(bool $forta = false): array
 
     $rad = cod_radacina();
     $eticheta = date('Ymd-His');
-    $copie = dir_date('versiuni/cod/' . $eticheta);
+    // Copia NU primește .htaccess propriu (o apără cel din versiuni/cod): în ea stau numai fișierele site-ului, iar
+    // punerea înapoi nu poate scrie paza unui dosar de date peste .htaccess-ul site-ului (s-a întâmplat pe 21 sept 2026).
+    $copie = dir_date('versiuni/cod') . '/' . $eticheta;
+    if (!is_dir($copie) && !@mkdir($copie, 0755, true)) throw new EroareCms('nu pot crea dosarul copiei de siguranță');
     return cu_blocare(function () use ($fisiere, $de_scris, $rad, $copie, $eticheta, $stare, $jurnal, $start) {
         $salvate = [];
         foreach ($de_scris as $rel) {          // 1. copia de siguranță, înainte de orice scriere
@@ -240,7 +243,11 @@ function cod_pune_inapoi(string $eticheta, ?array $doar = null): int
         $rel = str_replace('\\', '/', substr($f->getPathname(), strlen($copie) + 1));
         if ($rel === '_versiune.txt' || strpos($rel, '..') !== false) continue;
         if ($doar !== null && !in_array($rel, $doar, true)) continue;
-        if (scrie_atomic("$rad/$rel", (string) file_get_contents($f->getPathname()))) $n++;
+        $continut = (string) file_get_contents($f->getPathname());
+        // Copiile făcute înainte de 0.12 au în ele paza dosarului de date. Nu e un fișier al site-ului: pusă în rădăcină,
+        // închide tot site-ul (403 pe orice adresă, fără cale de reparat din afară).
+        if (basename($rel) === '.htaccess' && trim($continut) === trim(HTACCESS_BLOCARE)) continue;
+        if (scrie_atomic("$rad/$rel", $continut)) $n++;
     }
     return $n;
 }

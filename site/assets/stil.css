@@ -133,6 +133,18 @@ h3{font-size:20px;margin:28px 0 8px}
 .buton-gol{background:var(--fond);color:var(--text);border:2px solid var(--linie)}
 .buton-gol:hover{background:var(--panou);color:var(--text);filter:none}
 
+/* urcarea imaginilor din browser (/imagini.php) */
+.urcare-imagini input[type=file]{font:inherit;font-size:15px;padding:12px;border:2px dashed var(--linie);border-radius:var(--raza);background:var(--panou);max-width:100%}
+.formular .mic{margin:0;font-size:13.5px;color:var(--text-slab)}
+.imagini-urcate{list-style:none;padding:0;margin:16px 0;display:grid;gap:12px;max-width:760px}
+.imagine-ok{display:flex;gap:14px;align-items:center;border:2px solid var(--verde);background:var(--verde-fond);border-radius:var(--raza);padding:10px}
+.imagine-ok img{width:120px;height:90px;object-fit:cover;border-radius:6px;flex:none;background:#fff}
+.imagine-ok div{min-width:0}
+.imagine-ok code{display:block;font-size:14px;word-break:break-all;margin-bottom:8px;color:var(--text)}
+.imagine-ok .buton{padding:6px 14px;font-size:14px}
+.imagine-ok .mic{margin:8px 0 0;font-size:13.5px;color:var(--text-2)}
+.imagine-gresita{border:2px solid var(--rosu);background:var(--rosu-fond);color:var(--rosu);border-radius:var(--raza);padding:10px 14px}
+
 /* jurnalul */
 .formular{display:grid;gap:10px;max-width:420px;margin-top:16px}
 .formular input[type=password]{font:inherit;padding:10px 12px;border:2px solid var(--linie);border-radius:var(--raza)}

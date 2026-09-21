@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 if (!defined('MINICMS')) { http_response_code(403); exit; }
 
-const MINICMS_VERSIUNE = '0.11.1';
+const MINICMS_VERSIUNE = '0.12.0';
 
 ini_set('display_errors', '0');   // un avertisment afișat ar strica JSON-ul MCP și ar scurge căi de pe server
 error_reporting(E_ALL);
@@ -50,6 +50,9 @@ function config(string $cale = '')
                                       // (cu --oauth, cod de 6 cifre în terminal) · 'deschis' = ca în 0.5 · false = fără OAuth
             'oauth_gazde' => [],      // gazde https în plus la care OAuth poate trimite codul (implicit: claude.ai, claude.com, localhost)
             'articole_pe_pagina' => 12,
+            'imagini_url' => true,          // false = urca_imagine nu mai primește adrese (serverul nu descarcă nimic)
+            'imagini_url_permise' => [],    // doar pentru teste: "gazdă:port" la care se acceptă http și adrese locale
+            'pagina_imagini' => true,       // false = pagina /imagini.php (urcarea din browser, cu cheia) nu există
         ];
         foreach (['site', 'chei'] as $k) $dat[$k] = (array) ($dat[$k] ?? []) + $implicit[$k];
         $c = $dat + $implicit;
@@ -83,6 +86,10 @@ function oprire(int $cod, string $mesaj): void
 
 // --- fișiere -----------------------------------------------------------------------------------
 
+// Paza dosarelor de date. E și semnătura după care recunoaștem un .htaccess care NU are ce căuta în rădăcina site-ului.
+const HTACCESS_BLOCARE = "<IfModule mod_authz_core.c>\n  Require all denied\n</IfModule>\n"
+    . "<IfModule !mod_authz_core.c>\n  Order allow,deny\n  Deny from all\n</IfModule>\n";
+
 // Orice dosar de date se creează cu .htaccess de blocare din prima clipă (lecția de la cinesunt.info:
 // dosarele create fără el au stat citibile public).
 function dir_protejat(string $dir): string
@@ -91,10 +98,7 @@ function dir_protejat(string $dir): string
         throw new RuntimeException('nu pot crea dosarul de date ' . basename($dir));
     }
     $ht = $dir . '/.htaccess';
-    if (!is_file($ht)) {
-        @file_put_contents($ht, "<IfModule mod_authz_core.c>\n  Require all denied\n</IfModule>\n"
-            . "<IfModule !mod_authz_core.c>\n  Order allow,deny\n  Deny from all\n</IfModule>\n");
-    }
+    if (!is_file($ht)) @file_put_contents($ht, HTACCESS_BLOCARE);
     return $dir;
 }
 
@@ -113,6 +117,9 @@ function scrie_atomic(string $tinta, string $continut): bool
     $ok = @rename($tmp, $tinta)
         || (@copy($tmp, $tinta) && hash_file('sha256', $tinta) === hash('sha256', $continut));
     if (is_file($tmp)) @unlink($tmp);
+    // Unele găzduiri țin codul PHP compilat în memorie și nu se uită după fișierul schimbat (cinesunt.info, 21 sept 2026):
+    // fără asta, o actualizare scrisă pe disc continuă să ruleze codul vechi.
+    if ($ok && substr($tinta, -4) === '.php' && function_exists('opcache_invalidate')) @opcache_invalidate($tinta, true);
     return $ok;
 }
 

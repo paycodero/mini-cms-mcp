@@ -117,7 +117,8 @@ register_shutdown_function(function () use ($server_depozit) {
 $config = ['site' => ['nume' => 'Site de test', 'descriere' => 'Site pentru teste automate.', 'url' => $url, 'limba' => 'ro',
                       'autor' => 'Autor Test', 'culoare' => '#6d2be8'],
            'chei' => ['citire' => hash('sha256', $kc), 'scriere' => hash('sha256', $ks), 'cod' => hash('sha256', $kd)],
-           'depozit_zip' => "http://127.0.0.1:$port_depozit/pachet.bin", 'autocontrol_secunde' => 2];
+           'depozit_zip' => "http://127.0.0.1:$port_depozit/pachet.bin", 'autocontrol_secunde' => 2,
+           'imagini_url_permise' => ["127.0.0.1:$port_depozit"]];   // doar serverul de probă; orice altă adresă locală rămâne refuzată
 file_put_contents("$tmp/site/app/config.php", "<?php\nif (!defined('MINICMS')) { http_response_code(403); exit; }\nreturn "
     . var_export($config, true) . ";\n");
 
@@ -842,6 +843,77 @@ foreach (['legat-unu', 'legat-doi', 'legat-trei', 'cu-de-toate'] as $s) unealta(
 verifica('Site', 'fără nume ales, articolele se numesc din nou „articole", iar subsolul dispare',
     strpos(cerere('GET', '/')['corp'], 'Toate articolele') !== false && strpos(cerere('GET', '/')['corp'], 'nota-subsol') === false);
 
+// --- 0.12: imagini fără base64 prin conversație (după adresă, din browser, de pe calculator) ------------
+
+$poza = base64_decode($png);
+file_put_contents("$tmp/depozit/poza-din-url.png", $poza);
+file_put_contents("$tmp/depozit/text.txt", "nu sunt o imagine\n");
+file_put_contents("$tmp/depozit/muta.php", "<?php header('Location: /poza-din-url.png', true, 302);");
+file_put_contents("$tmp/depozit/muta-intern.php", "<?php header('Location: http://127.0.0.1:1/x.png', true, 302);");
+$in_media = fn() => count(glob("$tmp/site/media/*") ?: []);
+$u = unealta($ks, 'urca_imagine', ['url' => "http://127.0.0.1:$port_depozit/poza-din-url.png"]);
+verifica('Imagini', 'o imagine se urcă după adresă: serverul o descarcă singur, numele vine din adresă',
+    !$u['eroare'] && preg_match('#^/media/poza-din-url-[a-f0-9]{8}\.png$#', (string) ($u['date']['url'] ?? '')) === 1
+    && cerere('GET', (string) ($u['date']['url'] ?? ''))['corp'] === $poza, $u['text']);
+$u = unealta($ks, 'urca_imagine', ['nume' => 'dupa-mutare', 'url' => "http://127.0.0.1:$port_depozit/muta.php"]);
+verifica('Imagini', 'o redirecționare spre aceeași gazdă se urmărește', !$u['eroare'] && strpos((string) ($u['date']['url'] ?? ''), '/media/dupa-mutare-') === 0, $u['text']);
+$inainte = $in_media();
+$refuzate = [];
+foreach (["http://127.0.0.1:$port_depozit/muta-intern.php" => 'redirecționare spre o adresă internă',
+          'http://example.com/poza.png' => 'http, nu https', 'https://127.0.0.1/poza.png' => '127.0.0.1',
+          'https://localhost/poza.png' => 'localhost', 'https://10.1.2.3/poza.png' => 'rețea privată',
+          'https://169.254.169.254/latest/meta-data' => 'metadatele cloud', 'https://[::1]/poza.png' => 'IPv6 local',
+          'https://[::ffff:127.0.0.1]/poza.png' => 'IPv4 ascuns în IPv6', 'https://2130706433/poza.png' => '127.0.0.1 scris ca număr',
+          'https://exemplu.ro:8443/poza.png' => 'alt port', 'https://exemplu.ro/o poza.png' => 'spațiu în adresă',
+          'https://user:parola@exemplu.ro/poza.png' => 'cont în adresă', 'file:///etc/passwd' => 'fișier local',
+          "http://127.0.0.1:$port_depozit/text.txt" => 'un fișier care nu e imagine'] as $adresa => $ce) {
+    $u = unealta($ks, 'urca_imagine', ['nume' => 'atac', 'url' => $adresa]);
+    if (!$u['eroare']) $refuzate[] = "$ce: TRECUT";
+}
+verifica('Securitate', 'SSRF: adrese interne, IPv6 local, IP scris ca număr, alt port, http, redirecționare spre intern — toate refuzate, nimic scris',
+    !$refuzate && $in_media() === $inainte, implode('; ', $refuzate));
+@unlink("$tmp/depozit/muta.php");   // ajutoarele serverului de probă; verificarea de la final caută orice .php nou
+@unlink("$tmp/depozit/muta-intern.php");
+$u = unealta($ks, 'urca_imagine', ['nume' => 'x', 'url' => "http://127.0.0.1:$port_depozit/poza-din-url.png", 'continut_base64' => $png]);
+$u2 = unealta($ks, 'urca_imagine', ['nume' => 'x']);
+verifica('Imagini', 'urca_imagine cere exact una dintre „url" și „continut_base64"', $u['eroare'] && $u2['eroare'], $u['text']);
+
+// din browser, cu cheia de scriere
+$multipart = function (array $campuri, array $fisiere): array {
+    $b = '----minicms' . bin2hex(random_bytes(8));
+    $corp = '';
+    foreach ($campuri as $k => $v) $corp .= "--$b\r\nContent-Disposition: form-data; name=\"$k\"\r\n\r\n$v\r\n";
+    foreach ($fisiere as [$nume, $date]) $corp .= "--$b\r\nContent-Disposition: form-data; name=\"poze[]\"; filename=\"$nume\"\r\nContent-Type: image/png\r\n\r\n$date\r\n";
+    return [$corp . "--$b--\r\n", ['Content-Type' => "multipart/form-data; boundary=$b"]];
+};
+$r = cerere('GET', '/imagini.php');
+verifica('Imagini', 'pagina de urcare din browser există, nu se indexează și cere cheia', $r['cod'] === 200 && strpos($r['corp'], 'name="poze[]"') !== false
+    && strpos($r['corp'], 'noindex') !== false && strpos((string) ($r['antete']['x-robots-tag'] ?? ''), 'noindex') !== false
+    && strpos(cerere('GET', '/robots.txt')['corp'], 'Disallow: /imagini.php') !== false);
+$inainte = $in_media();
+[$corp, $ant] = $multipart(['cheie' => $kc], [['citire.png', $poza]]);
+$r = cerere('POST', '/imagini.php', $corp, $ant);
+[$corp, $ant] = $multipart(['cheie' => 'mcms_s_cheie-gresita-dar-lunga-destul'], [['gresit.png', $poza]]);
+$r2 = cerere('POST', '/imagini.php', $corp, $ant);
+elibereaza();
+verifica('Securitate', 'din browser: cheia de citire e refuzată (403), o cheie greșită la fel (401), nimic scris',
+    $r['cod'] === 403 && $r2['cod'] === 401 && $in_media() === $inainte, "{$r['cod']} / {$r2['cod']}");
+[$corp, $ant] = $multipart(['cheie' => $ks], [['Poză de pe telefon.png', $poza], ['nu-e-imagine.png', 'text simplu']]);
+$r = cerere('POST', '/imagini.php', $corp, $ant);
+$jurnal_img = array_filter(array_map(fn($l) => json_decode($l, true),
+    file("$tmp/site/date/jurnal/" . date('Y-m') . '.ndjson', FILE_IGNORE_NEW_LINES) ?: []), fn($j) => ($j['punct'] ?? '') === 'imagini' && ($j['cerere'] ?? '') === 'urcare');
+verifica('Imagini', 'din browser, cu cheia de scriere: imaginea urcă, fișierul greșit e refuzat pe rând, totul în jurnal',
+    $r['cod'] === 200 && preg_match('#/media/poza-de-pe-telefon-[a-f0-9]{8}\.png#', $r['corp']) === 1
+    && strpos($r['corp'], 'nu-e-imagine.png') !== false && count($jurnal_img) >= 2, substr(strip_tags($r['corp']), 0, 400));
+
+// de pe calculator, cu unealta: fără base64 prin conversație, fără cheie pe ecran
+file_put_contents("$tmp/de-pe-calculator.png", $poza);
+$rc = unealta_locala('urca-imagine.php', [$url, "$tmp/de-pe-calculator.png", '--local', "--dosar=$copii"]);
+verifica('Imagini', 'unealta de pe calculator urcă fișierul și scrie adresa /media/..., fără să arate cheia',
+    $rc['cod'] === 0 && preg_match('#/media/de-pe-calculator-[a-f0-9]{8}\.png#', $rc['iesire']) === 1 && strpos($rc['iesire'], $ks) === false, $rc['iesire']);
+$rc = unealta_locala('urca-imagine.php', [$url, "$tmp/nu-exista.png", '--local', "--dosar=$copii"]);
+verifica('Imagini', 'unealta spune limpede când un fișier lipsește', $rc['cod'] === 1 && strpos($rc['iesire'], 'nu există') !== false, $rc['iesire']);
+
 // --- actualizarea codului de pe depozit (0.9) ----------------------------------------------------
 
 elibereaza();
@@ -952,6 +1024,19 @@ $copii_j = (array) (actualizare($kd, ['actiune' => 'stare'])['json']['copii'] ??
 $rc = unealta_locala('actualizeaza.php', [$url, '--local', '--pune=' . ($copii_j[0]['copie'] ?? ''), "--dosar=$dosar_act"]);
 verifica('Actualizare', 'comanda pune înapoi o copie, la cerere',
     $rc['cod'] === 0 && (string) file_get_contents("$tmp/site/app/nucleu.php") === $nucleu_test, $rc['iesire']);
+$ht_site = (string) file_get_contents("$radacina/site/.htaccess");
+verifica('Securitate', 'copia de siguranță a codului nu are .htaccess propriu, iar punerea ei înapoi lasă .htaccess-ul site-ului neatins',
+    !is_file("$tmp/site/date/versiuni/cod/" . ($copii_j[0]['copie'] ?? 'x') . '/.htaccess')
+    && (string) file_get_contents("$tmp/site/.htaccess") === $ht_site && cerere('GET', '/')['cod'] === 200);
+// o copie făcută de o versiune veche (înainte de 0.12) are în ea paza dosarului de date: nu ajunge niciodată în rădăcină
+$veche = "$tmp/site/date/versiuni/cod/20200101-000000";
+@mkdir("$veche/app", 0755, true);
+file_put_contents("$veche/.htaccess", "<IfModule mod_authz_core.c>\n  Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n  Order allow,deny\n  Deny from all\n</IfModule>\n");
+copy("$tmp/site/app/nucleu.php", "$veche/app/nucleu.php");
+file_put_contents("$veche/_versiune.txt", "0.11.0\n");
+$ra = actualizare($kd, ['actiune' => 'restaureaza', 'copie' => '20200101-000000']);
+verifica('Securitate', 'punerea înapoi a unei copii vechi nu scrie paza dosarului de date peste .htaccess-ul site-ului (site-ul nu se închide)',
+    $ra['cod'] === 200 && (string) file_get_contents("$tmp/site/.htaccess") === $ht_site && cerere('GET', '/')['cod'] === 200, json_encode($ra['json'] ?? null));
 
 // --- plafon pe adresele care răspund fără cheie (OAuth) ------------------------------------------
 

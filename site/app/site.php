@@ -467,7 +467,7 @@ function fisier_indexnow(string $cerut): void
 function fisier_robots(): void
 {
     antete_text('text/plain');
-    $interzise = "Disallow: /mcp\nDisallow: /mcp.php\nDisallow: /jurnal.php\nDisallow: /actualizare.php\nDisallow: /cauta\nDisallow: /previzualizare/\nDisallow: /oauth/\n";
+    $interzise = "Disallow: /mcp\nDisallow: /mcp.php\nDisallow: /jurnal.php\nDisallow: /actualizare.php\nDisallow: /imagini.php\nDisallow: /cauta\nDisallow: /previzualizare/\nDisallow: /oauth/\n";
     echo "User-agent: *\nAllow: /\n", $interzise;
     foreach (ROBOTI as $bot) echo "\nUser-agent: $bot\nAllow: /\n", $interzise;
     echo "\n# Rezumatul site-ului pentru modele de limbaj: ", url_absolut('/llms.txt'), "\n";

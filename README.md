@@ -6,7 +6,7 @@ Un CMS mic pentru site-uri de câteva pagini și un blog, administrat de un asis
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache/cPanel). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Circa 3.000 de rânduri PHP pe server, plus teste automate (235 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
+- Circa 3.000 de rânduri PHP pe server, plus teste automate (246 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
 - Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
 - Instalarea: o comandă pe calculator și un zip urcat în cPanel.
 
@@ -17,6 +17,7 @@ site/                    ← se urcă pe server, ca rădăcină a site-ului
   index.php              site-ul public (pagini, articole, sitemap, feed, robots, llms.txt)
   mcp.php                punctul de intrare pentru AI  →  https://site/mcp
   jurnal.php             jurnalul, pentru om (cheia se trimite prin formular)
+  imagini.php            urcarea imaginilor din browser, pentru om (cheia de scriere, prin formular)
   .htaccess              reguli Apache (doar mod_rewrite și mod_headers, în IfModule)
   assets/stil.css        aspectul implicit
   assets/teme/           teme alese cu seteaza_site: <nume>.css + fonturile în <nume>/ (simpluspv, cinesunt)
@@ -28,6 +29,7 @@ teste/ruleaza.php        testele: pornesc o copie a site-ului și încearcă fun
 unelte/instaleaza.php    instalarea: teste, chei, config.php, pachetul .zip, verificarea serverului, legarea Claude Code
 unelte/actualizeaza.php  actualizarea codului de pe depozit, cerută de om (cheia de cod), cu copie și punere înapoi
 unelte/copie.php         copia de siguranță: salvează tot site-ul pe calculator și îl poate pune la loc (sau pe alt site)
+unelte/urca-imagine.php  urcă poze de pe calculator: le întoarce după telefon, le micșorează, scoate locația GPS
 unelte/comun.php         funcțiile comune ale celor două
 unelte/genereaza-cheie.php, unelte/router-local.php
 ```
@@ -116,6 +118,18 @@ Ce face serverul, în ordine, într-o singură cerere:
    nimic — verificarea din afară o face comanda de pe calculatorul tău, care pune și ea înapoi copia dacă site-ul
    nu răspunde cum trebuie.
 
+Două lecții de pe o găzduire reală (cinesunt.info, 21 septembrie 2026), reparate în 0.12:
+
+- **Memoria PHP a găzduirii (OPcache).** Unele găzduiri țin codul compilat și nu se uită după fișierul schimbat: pe disc
+  e versiunea nouă, dar site-ul rulează tot codul vechi și raportează versiunea veche. Acum serverul își golește memoria
+  pentru fiecare fișier PHP pe care îl scrie. Iar comanda de pe calculator pune copia înapoi **numai dacă site-ul nu mai
+  răspunde**; dacă merge dar raportează încă versiunea veche, așteaptă și reverifică, apoi spune ce vede, fără să atingă ceva.
+- **Punerea înapoi a unei copii nu mai poate închide site-ul.** Copiile făcute înainte de 0.12 conțineau paza dosarului de
+  date (un `.htaccess` cu „Require all denied”), iar punerea înapoi o scria peste `.htaccess`-ul site-ului: 403 pe orice
+  adresă, fără cale de reparat din afară. Acum copiile nu mai au paza lor, iar punerea înapoi sare peste ea și la copiile vechi.
+  Dacă ți s-a întâmplat pe o versiune mai veche: în cPanel urci din nou `site/.htaccess` peste cel din rădăcină, apoi
+  alegi din nou versiunea PHP în MultiPHP Manager.
+
 Copiile rămân pe server: `php unelte/actualizeaza.php https://site.ro --copii` le listează, iar `--pune=<copie>` pune
 una înapoi. `'actualizare' => false` în `config.php` scoate cu totul pagina și comanda.
 
@@ -123,6 +137,32 @@ una înapoi. `'actualizare' => false` în `config.php` scoate cu totul pagina ș
 pune cod pe site. Ce se poate fără GitHub — cale în afara dosarului `site/`, extensie nepermisă, atingerea configurării,
 coborârea versiunii — e refuzat de server. Dacă vrei și apărare împotriva unui depozit compromis, pasul următor e
 semnarea pachetului cu o cheie privată de pe calculatorul tău; nu e construită.
+
+## Imaginile, fără base64 prin conversație
+
+`urca_imagine` primea imaginea codată base64: bun pentru o siglă mică, prea scump și prea lent pentru o poză. Din 0.12,
+trei drumuri, după unde e poza:
+
+- **E deja pe internet:** `urca_imagine` cu `url` (doar https, portul 443). Serverul o descarcă singur. Apărarea contra
+  SSRF: numele se rezolvă o dată și **toate** adresele găsite trebuie să fie publice (nu 127.x, 10.x, 192.168.x, 169.254.x,
+  rețelele IPv6 locale, IPv4 ascuns în IPv6 și celelalte rezervate); conexiunea se face exact la adresa verificată, deci
+  DNS-ul nu poate fi schimbat între verificare și descărcare; redirecționările, cel mult 3, trec fiecare prin aceleași
+  verificări. Fără curl și fără `allow_url_fopen`. `'imagini_url' => false` în `config.php` oprește drumul.
+- **E pe calculator (Claude Code):**
+
+  ```
+  php unelte/urca-imagine.php https://site.ro poza.jpg [alta.png …] [--latime=1600] [--original]
+  ```
+
+  Întoarce poza după orientarea din telefon, o micșorează la 1600 px pe latura mare și o rescrie, deci JPEG-ul pierde
+  datele EXIF, inclusiv locația GPS. La final scrie adresele `/media/...`. Are nevoie de GD; pe Windows, dacă `php_gd.dll`
+  stă lângă PHP dar e oprit în `php.ini`, comanda îl pornește doar pentru ea. Fără GD, pozele pleacă neatinse.
+- **E pe telefon:** `https://site.ro/imagini.php`, cu cheia de scriere în formular (niciodată în adresă, ca la jurnal).
+  Pagina micșorează pozele în browser înainte de trimitere, deci pleacă repede și fără locația GPS; cheia de citire e
+  refuzată, fiecare fișier e verificat și scris în jurnal, pagina nu se indexează. Apoi îi dai AI-ului adresa. Se scoate
+  cu `'pagina_imagini' => false`.
+
+Toate trei trec prin aceleași verificări ca base64: tipul aflat din conținut, cel mult 5 MB, fără cod ascuns, fără SVG.
 
 ## Copia de siguranță
 
@@ -211,7 +251,7 @@ Conectorul din claude.ai (web, telefon) cere OAuth, care e în lucru (vezi mai j
 | `redirectioneaza` | scriere | adresă veche → adresă nouă de pe site, 301 (doar când la adresa veche nu mai e nimic); `la` gol o scoate |
 | `sterge` | scriere | mută elementul între versiuni (reversibil) |
 | `restaureaza` | scriere | aduce înapoi o versiune, ca ciornă |
-| `urca_imagine` | scriere | JPEG/PNG/GIF/WebP, max 5 MB; extensia se stabilește din conținut |
+| `urca_imagine` | scriere | JPEG/PNG/GIF/WebP, max 5 MB, din `url` (https, cu apărare SSRF) sau `continut_base64`; extensia se stabilește din conținut |
 | `sterge_imagine` | scriere | mută imaginea între versiuni; refuză dacă e folosită |
 
 Paginile și articolele au adrese comune: `/despre`, `/primul-articol`. Pagina `acasa` e prima pagină.

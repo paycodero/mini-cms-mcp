@@ -65,6 +65,10 @@ function unelte(): array
                     'atribute_globale' => HTML_GLOBALE,
                     'iframe' => 'doar YouTube (youtube.com/embed, youtube-nocookie.com/embed) și Vimeo (player.vimeo.com/video)',
                     'imagini_acceptate' => 'JPEG, PNG, GIF, WebP, cel mult 5 MB; SVG nu',
+                    'imagini_fara_base64' => 'Nu trimite fișiere mari prin base64. O imagine publică: urca_imagine cu "url" (https). '
+                        . 'O poză de pe calculatorul omului, în Claude Code: php unelte/urca-imagine.php <site> <fișiere> (o întoarce după '
+                        . 'telefon, o micșorează la 1600 px, scoate locația GPS). De pe telefon: omul o urcă singur pe ' . url_absolut('/imagini.php')
+                        . ' (cu cheia de scriere) și îți dă adresa /media/....',
                     'teme' => ['disponibile' => teme_disponibile(), 'activa' => tema_activa(),
                                'despre' => array_filter(array_combine(teme_disponibile(), array_map('tema_despre', teme_disponibile())) ?: []),
                                'nota' => 'Aspectul site-ului. Se alege cu seteaza_site (tema); "" = aspectul implicit. Temele noi le pune omul pe server. '
@@ -286,12 +290,23 @@ function unelte(): array
         'urca_imagine' => [
             'scriere' => true, 'titlu' => 'Urcă o imagine',
             'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
-            'descriere' => 'Urcă o imagine JPEG/PNG/GIF/WebP (cel mult 5 MB) și întoarce adresa /media/... de folosit în conținut sau drept copertă.',
+            'descriere' => 'Urcă o imagine JPEG/PNG/GIF/WebP (cel mult 5 MB) și întoarce adresa /media/... de folosit în conținut sau drept copertă. '
+                . 'Trimite FIE "url" (adresa https a unei imagini publice: serverul o descarcă singur, adresele interne sunt refuzate), '
+                . 'FIE "continut_base64". Pentru fișiere de pe calculator sau de pe telefon, fără base64 prin conversație: '
+                . 'în Claude Code rulează unelte/urca-imagine.php <site> <fișiere>; omul le poate urca și singur din browser, pe /imagini.php.',
             'schema' => schema_obiect([
-                'nume' => ['type' => 'string', 'description' => 'nume descriptiv, ex. "coperta-ghid-dimineata.png"; extensia se stabilește din conținut'],
+                'nume' => ['type' => 'string', 'description' => 'nume descriptiv, ex. "coperta-ghid-dimineata.png"; extensia se stabilește din conținut; '
+                    . 'la "url" poate lipsi (se ia din adresă)'],
+                'url' => ['type' => 'string', 'description' => 'adresa https a imaginii, ex. "https://exemplu.ro/poze/coperta.jpg"'],
                 'continut_base64' => ['type' => 'string', 'description' => 'fișierul codat base64 (se acceptă și data:image/...;base64,...)'],
-            ], ['nume', 'continut_base64']),
-            'fn' => fn(array $a) => urca_imagine((string) arg_text($a, 'nume'), (string) arg_text($a, 'continut_base64')),
+            ]),
+            'fn' => function (array $a) {
+                $url = arg_text($a, 'url', false);
+                $b64 = arg_text($a, 'continut_base64', false);
+                if (($url === null) === ($b64 === null)) throw new EroareCms('trimite fie "url", fie "continut_base64" (exact unul)');
+                if ($url !== null) return urca_imagine_din_url(trim($url), (string) arg_text($a, 'nume', false));
+                return urca_imagine((string) arg_text($a, 'nume'), $b64);
+            },
         ],
         'sterge_imagine' => [
             'scriere' => true, 'titlu' => 'Șterge o imagine (reversibil)',

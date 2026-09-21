@@ -112,20 +112,34 @@ if (isset($rez['atentie'])) atentie((string) $rez['atentie']);
 titlu('Verific site-ul din afară');
 $bune = true;
 foreach ([['/', 200], ['/mcp', 405]] as [$cale, $asteptat]) {
-    $r = cerere($cale === '/mcp' ? 'GET' : 'GET', $site . $cale);
+    $r = cerere('GET', $site . $cale);
     if ($r['cod'] === $asteptat) ok(sprintf('%-8s %d', $cale, $r['cod']));
     else { gresit(sprintf('%-8s %d, așteptam %d', $cale, $r['cod'], $asteptat)); $bune = false; }
 }
-$dupa = cere($site, $cheie, ['actiune' => 'stare']);
-$acum = (string) ($dupa['stare']['versiune_instalata'] ?? '?');
-if ($acum === (string) ($s['versiune_in_pachet'] ?? '')) ok("versiunea de pe server e acum $acum");
-else { gresit("versiunea de pe server e $acum, așteptam " . ($s['versiune_in_pachet'] ?? '?')); $bune = false; }
 
+// Copia se pune înapoi DOAR dacă site-ul chiar nu mai răspunde. Un site care merge, dar raportează încă versiunea veche,
+// servește codul din memoria PHP a găzduirii (OPcache): fișierele noi sunt pe disc și intră în lucru singure. A pune înapoi
+// o copie peste un site care merge nu repară nimic și poate strica (21 sept 2026, cinesunt.info).
 if (!$bune) {
-    atentie('ceva nu e în regulă. Pun înapoi copia ' . ($rez['copie'] ?? '?') . '…');
+    atentie('site-ul nu mai răspunde cum trebuie. Pun înapoi copia ' . ($rez['copie'] ?? '?') . '…');
     cere($site, $cheie, ['actiune' => 'restaureaza', 'copie' => (string) ($rez['copie'] ?? '')]);
     gresit('am pus înapoi versiunea dinainte. Verifică site-ul și spune-mi ce scrie în jurnal.');
     exit(1);
+}
+$asteptat = (string) ($s['versiune_in_pachet'] ?? '');
+$acum = '?';
+for ($incercare = 0; $incercare < (empty($opt['local']) ? 7 : 1); $incercare++) {   // pe calculator (--local) nu e memorie de așteptat
+    if ($incercare > 0) { info('versiunea citită e încă ' . $acum . ' — aștept memoria PHP a găzduirii…'); sleep(20); }
+    $dupa = cere($site, $cheie, ['actiune' => 'stare']);
+    $acum = (string) ($dupa['stare']['versiune_instalata'] ?? '?');
+    if ($acum === $asteptat) break;
+}
+if ($acum === $asteptat) ok("versiunea de pe server e acum $acum");
+else {
+    atentie("site-ul merge, dar raportează încă versiunea $acum (așteptam $asteptat): găzduirea ține codul vechi în memorie.");
+    info('Fișierele noi sunt scrise; intră în lucru când găzduirea își golește memoria PHP. Nu pun nimic înapoi.');
+    info("Verifici mai târziu cu: php unelte/actualizeaza.php $site");
+    exit(2);
 }
 
 titlu('Gata');
