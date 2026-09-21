@@ -60,12 +60,17 @@ const IMAGINE_URL_SALTURI = 3;
 const IMAGINE_URL_SECUNDE = 20;
 const RETELE_INTERZISE = ['0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8', '169.254.0.0/16', '172.16.0.0/12',
     '192.0.0.0/24', '192.0.2.0/24', '192.88.99.0/24', '192.168.0.0/16', '198.18.0.0/15', '198.51.100.0/24', '203.0.113.0/24',
-    '224.0.0.0/4', '240.0.0.0/4', '::/127', '::ffff:0:0/96', '64:ff9b::/96', '64:ff9b:1::/48', '100::/64', '2001::/32',
-    '2001:db8::/32', '2002::/16', 'fc00::/7', 'fe80::/10', 'fec0::/10', 'ff00::/8'];
+    '224.0.0.0/4', '240.0.0.0/4', '::/96', '::ffff:0:0/96', '::ffff:0:0:0/96', '64:ff9b::/96', '64:ff9b:1::/48', '100::/64',
+    '2001::/32', '2001:db8::/32', '2002::/16', 'fc00::/7', 'fe80::/10', 'fec0::/10', 'ff00::/8'];
 
+// La IPv6, doar adresele globale (2000::/3); tot restul e refuzat din start. Așa nu contează în ce formă e ascunsă o adresă
+// IPv4 internă (::127.0.0.1, ::a9fe:a9fe = 169.254.169.254, ::ffff:0:7f00:1): nu trebuie ghicită fiecare formă în parte.
+// filter_var e un strat în plus, nu cel de bază: judecă după forma scrisă, deci ::a9fe:a9fe îi scapă.
 function ip_public(string $ip): bool   // ip_in_retea() e cea din nucleu.php, folosită și pentru rețelele Cloudflare
 {
     if (@inet_pton($ip) === false) return false;
+    if (strpos($ip, ':') !== false && !ip_in_retea($ip, '2000::/3')) return false;
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) return false;
     foreach (RETELE_INTERZISE as $r) if (ip_in_retea($ip, $r)) return false;
     return true;
 }

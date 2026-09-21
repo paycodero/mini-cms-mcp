@@ -29,6 +29,11 @@ const HTML_PERMISE = [
 ];
 const HTML_GLOBALE = ['class', 'id', 'title', 'lang', 'dir'];
 
+// Un id devine și variabilă globală în browser (window.google_tag_data = elementul). Numele citite de eticheta GA4 nu se
+// dau conținutului: gtag.js le-ar găsi ocupate de un element și s-ar putea opri. dataLayer și gtag sunt definite în <head>,
+// înaintea articolului, deci un id nu le mai poate lua locul; sunt pe listă doar ca să nu depindă de ordinea din șablon.
+const ID_REZERVATE = '/^(datalayer|gtag|ga|gaglobal|gaplugins|google\w*)$/i';
+
 // Doar videoclipuri încorporate de pe YouTube și Vimeo.
 const IFRAME_SURSE = '#^https://(www\.)?(youtube-nocookie\.com|youtube\.com)/embed/[A-Za-z0-9_-]{6,20}([?][A-Za-z0-9_=&;.-]*)?$'
     . '|^https://player\.vimeo\.com/video/[0-9]{3,12}([?][A-Za-z0-9_=&;.-]*)?$#';
@@ -48,7 +53,7 @@ function atribut_permis(string $el, string $atr, string $v): bool
     switch ($atr) {
         case 'alt': return strlen($v) <= 300 && preg_match('/[\x00-\x1F\x7F]/', $v) !== 1;
         case 'class': return preg_match('/^[A-Za-z0-9_\- ]{1,120}$/', $v) === 1;
-        case 'id': return preg_match('/^[A-Za-z][A-Za-z0-9_\-]{0,63}$/', $v) === 1;
+        case 'id': return preg_match('/^[A-Za-z][A-Za-z0-9_\-]{0,63}$/', $v) === 1 && preg_match(ID_REZERVATE, $v) !== 1;
         case 'title': return strlen($v) <= 300;
         case 'lang': return preg_match('/^[A-Za-z\-]{2,12}$/', $v) === 1;
         case 'dir': return in_array($v, ['ltr', 'rtl', 'auto'], true);

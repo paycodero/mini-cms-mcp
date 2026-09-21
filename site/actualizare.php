@@ -22,6 +22,14 @@ function raspunde_json(int $cod, array $date): void
     exit;
 }
 
+// 'actualizare' => false în config.php scoate pagina cu totul, și la GET, ca 'pagina_imagini' => false la imagini.php.
+// Comanda de pe calculator primește în continuare motivul, în JSON.
+if (config('actualizare') === false) {
+    if ($json) raspunde_json(404, ['eroare' => verifica_acces_cod('')['mesaj']]);
+    pagina_eroare(404);
+    exit;
+}
+
 // Cheia din antet se verifică înainte de a citi corpul: o cerere mare (o temă, cu fonturile ei) se citește
 // întreagă doar pentru cine are deja cheia de cod. Fără ea, corpul se citește până la 20 KB.
 $acces_antet = null;

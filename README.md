@@ -11,7 +11,7 @@ cu capturi din cPanel, și articolele despre [de ce există](https://cms.paycode
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache/cPanel). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Circa 3.000 de rânduri PHP pe server, plus teste automate (282 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
+- Circa 3.000 de rânduri PHP pe server, plus teste automate (285 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
 - Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
 - Instalarea: o comandă pe calculator și un zip urcat în cPanel.
 
@@ -209,8 +209,9 @@ semnarea pachetului cu o cheie privată de pe calculatorul tău; nu e construit�
   deci un link de previzualizare nu merge ca link de urcare; un link falsificat se numără ca încercare eșuată.
 
 - **E deja pe internet:** `urca_imagine` cu `url` (doar https, portul 443). Serverul o descarcă singur. Apărarea contra
-  SSRF: numele se rezolvă o dată și **toate** adresele găsite trebuie să fie publice (nu 127.x, 10.x, 192.168.x, 169.254.x,
-  rețelele IPv6 locale, IPv4 ascuns în IPv6 și celelalte rezervate); conexiunea se face exact la adresa verificată, deci
+  SSRF: numele se rezolvă o dată și **toate** adresele găsite trebuie să fie publice (nu 127.x, 10.x, 192.168.x, 169.254.x
+  și celelalte rezervate; la IPv6 trec doar adresele globale, `2000::/3`, deci IPv4 ascuns în IPv6 e refuzat în orice formă
+  ar fi scris: `::ffff:127.0.0.1`, `::127.0.0.1`, `::a9fe:a9fe`); conexiunea se face exact la adresa verificată, deci
   DNS-ul nu poate fi schimbat între verificare și descărcare; redirecționările, cel mult 3, trec fiecare prin aceleași
   verificări. Fără curl și fără `allow_url_fopen`. `'imagini_url' => false` în `config.php` oprește drumul.
 - **E pe calculator (Claude Code):**
@@ -371,7 +372,7 @@ Site-ul e făcut ca să fie găsit de oameni prin Google și Bing, dar și citit
 ## Securitate
 
 - Nicio comandă nu scrie fișiere `.php`, șabloane, configurare sau jurnal. Conținutul stă în JSON, în `date/`.
-- HTML-ul trece printr-o listă de etichete și atribute permise, la scriere și la afișare. Se scot `script`, `style`, formulare, SVG, evenimentele `on*`, `javascript:`, iframe-urile care nu sunt YouTube/Vimeo. Răspunsul spune AI-ului ce s-a scos.
+- HTML-ul trece printr-o listă de etichete și atribute permise, la scriere și la afișare. Se scot `script`, `style`, formulare, SVG, evenimentele `on*`, `javascript:`, iframe-urile care nu sunt YouTube/Vimeo. Răspunsul spune AI-ului ce s-a scos. Un `id` nu poate lua numele variabilelor citite de eticheta GA4 (`dataLayer`, `gtag`, `google…`): în browser, un id devine și variabilă globală.
 - Două chei (citire / scriere). Pe server stau doar amprentele SHA-256, comparate cu `hash_equals`.
 - 8 încercări eșuate în 5 minute = adresă blocată 15 minute, pe toate punctele de intrare. La IPv6 se blochează prefixul /64,
   nu adresa exactă: cine are un bloc întreg nu trece prin plafon schimbând adresa la fiecare cerere.

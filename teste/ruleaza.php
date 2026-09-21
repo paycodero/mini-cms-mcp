@@ -279,7 +279,8 @@ $rau = '<?php file_put_contents("pwn.txt", "RCE"); echo "RCE-EXECUTAT"; ?>'
     . '<h1>Titlu în conținut</h1><iframe src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"></iframe>'
     . '<iframe src="https://www.youtube.com/embed/abcdefghijk" allow="camera; microphone; fullscreen"></iframe>'
     . '<img src="y.png" alt="Poză de probă" loading="lazy">'
-    . '<a href="https://exemplu.ro" target="_blank">extern</a>';
+    . '<a href="https://exemplu.ro" target="_blank">extern</a>'
+    . '<p id="dataLayer">clobber 1</p><p id="google_tag_data">clobber 2</p><p id="cuprins">ancoră bună</p>';
 $u = unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'atac', 'titlu' => 'Atac', 'continut_html' => $rau]);
 unealta($ks, 'publica', ['tip' => 'pagina', 'slug' => 'atac']);
 $salvat = (string) (json_decode((string) @file_get_contents("$tmp/site/date/pagini/atac.json"), true)['continut_html'] ?? '');
@@ -300,6 +301,9 @@ $u_cop = unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'primul-articol
 verifica('Securitate', 'coperta de pe alt domeniu e refuzată (ar trimite IP-ul vizitatorilor acolo)', $u_cop['eroare'], $u_cop['text']);
 verifica('Conținut', '<h1> din conținut devine <h2> (h1 e titlul)', strpos($salvat, '<h2>Titlu în conținut</h2>') !== false);
 verifica('Securitate', 'răspunsul spune AI-ului ce s-a scos ("curatari")', count($u['date']['curatari'] ?? []) >= 8, $u['text']);
+verifica('Securitate', 'id-urile care ar ocupa variabilele etichetei GA4 (dataLayer, google_tag_data) se scot; o ancoră obișnuită rămâne',
+    stripos($salvat, 'id="datalayer"') === false && stripos($salvat, 'id="google_tag_data"') === false
+    && strpos($salvat, '<p id="cuprins">') !== false && strpos($salvat, 'clobber 2') !== false, $salvat);
 
 // --- versiuni ----------------------------------------------------------------------------------
 
@@ -938,6 +942,14 @@ foreach (["http://127.0.0.1:$port_depozit/muta-intern.php" => 'redirecționare s
 }
 verifica('Securitate', 'SSRF: adrese interne, IPv6 local, IP scris ca număr, alt port, http, redirecționare spre intern — toate refuzate, nimic scris',
     !$refuzate && $in_media() === $inainte, implode('; ', $refuzate));
+// IPv4 ascuns în IPv6 sub alte forme decât ::ffff:. Se cere motivul exact: un refuz la conectare ar trece testul și pe codul vechi.
+$scapate = [];
+foreach (['::127.0.0.1', '::a9fe:a9fe', '::ffff:0:7f00:1', '2002:7f00:1::1', 'fe80::1'] as $ip6) {
+    $u = unealta($ks, 'urca_imagine', ['nume' => 'atac', 'url' => "https://[$ip6]/poza.png"]);
+    if (strpos($u['text'], 'adresă internă') === false) $scapate[] = "$ip6: {$u['text']}";
+}
+verifica('Securitate', 'SSRF: la IPv6 trec doar adresele globale — ::127.0.0.1, ::a9fe:a9fe (169.254.169.254), ::ffff:0:7f00:1, 6to4 refuzate înainte de conectare',
+    !$scapate && $in_media() === $inainte, implode('; ', $scapate));
 @unlink("$tmp/depozit/muta.php");   // ajutoarele serverului de probă; verificarea de la final caută orice .php nou
 @unlink("$tmp/depozit/muta-intern.php");
 $u = unealta($ks, 'urca_imagine', ['nume' => 'x', 'url' => "http://127.0.0.1:$port_depozit/poza-din-url.png", 'continut_base64' => $png]);
@@ -1068,6 +1080,14 @@ verifica('Securitate', 'nici cu cheia de citire', $r['cod'] === 401, "cod {$r['c
 $r = cerere('GET', '/actualizare.php');
 verifica('Actualizare', 'pagina cere cheia de cod și nu arată nimic fără ea',
     $r['cod'] === 200 && strpos($r['corp'], 'Cheia de cod') !== false && strpos($r['corp'], 'name="cheie"') !== false, "cod {$r['cod']}");
+$cfg_act = (string) file_get_contents("$tmp/site/app/config.php");
+file_put_contents("$tmp/site/app/config.php", str_replace('return array (', "return array (\n  'actualizare' => false,", $cfg_act));
+$r = cerere('GET', '/actualizare.php');
+$r2 = actualizare($kd, ['actiune' => 'stare']);
+file_put_contents("$tmp/site/app/config.php", $cfg_act);
+verifica('Actualizare', "cu 'actualizare' => false pagina nu mai există nici la GET (404, fără formular), iar comanda primește motivul",
+    $r['cod'] === 404 && strpos($r['corp'], 'name="cheie"') === false
+    && $r2['cod'] === 404 && strpos((string) ($r2['json']['eroare'] ?? ''), 'oprită') !== false, "cod {$r['cod']} / {$r2['cod']}: {$r2['corp']}");
 
 $r = actualizare($kd, ['actiune' => 'stare']);
 $stare_cod = (array) ($r['json']['stare'] ?? []);
