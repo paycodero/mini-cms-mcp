@@ -4,6 +4,11 @@ Un CMS mic pentru site-uri de câteva pagini și un blog, administrat de un asis
 
 **Principiul: AI-ul e singurul editor. Poate schimba conținutul, niciodată codul.**
 
+**Site și documentație: [cms.paycode.ro](https://cms.paycode.ro)**, care rulează chiar pe mini-cms-mcp și e administrat din
+conversația cu Claude, inclusiv de pe telefon. Acolo sunt [ghidul de instalare pas cu pas](https://cms.paycode.ro/instalare-cms-administrat-de-ai),
+cu capturi din cPanel, și articolele despre [de ce există](https://cms.paycode.ro/de-ce-am-renuntat-la-wordpress) și
+[cine îl scrie](https://cms.paycode.ro/despre).
+
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache/cPanel). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
 - Circa 3.000 de rânduri PHP pe server, plus teste automate (253 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
@@ -37,6 +42,8 @@ unelte/genereaza-cheie.php, unelte/router-local.php
 ## Instalare, în doi pași
 
 Condiția: un domeniu sau subdomeniu doar pentru site (site-ul stă la rădăcină), cu PHP 8.0+ și HTTPS.
+Ghidul complet, pentru cine n-a instalat niciodată PHP, cu capturi din cPanel:
+[cms.paycode.ro/instalare-cms-administrat-de-ai](https://cms.paycode.ro/instalare-cms-administrat-de-ai).
 
 **1. Pe calculator**, din folderul repo-ului:
 
