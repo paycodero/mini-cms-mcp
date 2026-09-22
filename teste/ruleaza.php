@@ -260,6 +260,43 @@ $r = cerere('GET', '/acasa');
 verifica('Conținut', '/acasa trimite spre / (301)', $r['cod'] === 301, "cod {$r['cod']}");
 $r = cerere('GET', '/nu-exista');
 verifica('Conținut', 'adresă inexistentă → 404', $r['cod'] === 404);
+
+// --- 0.16: meniul pe două niveluri -------------------------------------------------------------
+unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'servicii', 'titlu' => 'Servicii', 'continut_html' => '<p>Ce facem.</p>', 'meniu' => 2]);
+unealta($ks, 'publica', ['tip' => 'pagina', 'slug' => 'servicii']);
+foreach ([['audit', 'Audit', 2], ['consultanta', 'Consultanță', 1]] as [$s, $t, $poz]) {
+    unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => $s, 'titlu' => $t, 'continut_html' => "<p>$t pe larg.</p>", 'descriere' => "Despre $t.",
+                              'meniu' => $poz, 'parinte' => 'servicii']);
+    unealta($ks, 'publica', ['tip' => 'pagina', 'slug' => $s]);
+}
+$r = cerere('GET', '/despre');
+$sub = preg_match('#<div class="meniu-grup">\s*<a href="/servicii" class="are-submeniu">Servicii</a>\s*<div class="submeniu">\s*'
+    . '<a href="/consultanta">Consultanță</a>\s*<a href="/audit">Audit</a>\s*</div>#u', $r['corp']);
+verifica('Meniu', 'subpaginile stau în submeniul părintelui, în ordinea din "meniu", nu și în meniul principal',
+    $sub === 1 && substr_count($r['corp'], 'href="/audit"') === 1, substr((string) strstr($r['corp'], '<nav class="meniu"'), 0, 600));
+$r = cerere('GET', '/servicii');
+verifica('Meniu', 'pagina-părinte își listează singură subpaginile, cu descrierea lor',
+    strpos($r['corp'], '<nav class="subpagini"') !== false && strpos($r['corp'], 'Despre Audit.') !== false && strpos($r['corp'], 'inapoi-sectiune') === false);
+$r = cerere('GET', '/audit');
+verifica('Meniu', 'subpagina: adresa rămâne /audit, are link înapoi și firimituri Acasă › Servicii › Audit', $r['cod'] === 200
+    && strpos($r['corp'], 'class="inapoi-sectiune"><a href="/servicii">') !== false
+    && strpos($r['corp'], '"position":2,"name":"Servicii"') !== false && strpos($r['corp'], '"position":3,"name":"Audit"') !== false);
+$refuzuri = [
+    unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'detalii-audit', 'titlu' => 'x', 'continut_html' => '<p>x</p>', 'parinte' => 'audit']),
+    unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'servicii', 'parinte' => 'despre']),
+    unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'audit', 'parinte' => 'audit']),
+    unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'audit', 'parinte' => 'nu-exista']),
+    unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'audit', 'parinte' => 'acasa']),
+    unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'primul-articol', 'parinte' => 'servicii']),
+];
+verifica('Meniu', 'refuzate: al treilea nivel, o pagină cu subpagini pusă sub alta, propriul părinte, părinte inexistent, prima pagină, articol cu părinte',
+    count(array_filter($refuzuri, fn($x) => $x['eroare'])) === count($refuzuri) && unealta($kc, 'citeste', ['tip' => 'pagina', 'slug' => 'detalii-audit'])['eroare'],
+    implode(' / ', array_column($refuzuri, 'text')));
+$u = unealta($ks, 'sterge', ['tip' => 'pagina', 'slug' => 'servicii']);
+verifica('Meniu', 'o pagină cu subpagini nu se șterge până nu le muți', $u['eroare'] && strpos($u['text'], 'audit') !== false, $u['text']);
+$u = unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'despre', 'titlu' => 'Despre']);
+verifica('Meniu', 'o pagină fără părinte nu primește câmpul degeaba: salvată la fel, rămâne neschimbată', ($u['date']['operatie'] ?? '') === 'neschimbat', $u['text']);
+
 $u = unealta($ks, 'cauta', ['text' => 'diacritice']);
 verifica('Conținut', 'căutarea găsește textul, cu fragment', count($u['date']['rezultate'] ?? []) === 1, $u['text']);
 $u = unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => '../../app/config', 'titlu' => 'x', 'continut_html' => 'x']);
@@ -506,6 +543,17 @@ $u = unealta($ks, 'redirectioneaza', ['de' => '/despre', 'la' => '']);
 $l = unealta($kc, 'listeaza_redirectionari');
 verifica('Redirecționări', 'se scot cu "la" gol și se listează cu cheia de citire', ($u['date']['operatie'] ?? '') === 'scoasă'
     && isset($l['date']['redirectionari']['/despre-noi.html']) && !isset($l['date']['redirectionari']['/despre']), $l['text']);
+$r = cerere('GET', '/articole/articol-vechi');
+$r2 = cerere('GET', '/articole/programat');
+$r3 = cerere('GET', '/articole/nu-exista');
+verifica('Redirecționări', 'adresa de blog /articole/<slug> a unui site mutat trimite cu 301 spre /<slug>; programatul și inexistentul dau 404',
+    $r['cod'] === 301 && ($r['antete']['location'] ?? '') === '/articol-vechi' && $r2['cod'] === 404 && $r3['cod'] === 404,
+    "cod {$r['cod']} / {$r2['cod']} / {$r3['cod']}");
+$u = unealta($ks, 'redirectioneaza', ['de' => '/articole/formularul-800-notificarea-privind-facturile-netransmise-la-timp-pentru-tranzactiile-cu-plata-pe-loc', 'la' => '/articol-vechi']);
+$u2 = unealta($ks, 'redirectioneaza', ['de' => '/articole', 'la' => '/despre']);
+$r = cerere('GET', '/articole/formularul-800-notificarea-privind-facturile-netransmise-la-timp-pentru-tranzactiile-cu-plata-pe-loc');
+verifica('Redirecționări', 'sub /articole/ se poate scrie o redirecționare de mână (slug vechi prea lung); /articole însuși rămâne al site-ului',
+    !$u['eroare'] && $u2['eroare'] && $r['cod'] === 301 && ($r['antete']['location'] ?? '') === '/articol-vechi', $u['text'] . ' / ' . $u2['text']);
 
 $u = unealta($ks, 'seteaza_site', ['logo' => $url_img, 'favicon' => $url_img]);
 $r = cerere('GET', '/');
@@ -1413,6 +1461,11 @@ verifica('Export', 'copia pusă pe un site gol îl reface: elemente, stări, dat
     $refacut, $rp['iesire']);
 verifica('Export', 'copia păstrează și tema aleasă', strpos($acasa2['corp'], '/assets/teme/simpluspv.css') !== false);
 verifica('Export', 'copia păstrează și legăturile din subsol', strpos($acasa2['corp'], '>Celălalt site</a>') !== false);
+$url = $url2;
+$audit2 = cerere('GET', '/audit');
+$url = $url_principal;
+verifica('Export', 'copia păstrează și subpaginile (părintele e pus înaintea lor)', strpos($audit2['corp'], 'class="inapoi-sectiune"><a href="/servicii">') !== false
+    && strpos($audit2['corp'], 'class="submeniu"') !== false, substr($audit2['corp'], 0, 300));
 $rp2 = unealta_locala('copie.php', [$url2, '--local', "--dosar=$inst", "--pune=$dosar_copie"]);
 verifica('Export', 'peste un site cu conținut, copia nu se pune fără --peste', $rp2['cod'] === 1 && strpos($rp2['iesire'], '--peste') !== false, $rp2['iesire']);
 $exp_tema = json_decode((string) file_get_contents("$dosar_copie/export.json"), true);

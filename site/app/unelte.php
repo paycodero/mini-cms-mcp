@@ -60,6 +60,9 @@ function unelte(): array
                         'Înainte de "publica", trimite-i omului linkul din previzualizeaza: vede pagina exact ca pe site.',
                         '"publica" cu "la" în viitor programează elementul: apare singur la ora aceea.',
                         'Când se schimbă adresa unui element, o redirecționare (redirectioneaza) duce vizitatorii de la adresa veche la cea nouă.',
+                        'Meniul are două niveluri: o pagină cu "parinte" (slugul unei pagini din meniu) apare în submeniul ei, în ordinea din "meniu". '
+                            . 'Adresa rămâne /<slug>. Pagina-părinte își listează singură subpaginile, iar subpagina are un link înapoi: nu le scrie în conținut. '
+                            . 'Un singur nivel de subpagini; o pagină cu subpagini nu se poate șterge până nu le muți.',
                         'Un site nou sau gol: cheamă pagini_de_pornire (acasă, despre, servicii, contact, confidențialitate) și completează-le cu omul.',
                         'Un loc [[COMPLETEAZĂ: …]] rămas în titlu, descriere sau conținut oprește publicarea.',
                     ],
@@ -202,7 +205,8 @@ function unelte(): array
                 'etichete' => ['type' => 'array', 'items' => ['type' => 'string'], 'maxItems' => 10, 'description' => 'doar la articole'],
                 'imagine' => ['type' => 'string', 'description' => 'doar la articole: coperta, adresa /media/... întoarsă de urca_imagine'],
                 'imagine_alt' => ['type' => 'string', 'description' => 'doar la articole: descrierea copertei'],
-                'meniu' => ['type' => ['integer', 'null'], 'minimum' => 0, 'maximum' => 99, 'description' => 'doar la pagini: poziția în meniu; null = nu apare în meniu'],
+                'meniu' => ['type' => ['integer', 'null'], 'minimum' => 0, 'maximum' => 99, 'description' => 'doar la pagini: poziția în meniu (la o subpagină: în submeniul părintelui); null = nu apare în meniu'],
+                'parinte' => ['type' => ['string', 'null'], 'maxLength' => 80, 'description' => 'doar la pagini: slugul paginii din meniu sub care stă în submeniu (un singur nivel); "" = nicio secțiune'],
                 'autor' => ['type' => 'string', 'maxLength' => 80, 'description' => 'doar la articole: autorul, dacă nu e cel implicit al site-ului'],
             ], ['tip', 'slug']),
             'fn' => function (array $a) {

@@ -133,6 +133,8 @@ try {
 
 titlu('Paginile și articolele');
 $puse = 0;
+// paginile-părinte întâi: o subpagină se poate pune doar sub o pagină care există deja
+if (is_array($export['pagini'] ?? null)) usort($export['pagini'], fn($a, $b) => (int) !empty($a['parinte']) <=> (int) !empty($b['parinte']));
 foreach (['pagina' => 'pagini', 'articol' => 'articole'] as $tip => $plural) {
     foreach ($export[$plural] ?? [] as $e) {
         $argumente = ['tip' => $tip, 'slug' => (string) $e['slug'], 'titlu' => (string) ($e['titlu'] ?? ''),
@@ -142,6 +144,8 @@ foreach (['pagina' => 'pagini', 'articol' => 'articole'] as $tip => $plural) {
                            'imagine_alt' => (string) ($e['imagine_alt'] ?? ''), 'autor' => (string) ($e['autor'] ?? '')];
         } else {
             $argumente['meniu'] = $e['meniu'] ?? null;
+            // doar când copia are câmpul (0.16+): un site mai vechi nu-l cunoaște și ar refuza pagina
+            if (array_key_exists('parinte', $e)) $argumente['parinte'] = (string) ($e['parinte'] ?? '');
         }
         try {
             $mcp('salveaza', $argumente);

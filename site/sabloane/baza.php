@@ -58,7 +58,18 @@ if ((string) config('site.ga4') !== '' && !$noindex): $ga4 = (string) config('si
     <a class="sigla" href="/"><?php if ((string) config('site.logo') !== ''): ?><img src="<?= esc(config('site.logo')) ?>" alt="" height="40"><?php endif; ?><span><?= esc(config('site.nume')) ?></span></a>
     <nav class="meniu" aria-label="Meniu">
 <?php foreach (meniu() as $m): ?>
+<?php if (!empty($m['copii'])): // submeniul se deschide la trecerea mouse-ului și din tastatură (:focus-within), fără JavaScript ?>
+      <div class="meniu-grup">
+        <a href="<?= esc($m['url']) ?>" class="are-submeniu"><?= esc($m['titlu']) ?></a>
+        <div class="submeniu">
+<?php foreach ($m['copii'] as $c): ?>
+          <a href="<?= esc($c['url']) ?>"><?= esc($c['titlu']) ?></a>
+<?php endforeach; ?>
+        </div>
+      </div>
+<?php else: ?>
       <a href="<?= esc($m['url']) ?>"><?= esc($m['titlu']) ?></a>
+<?php endif; ?>
 <?php endforeach; ?>
     </nav>
     <form class="cauta-antet" action="/cauta" method="get" role="search">

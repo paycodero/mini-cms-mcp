@@ -11,7 +11,7 @@ cu capturi din cPanel, și articolele despre [de ce există](https://cms.paycode
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache/cPanel). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Circa 3.000 de rânduri PHP pe server, plus teste automate (285 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
+- Circa 3.000 de rânduri PHP pe server, plus teste automate (294 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
 - Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
 - Instalarea: o comandă pe calculator și un zip urcat în cPanel.
 
@@ -356,6 +356,10 @@ Site-ul e făcut ca să fie găsit de oameni prin Google și Bing, dar și citit
   site-ul, sau firma și CUI-ul. Text simplu, fără HTML.
 - **Cum se numesc articolele:** `seteaza_site` (`nume_articole`, ex. `ghiduri`) schimbă cuvântul din meniu, de pe prima
   pagină și din liste („Ultimele ghiduri", „Toate ghidurile"). Adresa rămâne `/articole`.
+- **Meniul pe două niveluri:** o pagină cu `parinte` (slugul unei pagini din meniu) stă în submeniul ei, în ordinea din
+  `meniu`; adresa rămâne `/<slug>`. Submeniul se deschide la mouse și din tastatură, fără JavaScript; pe ecrane tactile,
+  pagina-părinte își listează singură subpaginile („În această secțiune”), iar subpagina are un link înapoi și firimituri
+  Acasă › Secțiune › Pagină. Un singur nivel de subpagini; o pagină care are subpagini nu se șterge până nu le muți.
 - **Data pe pagini:** implicit nu apare (pe un site de documentație o dată lângă titlu face conținutul să pară vechi);
   `arata_data` = `da` o pune pe articol și pe carduri, pentru un blog. În sitemap, feed și datele structurate e oricum.
 - **Sub articol:** „Citește mai departe" cu două articole, întâi cele cu aceeași primă etichetă. Coperta nu se repetă sus
@@ -386,6 +390,8 @@ Site-ul e făcut ca să fie găsit de oameni prin Google și Bing, dar și citit
 - HSTS pe orice răspuns servit prin https (`'hsts' => false` îl oprește).
 - Linkurile de previzualizare sunt semnate (HMAC, cheie în `date/securitate/`), expiră în cel mult 24 de ore, nu se indexează și sunt scrise în jurnal, inclusiv încercările cu semnătură greșită.
 - Redirecționările duc doar spre adrese de pe același site; adresele site-ului (`/mcp`, `/app`, `/date`, …) nu se pot redirecționa, iar buclele sunt refuzate.
+  Excepție: sub `/articole/` site-ul nu servește nimic, deci acolo se pot scrie (adresele unui blog mutat). Fără ele,
+  `/articole/<slug>` trimite singur, cu 301, spre `/<slug>` când articolul (sau pagina) există și se vede pe site.
 
 ## Jurnalul
 

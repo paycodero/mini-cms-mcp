@@ -79,7 +79,7 @@ function rezumat_element(array $e): array
     $r = ['tip' => $e['tip'], 'slug' => $e['slug'], 'titlu' => $e['titlu'] ?? '', 'stare' => $e['stare'] ?? '',
           'url' => url_absolut(url_element($e)), 'actualizat' => $e['actualizat'] ?? null, 'publicat_la' => $e['publicat_la'] ?? null];
     if ($e['tip'] === 'articol') $r['etichete'] = $e['etichete'] ?? [];
-    if ($e['tip'] === 'pagina') $r['meniu'] = $e['meniu'] ?? null;
+    if ($e['tip'] === 'pagina') $r += ['meniu' => $e['meniu'] ?? null, 'parinte' => $e['parinte'] ?? null];
     if (($e['stare'] ?? '') === 'publicat' && !e_vizibil($e)) $r['programat_pentru'] = $e['publicat_la'];
     return $r;
 }
@@ -141,6 +141,31 @@ function imagine_valida($v): string
     throw new EroareCms('"imagine" e o adresă /media/... întoarsă de urca_imagine (imaginile de pe alte domenii nu se acceptă)');
 }
 
+// Meniul are două niveluri: o pagină cu „parinte" stă în submeniul acelei pagini. Un singur nivel de subpagini:
+// părintele nu are el însuși părinte, iar o pagină care are subpagini nu poate deveni subpagină.
+function parinte_valid(string $slug, $v): ?string
+{
+    if ($v === null || $v === '') return null;
+    if (!is_string($v) || !slug_valid($v)) throw new EroareCms('"parinte" e slugul unei pagini (ex. "servicii") sau "" pentru nicio secțiune');
+    if ($v === $slug) throw new EroareCms('o pagină nu poate fi propriul părinte');
+    if ($v === 'acasa' || $slug === 'acasa') throw new EroareCms('prima pagină nu intră în submeniuri');
+    $p = citeste_element('pagina', $v);
+    if ($p === null) throw new EroareCms("nu există pagina \"$v\" — creeaz-o întâi, apoi pune subpaginile sub ea");
+    if (($p['parinte'] ?? null) !== null) {
+        throw new EroareCms("\"$v\" e deja subpagină (sub \"{$p['parinte']}\"): meniul are un singur nivel de subpagini");
+    }
+    if ($copii = subpagini_pentru($slug, 'toate')) {
+        throw new EroareCms("\"$slug\" are subpagini (" . implode(', ', array_column($copii, 'slug')) . '), deci nu poate fi subpagină');
+    }
+    return $v;
+}
+
+// Paginile care au $slug ca părinte, în ordinea din meniu (cele fără poziție la final, după titlu).
+function subpagini_pentru(string $slug, string $stare = 'vizibil'): array
+{
+    return array_values(array_filter(listeaza_elemente('pagina', $stare), fn($p) => ($p['parinte'] ?? null) === $slug));
+}
+
 function salveaza_element(string $tip, string $slug, array $campuri): array
 {
     verifica_tip_slug($tip, $slug);
@@ -180,7 +205,14 @@ function salveaza_element(string $tip, string $slug, array $campuri): array
             if (array_key_exists('meniu', $campuri)) {
                 $nou['meniu'] = $campuri['meniu'] === null ? null : max(0, min(99, (int) $campuri['meniu']));
             }
+            if (array_key_exists('parinte', $campuri)) {
+                $p = parinte_valid($slug, $campuri['parinte']);
+                if ($p !== null || array_key_exists('parinte', $nou)) $nou['parinte'] = $p;   // paginile vechi nu primesc câmpul degeaba
+            }
             $nou += ['meniu' => null];
+        }
+        if ($tip === 'articol' && ($campuri['parinte'] ?? null) !== null && $campuri['parinte'] !== '') {
+            throw new EroareCms('"parinte" e doar pentru pagini: articolele stau în /articole');
         }
         $nou += ['descriere' => ''];
 
@@ -260,6 +292,10 @@ function sterge_element(string $tip, string $slug): array
     verifica_tip_slug($tip, $slug);
     return cu_blocare(function () use ($tip, $slug) {
         if (!is_file(fisier_element($tip, $slug))) throw new EroareCms("nu există $tip cu slugul \"$slug\"");
+        if ($tip === 'pagina' && ($copii = subpagini_pentru($slug, 'toate'))) {
+            throw new EroareCms("\"$slug\" are subpagini (" . implode(', ', array_column($copii, 'slug'))
+                . ') — mută-le întâi (salveaza cu alt "parinte" sau cu "parinte": ""), apoi șterge pagina');
+        }
         $versiune = versioneaza_element($tip, $slug, '-sters');
         if (!@unlink(fisier_element($tip, $slug))) throw new EroareCms('ștergerea a eșuat');
         return ['operatie' => 'șters (mutat între versiuni)', 'tip' => $tip, 'slug' => $slug, 'versiune' => $versiune,
@@ -477,7 +513,9 @@ function seteaza_redirectionare($de, $la): array
     $cale_de = explode('?', $de, 2)[0];
     if ($cale_de === '/') throw new EroareCms('prima pagină nu se poate redirecționa');
     foreach (PREFIXE_REZERVATE as $p) {
-        if ($cale_de === $p || strpos($cale_de, $p . '/') === 0) throw new EroareCms("adresa $de e folosită de site și nu se poate redirecționa");
+        // sub /articole/ site-ul nu servește nimic: acolo stăteau articolele unui blog mutat (ex. un slug vechi prea lung)
+        $sub = strpos($cale_de, $p . '/') === 0 && $p !== '/articole';
+        if ($cale_de === $p || $sub) throw new EroareCms("adresa $de e folosită de site și nu se poate redirecționa");
     }
     $sterge = $la === null || trim((string) $la) === '';
     if (!$sterge) {

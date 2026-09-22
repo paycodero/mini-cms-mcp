@@ -21,6 +21,17 @@ img{max-width:100%;height:auto}
 .meniu{display:flex;flex-wrap:wrap;gap:4px 18px}
 .meniu a{color:var(--text-2);text-decoration:none;font-weight:600;padding:6px 0}
 .meniu a:hover{color:var(--accent)}
+/* submeniul: paginile cu „parinte"; se deschide la mouse și din tastatură, fără JavaScript. Pe ecrane tactile nu se deschide:
+   un clic pe părinte duce la pagina lui, care își listează singură subpaginile. */
+.meniu-grup{position:relative;display:flex}
+.meniu .are-submeniu::after{content:"";display:inline-block;width:.36em;height:.36em;margin:0 0 .2em .45em;
+  border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);opacity:.7}
+.submeniu{display:none;position:absolute;top:100%;left:-14px;z-index:30;min-width:230px;max-width:340px;padding:6px 0;
+  background:var(--fond);border:1px solid var(--linie);border-radius:var(--raza);box-shadow:0 10px 28px rgba(13,15,20,.14)}
+.meniu-grup:hover > .submeniu,.meniu-grup:focus-within > .submeniu{display:block}
+.meniu .submeniu a{display:block;padding:8px 16px;white-space:normal;font-weight:500;line-height:1.35}
+.meniu .submeniu a:hover{background:var(--panou)}
+@media (hover:none),(max-width:640px){.meniu-grup:hover > .submeniu,.meniu-grup:focus-within > .submeniu{display:none}}
 .cauta-antet input{font:inherit;font-size:15px;width:170px;padding:6px 12px;border:2px solid var(--linie);border-radius:999px;background:var(--fond);color:var(--text)}
 .cauta-antet input:focus{border-color:var(--accent);outline:none;width:220px}
 .bara-previzualizare{background:var(--galben);color:#fff;font-weight:700;text-align:center;padding:8px 16px;font-size:15px}
@@ -77,6 +88,18 @@ figure.coperta.coperta-portret img{display:block;width:auto;max-width:100%;max-h
 .card-eticheta:hover{text-decoration:underline}
 .semnatura .data-publicarii::before{content:" · "}
 .eticheta-sus{margin:0 0 4px;color:var(--text-slab);font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+
+/* sub o pagină-părinte: subpaginile ei; sub o subpagină: linkul înapoi (le pune șablonul) */
+.subpagini{margin-top:44px;padding-top:6px;border-top:1px solid var(--linie)}
+.subpagini h2{font-size:21px;margin:20px 0 12px}
+.subpagini ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.subpagini li{border:2px solid var(--linie);border-radius:var(--raza);padding:12px 16px;min-width:0}
+.subpagini li:hover{border-color:var(--accent)}
+.subpagini li a{font-weight:700;text-decoration:none;color:var(--text)}
+.subpagini li a:hover{color:var(--accent)}
+.subpagini li span{display:block;margin-top:4px;font-size:14.5px;line-height:1.45;color:var(--text-slab)}
+.inapoi-sectiune{margin-top:36px;font-weight:600}
+.inapoi-sectiune a{text-decoration:none}
 
 /* „Citește mai departe", sub articol */
 .legate{margin-top:48px;padding-top:8px;border-top:1px solid var(--linie)}

@@ -29,6 +29,21 @@ function ruleaza_site(): void
     if (preg_match('#^/previzualizare/([a-z0-9]+(?:-[a-z0-9]+)*)$#', $cale, $m)) { pagina_previzualizare($m[1]); return; }
     if (preg_match('#^/eticheta/([a-z0-9-]{1,60})$#', $cale, $m)) { pagina_lista($m[1]); return; }
     if (preg_match('#^/([a-z0-9]+(?:-[a-z0-9]+)*)$#', $cale, $m)) { pagina_element($m[1]); return; }
+    if (preg_match('#^/articole/([a-z0-9]+(?:-[a-z0-9]+)*)$#', $cale, $m)) { adresa_de_blog($m[1]); return; }
+    pagina_eroare(404);
+}
+
+// Un site mutat de pe un CMS cu blog (Grav, WordPress) avea articolele la /articole/<slug>; aici stau la /<slug>.
+// /articole e rezervat, deci redirecționarea nu se poate scrie de mână: o face site-ul, doar pentru ce se vede.
+function adresa_de_blog(string $slug): void
+{
+    foreach (['articol', 'pagina'] as $tip) {
+        $e = citeste_element($tip, $slug);
+        if (!$e || !e_vizibil($e)) continue;
+        header('Location: ' . url_element($e), true, 301);
+        header('Cache-Control: public, max-age=86400');
+        return;
+    }
     pagina_eroare(404);
 }
 
@@ -54,11 +69,19 @@ function randeaza(string $sablon, array $v, int $cod = 200, array $csp = []): vo
     require dirname(__DIR__) . '/sabloane/baza.php';
 }
 
+// Două niveluri: paginile cu „parinte" intră în submeniul acelei pagini, dacă ea e în meniu; altfel nu apar în meniu
+// (se ajunge la ele din lista subpaginilor, de pe pagina-părinte).
 function meniu(): array
 {
+    $pagini = listeaza_elemente('pagina', 'vizibil');
     $m = [];
-    foreach (listeaza_elemente('pagina', 'vizibil') as $p) {
-        if (($p['meniu'] ?? null) !== null) $m[] = ['titlu' => $p['titlu'], 'url' => url_element($p)];
+    foreach ($pagini as $p) {
+        if (($p['meniu'] ?? null) === null || ($p['parinte'] ?? null) !== null) continue;
+        $copii = [];
+        foreach ($pagini as $c) {
+            if (($c['parinte'] ?? null) === $p['slug'] && ($c['meniu'] ?? null) !== null) $copii[] = ['titlu' => $c['titlu'], 'url' => url_element($c)];
+        }
+        $m[] = ['titlu' => $p['titlu'], 'url' => url_element($p), 'copii' => $copii];
     }
     if (listeaza_elemente('articol', 'vizibil')) $m[] = ['titlu' => nume_articole(false, true), 'url' => '/articole'];
     return $m;
@@ -160,10 +183,19 @@ function editor_jsonld(): array
     return $ed;
 }
 
+// Pagina-părinte a unei subpagini, dacă se vede pe site.
+function sectiune_pagina(array $e): ?array
+{
+    if (($e['tip'] ?? '') !== 'pagina' || empty($e['parinte'])) return null;
+    $p = citeste_element('pagina', (string) $e['parinte']);
+    return $p && e_vizibil($p) ? $p : null;
+}
+
 function firimituri_jsonld(array $e): array
 {
     $cale = [['@type' => 'ListItem', 'position' => 1, 'name' => 'Acasă', 'item' => url_absolut('/')]];
     if (($e['tip'] ?? '') === 'articol') $cale[] = ['@type' => 'ListItem', 'position' => 2, 'name' => nume_articole(false, true), 'item' => url_absolut('/articole')];
+    if ($s = sectiune_pagina($e)) $cale[] = ['@type' => 'ListItem', 'position' => 2, 'name' => $s['titlu'], 'item' => url_absolut(url_element($s))];
     $cale[] = ['@type' => 'ListItem', 'position' => count($cale) + 1, 'name' => $e['titlu'] ?? '', 'item' => url_absolut(url_element($e))];
     return ['@context' => 'https://schema.org', '@type' => 'BreadcrumbList', 'itemListElement' => $cale];
 }
@@ -267,6 +299,10 @@ function variabile_element(string $tip, array $e): array
           'jsonld_extra' => [firimituri_jsonld($e)]];
     $faq = faq_jsonld($html);
     if ($faq) $v['jsonld_extra'][] = $faq;
+    if ($tip === 'pagina') {   // meniul pe două niveluri: pagina-părinte își listează subpaginile, subpagina duce înapoi
+        $v['sectiune'] = sectiune_pagina($e);
+        $v['subpagini'] = ($e['slug'] ?? '') === 'acasa' ? [] : subpagini_pentru((string) $e['slug']);
+    }
     if ($tip === 'articol') {
         $v['legate'] = articole_legate($e);
         $v['tip_og'] = 'article';
