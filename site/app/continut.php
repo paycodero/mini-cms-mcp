@@ -442,6 +442,15 @@ function seteaza_identitate(array $campuri): array
     }
     // Textul din subsol, pe fiecare pagină: o mențiune care trebuie să fie peste tot (ce nu e site-ul, firma și CUI-ul).
     if (array_key_exists('subsol', $campuri)) $nou['subsol'] = text_simplu($campuri['subsol'] ?? '', 300);
+    // Cine a făcut site-ul („Website realizat cu …”), pe rândul cu ©, cu link dacă are adresă. Nu e o legătură a autorului:
+    // nu intră în "sameAs", nu primește rel="me" și nu apare în llms.txt, ca motoarele să nu lege realizatorul de autor.
+    if (array_key_exists('realizare', $campuri)) $nou['realizare'] = text_simplu($campuri['realizare'] ?? '', 80);
+    if (array_key_exists('realizare_url', $campuri)) {
+        $nou['realizare_url'] = trim((string) ($campuri['realizare_url'] ?? ''));
+        if ($nou['realizare_url'] !== '' && (!url_sigur($nou['realizare_url'], false, ['https', 'http']) || strlen($nou['realizare_url']) > 300)) {
+            throw new EroareCms('"realizare_url" e o adresă http(s) validă, ex. "https://exemplu.ro/" (gol = mențiunea fără link)');
+        }
+    }
     // Cum se numesc articolele pe site („ghiduri", „rețete"): în meniu, pe prima pagină, în liste. Adresa rămâne /articole.
     if (array_key_exists('nume_articole', $campuri)) {
         $nou['nume_articole'] = text_simplu($campuri['nume_articole'] ?? '', 30);
@@ -454,7 +463,7 @@ function seteaza_identitate(array $campuri): array
         if (!in_array($nou['arata_data'], ['', 'da'], true)) throw new EroareCms('"arata_data" e "da" (data publicării apare pe pagini) sau "" (nu apare)');
     }
     if (!$nou) throw new EroareCms('trimite cel puțin un câmp: nume, descriere, autor, limba, culoare, logo, favicon, tema, legaturi, ga4, '
-        . 'subsol, nume_articole sau arata_data');
+        . 'subsol, realizare, realizare_url, nume_articole sau arata_data');
 
     return cu_blocare(function () use ($nou) {
         $fisier = dir_date() . '/site.json';

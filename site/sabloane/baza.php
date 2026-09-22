@@ -92,6 +92,12 @@ if ((string) config('site.ga4') !== '' && !$noindex): $ga4 = (string) config('si
 <?php endif; ?>
   <div class="lat">
     <span>© <?= date('Y') ?> <?= esc(config('site.nume')) ?></span>
+<?php $realizare = (string) config('site.realizare'); $realizare_url = (string) config('site.realizare_url'); if ($realizare !== ''): ?>
+<?php if ($realizare_url !== ''): ?>
+    <a class="realizare" href="<?= esc($realizare_url) ?>" rel="noopener" target="_blank"><?= esc($realizare) ?></a>
+<?php else: ?>
+    <span class="realizare"><?= esc($realizare) ?></span>
+<?php endif; endif; ?>
     <a href="/feed.xml">RSS</a>
   </div>
 <?php if ((string) config('site.subsol') !== ''): ?>

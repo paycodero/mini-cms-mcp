@@ -312,7 +312,7 @@ Conectorul din claude.ai (web, telefon) cere OAuth, care e în lucru (vezi mai j
 | `exporta` | citire | tot conținutul, pentru copia de siguranță (vezi `unelte/copie.php`) |
 | `listeaza_conexiuni` | citire | aplicațiile legate prin OAuth (conectorul claude.ai): cine, cu ce drepturi, dacă au acces acum |
 | `salveaza` | scriere | creează (ca ciornă) sau modifică o pagină ori un articol |
-| `seteaza_site` | scriere | numele, descrierea, autorul, limba, culoarea, logo-ul, favicon-ul, tema, legăturile și textul din subsol, identificatorul GA4, numele articolelor și data vizibilă; păstrează versiunea anterioară |
+| `seteaza_site` | scriere | numele, descrierea, autorul, limba, culoarea, logo-ul, favicon-ul, tema, legăturile și textul din subsol, mențiunea realizatorului, identificatorul GA4, numele articolelor și data vizibilă; păstrează versiunea anterioară |
 | `publica` / `retrage` | scriere | pune pe site / scoate de pe site (rămâne ciornă); `publica` cu `la` în viitor programează, în trecut păstrează data |
 | `retrage_conexiune` | scriere | anulează accesul unei aplicații legate prin OAuth |
 | `redirectioneaza` | scriere | adresă veche → adresă nouă de pe site, 301 (doar când la adresa veche nu mai e nimic); `la` gol o scoate |
@@ -354,6 +354,9 @@ Site-ul e făcut ca să fie găsit de oameni prin Google și Bing, dar și citit
   ale aceleiași entități. Sunt conținut, nu configurare: rămân la locul lor când urci un pachet nou.
 - **Textul din subsol:** `seteaza_site` (`subsol`) pune o mențiune scurtă pe fiecare pagină și în llms.txt — ce nu oferă
   site-ul, sau firma și CUI-ul. Text simplu, fără HTML.
+- **Cine a făcut site-ul:** `seteaza_site` (`realizare`, ex. „Website realizat cu AI și miniCMS”, plus `realizare_url`)
+  pune mențiunea pe rândul cu ©, ca link dacă are adresă. Nu e o legătură a autorului: nu intră în `sameAs`, nu are
+  `rel="me"` și nu apare în llms.txt, ca Google să nu lege site-ul realizatorului de entitatea autorului.
 - **Cum se numesc articolele:** `seteaza_site` (`nume_articole`, ex. `ghiduri`) schimbă cuvântul din meniu, de pe prima
   pagină și din liste („Ultimele ghiduri", „Toate ghidurile"). Adresa rămâne `/articole`.
 - **Meniul pe două niveluri:** o pagină cu `parinte` (slugul unei pagini din meniu) stă în submeniul ei, în ordinea din

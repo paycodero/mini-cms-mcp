@@ -56,7 +56,7 @@ function unelte(): array
                         'HTML-ul trece printr-o listă de etichete permise; ce se scoate apare în "curatari" la răspuns.',
                         'Titlul elementului devine <h1>; în conținut începe cu <h2>.',
                         'Fiecare apel, inclusiv citirile, e scris în jurnal.',
-                        'Numele, descrierea, autorul, limba, culoarea, logo-ul, favicon-ul, tema, textul din subsol și numele articolelor se schimbă cu seteaza_site, după acordul omului.',
+                        'Numele, descrierea, autorul, limba, culoarea, logo-ul, favicon-ul, tema, textul din subsol, mențiunea realizatorului și numele articolelor se schimbă cu seteaza_site, după acordul omului.',
                         'Înainte de "publica", trimite-i omului linkul din previzualizeaza: vede pagina exact ca pe site.',
                         '"publica" cu "la" în viitor programează elementul: apare singur la ora aceea.',
                         'Când se schimbă adresa unui element, o redirecționare (redirectioneaza) duce vizitatorii de la adresa veche la cea nouă.',
@@ -220,6 +220,7 @@ function unelte(): array
             'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
             'descriere' => 'Schimbă identitatea site-ului: numele (antet, titluri, feed), descrierea (Google, feed, llms.txt), '
                 . 'autorul implicit al articolelor, limba, culoarea de accent, tema (aspectul), legăturile și textul din subsol, '
+                . 'mențiunea despre cine a făcut site-ul, '
                 . 'cum se numesc articolele pe site și dacă li se vede data. '
                 . 'Trimite doar câmpurile care se schimbă. '
                 . 'Schimbarea apare imediat pe tot site-ul; valorile anterioare se păstrează ca versiune și apar în răspuns.',
@@ -238,6 +239,11 @@ function unelte(): array
                         . 'cu nonce și cu sursele adăugate în CSP. Se trimite DOAR identificatorul, niciodată cod. "" = fără măsurare'],
                 'subsol' => ['type' => 'string', 'maxLength' => 300,
                     'description' => 'o mențiune scurtă, în subsol, pe fiecare pagină (ex. ce nu oferă site-ul, sau firma și CUI-ul); "" = fără'],
+                'realizare' => ['type' => 'string', 'maxLength' => 80,
+                    'description' => 'cine a făcut site-ul, în subsol, pe rândul cu ©, ex. "Website realizat cu AI și miniCMS"; "" = fără'],
+                'realizare_url' => ['type' => 'string',
+                    'description' => 'adresa spre care duce mențiunea "realizare" (https://...); "" = mențiunea fără link. '
+                        . 'Nu intră în "sameAs": realizatorul nu e un profil al autorului'],
                 'nume_articole' => ['type' => 'string', 'maxLength' => 30,
                     'description' => 'cum se numesc articolele pe site, un cuvânt la plural cu litere mici, ex. "ghiduri": apare în meniu, '
                         . 'pe prima pagină și în liste ("Ultimele ghiduri", "Toate ghidurile"). Adresa rămâne /articole. "" = "articole"'],

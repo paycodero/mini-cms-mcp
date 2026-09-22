@@ -594,6 +594,26 @@ $r = cerere('GET', '/');
 verifica('Site', 'lista goală scoate legăturile din subsol', !$u['eroare'] && strpos($r['corp'], 'class="lat retea"') === false, $u['text']);
 $u = unealta($ks, 'seteaza_site', ['legaturi' => [['titlu' => 'Celălalt site', 'url' => 'https://exemplu.ro/']]]);
 
+// --- 0.16.1: cine a făcut site-ul, pe rândul cu © ------------------------------------------------
+
+$u = unealta($ks, 'seteaza_site', ['realizare' => 'Website realizat cu AI și <b>miniCMS</b>']);
+$r = cerere('GET', '/');
+$subsol = preg_match('#<footer.*?</footer>#s', $r['corp'], $mf) ? $mf[0] : '';
+verifica('Site', 'mențiunea realizatorului apare în subsol ca text simplu când n-are adresă',
+    !$u['eroare'] && strpos($subsol, '<span class="realizare">Website realizat cu AI și miniCMS</span>') !== false, $subsol . ' || ' . $u['text']);
+$u = unealta($ks, 'seteaza_site', ['realizare_url' => 'https://realizator.example/']);
+$r = cerere('GET', '/');
+$subsol = preg_match('#<footer.*?</footer>#s', $r['corp'], $mf) ? $mf[0] : '';
+$sameas = ld_de_tip(jsonld_din($r['corp']), 'WebSite')['publisher']['sameAs'] ?? [];
+verifica('Site', 'cu adresă, mențiunea devine link, fără rel="me"',
+    !$u['eroare'] && strpos($subsol, '<a class="realizare" href="https://realizator.example/" rel="noopener" target="_blank">Website realizat cu AI și miniCMS</a>') !== false,
+    $subsol . ' || ' . $u['text']);
+verifica('SEO', 'adresa realizatorului nu intră în "sameAs" și nici în llms.txt (nu e un profil al autorului)',
+    !in_array('https://realizator.example/', $sameas, true) && substr_count($r['corp'], 'realizator.example') === 1
+    && strpos(cerere('GET', '/llms.txt')['corp'], 'realizator.example') === false, json_encode($sameas));
+$u = unealta($ks, 'seteaza_site', ['realizare_url' => 'javascript:alert(1)']);
+verifica('Securitate', 'adresa realizatorului care nu e http(s) e refuzată', $u['eroare'], $u['text']);
+
 $u = unealta($ks, 'seteaza_site', ['logo' => '/media/nu-exista-12345678.png']);
 $u2 = unealta($ks, 'seteaza_site', ['logo' => 'https://site-rau.example/x.png']);
 verifica('Site', 'logo-ul trebuie să fie o imagine urcată pe site', $u['eroare'] && $u2['eroare'], $u['text'] . ' / ' . $u2['text']);
@@ -1461,6 +1481,8 @@ verifica('Export', 'copia pusă pe un site gol îl reface: elemente, stări, dat
     $refacut, $rp['iesire']);
 verifica('Export', 'copia păstrează și tema aleasă', strpos($acasa2['corp'], '/assets/teme/simpluspv.css') !== false);
 verifica('Export', 'copia păstrează și legăturile din subsol', strpos($acasa2['corp'], '>Celălalt site</a>') !== false);
+verifica('Export', 'copia păstrează și mențiunea realizatorului, cu linkul ei',
+    strpos($acasa2['corp'], '<a class="realizare" href="https://realizator.example/"') !== false);
 $url = $url2;
 $audit2 = cerere('GET', '/audit');
 $url = $url_principal;
