@@ -297,6 +297,57 @@ verifica('Meniu', 'o pagină cu subpagini nu se șterge până nu le muți', $u[
 $u = unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'despre', 'titlu' => 'Despre']);
 verifica('Meniu', 'o pagină fără părinte nu primește câmpul degeaba: salvată la fel, rămâne neschimbată', ($u['date']['operatie'] ?? '') === 'neschimbat', $u['text']);
 
+// --- 0.17: evenimentele ------------------------------------------------------------------------
+$viitor = date('Y-m-d', strtotime('+40 days')) . ' 19:00';
+$aproape = date('Y-m-d', strtotime('+10 days')) . ' 18:00';
+$viitor_iso = (new DateTime($viitor, new DateTimeZone('Europe/Bucharest')))->format('c');   // site-ul scrie ora României
+$ev_concert = ['tip' => 'MusicEvent', 'inceput' => $viitor, 'loc' => 'Ateneul Român', 'adresa' => 'Str. Benjamin Franklin nr. 1-3',
+    'oras' => 'București', 'artisti' => [['nume' => 'Orchestra de probă', 'grup' => true], ['nume' => 'Ion Dirijor']],
+    'bilete' => 'https://bilete.exemplu.ro/concert'];
+foreach ([['concert-de-proba', 'Concert de probă', $ev_concert, '2020-01-03'], ['festival-de-proba', 'Festival de probă', ['inceput' => $aproape, 'loc' => 'Sala mică'], '2020-01-02'],
+          ['concert-trecut', 'Concert trecut', ['inceput' => '2020-05-01 19:00', 'loc' => 'Sala veche'], '2020-01-04']] as [$s, $t, $ev, $publicat]) {
+    $u = unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => $s, 'titlu' => $t, 'continut_html' => "<p>$t.</p>", 'descriere' => "Despre $t.", 'eveniment' => $ev]);
+    unealta($ks, 'publica', ['tip' => 'articol', 'slug' => $s, 'la' => $publicat]);
+}
+$c = unealta($kc, 'citeste', ['tip' => 'articol', 'slug' => 'concert-de-proba']);
+verifica('Evenimente', 'articolul primește evenimentul, cu ora României păstrată', !$u['eroare']
+    && (($c['date']['element']['eveniment']['inceput'] ?? $c['date']['eveniment']['inceput'] ?? '') === $viitor_iso), $c['text']);
+$r = cerere('GET', '/concert-de-proba');
+verifica('Evenimente', 'pagina are datele Event: tip, început, loc cu adresă, artiști (grup și persoană), organizator, bilete',
+    strpos($r['corp'], '"@type":"MusicEvent"') !== false && strpos($r['corp'], '"startDate":"' . $viitor_iso . '"') !== false
+    && strpos($r['corp'], '"streetAddress":"Str. Benjamin Franklin nr. 1-3"') !== false && strpos($r['corp'], '{"@type":"PerformingGroup","name":"Orchestra de probă"}') !== false
+    && strpos($r['corp'], '{"@type":"Person","name":"Ion Dirijor"}') !== false && strpos($r['corp'], '"eventStatus":"https://schema.org/EventScheduled"') !== false
+    && strpos($r['corp'], '"offers":{"@type":"Offer","url":"https://bilete.exemplu.ro/concert"}') !== false, substr((string) strstr($r['corp'], 'MusicEvent'), 0, 500));
+$r = cerere('GET', '/');
+$p_f = strpos($r['corp'], 'Festival de probă'); $p_c = strpos($r['corp'], 'Concert de probă'); $p_t = strpos($r['corp'], 'Concert trecut');
+verifica('Evenimente', 'prima pagină: întâi evenimentele care urmează, cel mai apropiat primul, apoi restul',
+    $p_f !== false && $p_c !== false && $p_t !== false && $p_f < $p_c && $p_c < $p_t, "festival $p_f, concert $p_c, trecut $p_t");
+verifica('Evenimente', 'cardul arată ziua și ora evenimentului, nu data publicării',
+    preg_match('#<article class="card card-eveniment">.*?<p class="data data-eveniment"><time datetime="[^"]+">[^<]+ ' . date('Y', strtotime($aproape)) . ', ora 18:00</time>#su', $r['corp']) === 1);
+$u = unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'festival-de-proba', 'eveniment' => ['inceput' => $aproape, 'loc' => 'Sala mică', 'stare' => 'anulat']]);
+$r = cerere('GET', '/');
+verifica('Evenimente', 'un eveniment anulat: starea apare pe card și în datele structurate',
+    strpos($r['corp'], ', ora 18:00 — anulat') !== false && strpos(cerere('GET', '/festival-de-proba')['corp'], 'EventCancelled') !== false, $u['text']);
+$refuzuri = [
+    unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'concert-de-proba', 'eveniment' => ['loc' => 'Ateneu']]),
+    unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'concert-de-proba', 'eveniment' => ['inceput' => 'mâine seară', 'loc' => 'Ateneu']]),
+    unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'concert-de-proba', 'eveniment' => ['inceput' => $viitor]]),
+    unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'concert-de-proba', 'eveniment' => ['inceput' => $viitor, 'loc' => 'A', 'tip' => 'Script']]),
+    unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'concert-de-proba', 'eveniment' => ['inceput' => $viitor, 'loc' => 'A', 'bilete' => 'javascript:alert(1)']]),
+    unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'concert-de-proba', 'eveniment' => ['inceput' => $viitor, 'sfarsit' => '2020-01-01', 'loc' => 'A']]),
+    unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'despre', 'eveniment' => ['inceput' => $viitor, 'loc' => 'A']]),
+];
+verifica('Evenimente', 'refuzate: fără început, dată de neînțeles, fără loc, tip necunoscut, bilete fără https, sfârșit înainte de început, eveniment pe pagină',
+    count(array_filter($refuzuri, fn($x) => $x['eroare'])) === count($refuzuri), implode(' / ', array_column($refuzuri, 'text')));
+$u = unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'concert-trecut', 'continut_html' => '<p>x</p><script type="application/ld+json">{"@type":"Event"}</script>']);
+verifica('Evenimente', 'un <script> JSON-LD scris de mână în conținut e scos: datele Event vin doar din câmp',
+    strpos(cerere('GET', '/concert-trecut')['corp'], '{"@type":"Event"}') === false, $u['text']);
+$u = unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'concert-trecut', 'eveniment' => null]);
+$c = unealta($kc, 'citeste', ['tip' => 'articol', 'slug' => 'concert-trecut']);
+verifica('Evenimente', 'eveniment null îl scoate: articolul rămâne fără câmp și fără date Event', !$u['eroare'] && strpos($c['text'], '"eveniment"') === false
+    && strpos(cerere('GET', '/concert-trecut')['corp'], 'Sala veche') === false, $c['text']);
+foreach (['concert-de-proba', 'festival-de-proba', 'concert-trecut'] as $s) unealta($ks, 'sterge', ['tip' => 'articol', 'slug' => $s]);
+
 $u = unealta($ks, 'cauta', ['text' => 'diacritice']);
 verifica('Conținut', 'căutarea găsește textul, cu fragment', count($u['date']['rezultate'] ?? []) === 1, $u['text']);
 $u = unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => '../../app/config', 'titlu' => 'x', 'continut_html' => 'x']);

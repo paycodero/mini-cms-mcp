@@ -11,7 +11,7 @@ cu capturi din cPanel, și articolele despre [de ce există](https://cms.paycode
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache/cPanel). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Circa 3.000 de rânduri PHP pe server, plus teste automate (294 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
+- Circa 3.000 de rânduri PHP pe server, plus teste automate (307 verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
 - Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
 - Instalarea: o comandă pe calculator și un zip urcat în cPanel.
 
@@ -365,6 +365,11 @@ Site-ul e făcut ca să fie găsit de oameni prin Google și Bing, dar și citit
   Acasă › Secțiune › Pagină. Un singur nivel de subpagini; o pagină care are subpagini nu se șterge până nu le muți.
 - **Data pe pagini:** implicit nu apare (pe un site de documentație o dată lângă titlu face conținutul să pară vechi);
   `arata_data` = `da` o pune pe articol și pe carduri, pentru un blog. În sitemap, feed și datele structurate e oricum.
+- **Evenimente:** un articol care anunță un concert, un curs sau o lansare primește câmpul `eveniment` (început, sfârșit, tip,
+  loc, adresă, artiști, organizator, bilete, stare). Din el site-ul compune datele structurate `Event` (sau `MusicEvent`,
+  `Festival`…) pentru Google: conținutul nu poate avea `<script>`, deci JSON-LD scris de mână ar fi scos. Cardul arată ziua
+  și ora evenimentului (și „amânat”/„anulat”), iar prima pagină pune întâi evenimentele care urmează, cel mai apropiat primul,
+  apoi restul articolelor.
 - **Sub articol:** „Citește mai departe" cu două articole, întâi cele cu aceeași primă etichetă. Coperta nu se repetă sus
   când aceeași imagine e deja în text. Blocurile `<pre>` primesc un buton „Copiază", pus de șablon (cu nonce).
 - **Întrebările frecvente** (`FAQPage`) se opresc la primul `<aside>` sau `<section>`: un bloc de final pus după ele nu

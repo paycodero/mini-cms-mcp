@@ -79,7 +79,8 @@ function rezumat_element(array $e): array
     $r = ['tip' => $e['tip'], 'slug' => $e['slug'], 'titlu' => $e['titlu'] ?? '', 'stare' => $e['stare'] ?? '',
           'url' => url_absolut(url_element($e)), 'actualizat' => $e['actualizat'] ?? null, 'publicat_la' => $e['publicat_la'] ?? null];
     if ($e['tip'] === 'articol') $r['etichete'] = $e['etichete'] ?? [];
-    if ($e['tip'] === 'pagina') $r += ['meniu' => $e['meniu'] ?? null, 'parinte' => $e['parinte'] ?? null];
+    if ($e['tip'] === 'articol' && !empty($e['eveniment'])) $r['eveniment'] = $e['eveniment']['inceput'];
+    if ($e['tip'] === 'pagina') $r +=['meniu' => $e['meniu'] ?? null, 'parinte' => $e['parinte'] ?? null];
     if (($e['stare'] ?? '') === 'publicat' && !e_vizibil($e)) $r['programat_pentru'] = $e['publicat_la'];
     return $r;
 }
@@ -141,6 +142,53 @@ function imagine_valida($v): string
     throw new EroareCms('"imagine" e o adresă /media/... întoarsă de urca_imagine (imaginile de pe alte domenii nu se acceptă)');
 }
 
+// Un articol poate anunța un eveniment (concert, curs, lansare). Datele stau în câmpuri, nu în HTML: filtrul scoate orice
+// <script>, deci datele structurate Event le compune site-ul. Cardul arată ziua evenimentului, iar prima pagină pune
+// întâi evenimentele care urmează. null sau {} scoate evenimentul.
+const EVENIMENT_TIPURI = ['Event', 'MusicEvent', 'TheaterEvent', 'DanceEvent', 'Festival', 'ExhibitionEvent', 'ScreeningEvent',
+    'LiteraryEvent', 'EducationEvent', 'BusinessEvent', 'SocialEvent', 'ChildrensEvent', 'SportsEvent', 'FoodEvent', 'ComedyEvent'];
+const EVENIMENT_STARI = ['programat' => 'EventScheduled', 'amanat' => 'EventPostponed', 'reprogramat' => 'EventRescheduled',
+    'anulat' => 'EventCancelled'];
+
+function eveniment_valid($v): ?array
+{
+    if ($v === null || $v === [] || $v === '') return null;
+    if (!is_array($v)) throw new EroareCms('"eveniment" e un obiect: {"inceput": "2026-10-27 19:00", "loc": "…", …}; null = fără eveniment');
+    $moment = function (string $camp) use ($v): ?string {
+        $t = trim((string) ($v[$camp] ?? ''));
+        if ($t === '') return null;
+        $ts = strtotime($t);
+        if ($ts === false || $ts < 0) throw new EroareCms("\"eveniment.$camp\" nu e o dată validă — ex. \"2026-10-27 19:00\" (ora României)");
+        return date('c', $ts);
+    };
+    $inceput = $moment('inceput');
+    if ($inceput === null) throw new EroareCms('"eveniment.inceput" e obligatoriu: ziua și ora, ex. "2026-10-27 19:00" (ora României)');
+    $sfarsit = $moment('sfarsit');
+    if ($sfarsit !== null && strtotime($sfarsit) < strtotime($inceput)) throw new EroareCms('"eveniment.sfarsit" e înainte de început');
+    $tip = (string) ($v['tip'] ?? 'Event');
+    if (!in_array($tip, EVENIMENT_TIPURI, true)) throw new EroareCms('"eveniment.tip" e unul dintre: ' . implode(', ', EVENIMENT_TIPURI));
+    $stare = (string) ($v['stare'] ?? 'programat');
+    if (!isset(EVENIMENT_STARI[$stare])) throw new EroareCms('"eveniment.stare" e unul dintre: ' . implode(', ', array_keys(EVENIMENT_STARI)));
+    $loc = text_simplu($v['loc'] ?? '', 120);
+    if ($loc === '') throw new EroareCms('"eveniment.loc" e obligatoriu: numele locului (ex. "Ateneul Român")');
+    $tara = strtoupper(trim((string) ($v['tara'] ?? 'RO')));
+    if (preg_match('/^[A-Z]{2}$/', $tara) !== 1) throw new EroareCms('"eveniment.tara" e codul de două litere al țării, ex. "RO"');
+    $bilete = trim((string) ($v['bilete'] ?? ''));
+    if ($bilete !== '' && (preg_match('#^https://[^\s/]+\.[^\s]+$#', $bilete) !== 1 || strlen($bilete) > 500)) {
+        throw new EroareCms('"eveniment.bilete" e adresa https a paginii de bilete');
+    }
+    if (!is_array($v['artisti'] ?? [])) throw new EroareCms('"eveniment.artisti" e o listă: [{"nume": "…", "grup": true}]');
+    $artisti = [];
+    foreach (array_slice($v['artisti'] ?? [], 0, 20) as $a) {
+        $nume = text_simplu(is_array($a) ? ($a['nume'] ?? '') : $a, 120);
+        if ($nume !== '') $artisti[] = ['nume' => $nume, 'grup' => is_array($a) && !empty($a['grup'])];
+    }
+    return array_filter(['tip' => $tip, 'inceput' => $inceput, 'sfarsit' => $sfarsit, 'stare' => $stare, 'loc' => $loc,
+        'adresa' => text_simplu($v['adresa'] ?? '', 200), 'oras' => text_simplu($v['oras'] ?? '', 80), 'tara' => $tara,
+        'artisti' => $artisti, 'organizator' => text_simplu($v['organizator'] ?? '', 120), 'bilete' => $bilete],
+        fn($x) => $x !== null && $x !== '' && $x !== []);
+}
+
 // Meniul are două niveluri: o pagină cu „parinte" stă în submeniul acelei pagini. Un singur nivel de subpagini:
 // părintele nu are el însuși părinte, iar o pagină care are subpagini nu poate deveni subpagină.
 function parinte_valid(string $slug, $v): ?string
@@ -200,6 +248,11 @@ function salveaza_element(string $tip, string $slug, array $campuri): array
             if (array_key_exists('imagine', $campuri)) $nou['imagine'] = imagine_valida($campuri['imagine'] ?? '');
             if (array_key_exists('imagine_alt', $campuri)) $nou['imagine_alt'] = text_simplu($campuri['imagine_alt'] ?? '', 200);
             if (array_key_exists('autor', $campuri)) $nou['autor'] = text_simplu($campuri['autor'] ?? '', 80);
+            if (array_key_exists('eveniment', $campuri)) {
+                $ev = eveniment_valid($campuri['eveniment']);
+                if ($ev !== null) $nou['eveniment'] = $ev;
+                else unset($nou['eveniment']);   // articolele fără eveniment nu primesc câmpul degeaba
+            }
             $nou += ['etichete' => [], 'imagine' => '', 'imagine_alt' => '', 'autor' => (string) config('site.autor')];
         } else {
             if (array_key_exists('meniu', $campuri)) {
@@ -213,6 +266,9 @@ function salveaza_element(string $tip, string $slug, array $campuri): array
         }
         if ($tip === 'articol' && ($campuri['parinte'] ?? null) !== null && $campuri['parinte'] !== '') {
             throw new EroareCms('"parinte" e doar pentru pagini: articolele stau în /articole');
+        }
+        if ($tip === 'pagina' && !in_array($campuri['eveniment'] ?? null, [null, [], ''], true)) {
+            throw new EroareCms('"eveniment" e doar pentru articole: un eveniment se anunță într-un articol');
         }
         $nou += ['descriere' => ''];
 

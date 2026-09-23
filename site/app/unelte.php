@@ -63,6 +63,8 @@ function unelte(): array
                         'Meniul are două niveluri: o pagină cu "parinte" (slugul unei pagini din meniu) apare în submeniul ei, în ordinea din "meniu". '
                             . 'Adresa rămâne /<slug>. Pagina-părinte își listează singură subpaginile, iar subpagina are un link înapoi: nu le scrie în conținut. '
                             . 'Un singur nivel de subpagini; o pagină cu subpagini nu se poate șterge până nu le muți.',
+                        'Un articol care anunță un eveniment (concert, curs, lansare) primește câmpul "eveniment" (început, loc, adresă, artiști, bilete): '
+                            . 'site-ul compune din el datele structurate Event și pune ziua evenimentului pe card. Nu scrie <script> JSON-LD în conținut: filtrul îl scoate.',
                         'Un site nou sau gol: cheamă pagini_de_pornire (acasă, despre, servicii, contact, confidențialitate) și completează-le cu omul.',
                         'Un loc [[COMPLETEAZĂ: …]] rămas în titlu, descriere sau conținut oprește publicarea.',
                     ],
@@ -208,6 +210,23 @@ function unelte(): array
                 'meniu' => ['type' => ['integer', 'null'], 'minimum' => 0, 'maximum' => 99, 'description' => 'doar la pagini: poziția în meniu (la o subpagină: în submeniul părintelui); null = nu apare în meniu'],
                 'parinte' => ['type' => ['string', 'null'], 'maxLength' => 80, 'description' => 'doar la pagini: slugul paginii din meniu sub care stă în submeniu (un singur nivel); "" = nicio secțiune'],
                 'autor' => ['type' => 'string', 'maxLength' => 80, 'description' => 'doar la articole: autorul, dacă nu e cel implicit al site-ului'],
+                'eveniment' => ['type' => ['object', 'null'], 'description' => 'doar la articole care anunță un eveniment; null = fără eveniment. '
+                    . 'Site-ul compune din el datele structurate Event (Google), pune ziua evenimentului pe card și așază evenimentele care urmează primele pe prima pagină.',
+                    'properties' => [
+                        'inceput' => ['type' => 'string', 'description' => 'obligatoriu: ziua și ora, ora României, ex. "2026-10-27 19:00"'],
+                        'sfarsit' => ['type' => 'string', 'description' => 'opțional, la fel'],
+                        'tip' => ['type' => 'string', 'enum' => EVENIMENT_TIPURI, 'description' => 'implicit "Event"; concert = "MusicEvent"'],
+                        'stare' => ['type' => 'string', 'enum' => array_keys(EVENIMENT_STARI), 'description' => 'implicit "programat"'],
+                        'loc' => ['type' => 'string', 'maxLength' => 120, 'description' => 'obligatoriu: numele locului, ex. "Ateneul Român"'],
+                        'adresa' => ['type' => 'string', 'maxLength' => 200, 'description' => 'strada și numărul'],
+                        'oras' => ['type' => 'string', 'maxLength' => 80],
+                        'tara' => ['type' => 'string', 'pattern' => '^[A-Za-z]{2}$', 'description' => 'implicit "RO"'],
+                        'artisti' => ['type' => 'array', 'maxItems' => 20, 'items' => ['type' => 'object', 'properties' => [
+                            'nume' => ['type' => 'string', 'maxLength' => 120], 'grup' => ['type' => 'boolean', 'description' => 'true = orchestră, cor, formație']],
+                            'required' => ['nume']]],
+                        'organizator' => ['type' => 'string', 'maxLength' => 120, 'description' => 'implicit numele site-ului'],
+                        'bilete' => ['type' => 'string', 'description' => 'adresa https a paginii de bilete'],
+                    ], 'required' => ['inceput', 'loc']],
             ], ['tip', 'slug']),
             'fn' => function (array $a) {
                 $campuri = $a;

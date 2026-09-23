@@ -142,6 +142,8 @@ foreach (['pagina' => 'pagini', 'articol' => 'articole'] as $tip => $plural) {
         if ($tip === 'articol') {
             $argumente += ['etichete' => (array) ($e['etichete'] ?? []), 'imagine' => $schimba((string) ($e['imagine'] ?? '')),
                            'imagine_alt' => (string) ($e['imagine_alt'] ?? ''), 'autor' => (string) ($e['autor'] ?? '')];
+            // doar când copia are câmpul (0.17+): un site mai vechi nu-l cunoaște
+            if (!empty($e['eveniment'])) $argumente['eveniment'] = $e['eveniment'];
         } else {
             $argumente['meniu'] = $e['meniu'] ?? null;
             // doar când copia are câmpul (0.16+): un site mai vechi nu-l cunoaște și ar refuza pagina

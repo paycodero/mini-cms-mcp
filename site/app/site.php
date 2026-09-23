@@ -108,6 +108,55 @@ function data_vizibila(array $e): string
     return (string) config('site.arata_data') === 'da' ? data_ro($e['publicat_la'] ?? null) : '';
 }
 
+// Ziua evenimentului, pentru card: „Marți, 27 octombrie 2026, ora 19:00”; la un eveniment amânat sau anulat, și starea.
+// Apare chiar dacă data publicării e ascunsă: la un anunț, ziua evenimentului e informația.
+function data_eveniment(array $e): string
+{
+    $ev = $e['eveniment'] ?? null;
+    if (!$ev || !($t = strtotime((string) $ev['inceput']))) return '';
+    $zile = ['Luni', 'Marți', 'Miercuri', 'Joi', 'Vineri', 'Sâmbătă', 'Duminică'];
+    $text = $zile[(int) date('N', $t) - 1] . ', ' . data_ro((string) $ev['inceput']) . (date('H:i', $t) !== '00:00' ? ', ora ' . date('H:i', $t) : '');
+    $stari = ['amanat' => 'amânat', 'reprogramat' => 'reprogramat', 'anulat' => 'anulat'];
+    return $text . (isset($stari[$ev['stare'] ?? '']) ? ' — ' . $stari[$ev['stare']] : '');
+}
+
+// Un eveniment „urmează” până la sfârșitul zilei în care se termină.
+function eveniment_urmeaza(array $e): bool
+{
+    $ev = $e['eveniment'] ?? null;
+    if (!$ev) return false;
+    $t = strtotime((string) ($ev['sfarsit'] ?? $ev['inceput']));
+    return $t !== false && strtotime(date('Y-m-d 23:59:59', $t)) >= time();
+}
+
+// Prima pagină: întâi evenimentele care urmează, cel mai apropiat primul; apoi restul, cele mai noi întâi.
+function articole_acasa(int $cate = 6): array
+{
+    $toate = listeaza_elemente('articol', 'vizibil');
+    $urmeaza = array_values(array_filter($toate, 'eveniment_urmeaza'));
+    usort($urmeaza, fn($a, $b) => strtotime((string) $a['eveniment']['inceput']) <=> strtotime((string) $b['eveniment']['inceput']));
+    $restul = array_filter($toate, fn($a) => !eveniment_urmeaza($a));
+    return array_slice(array_merge($urmeaza, array_values($restul)), 0, $cate);
+}
+
+// Datele structurate Event, compuse din câmpul „eveniment” (conținutul nu poate avea <script>).
+function eveniment_jsonld(array $e, string $canonic, string $imagine): ?array
+{
+    $ev = $e['eveniment'] ?? null;
+    if (!$ev) return null;
+    $adresa = array_filter(['@type' => 'PostalAddress', 'streetAddress' => $ev['adresa'] ?? null,
+        'addressLocality' => $ev['oras'] ?? null, 'addressCountry' => $ev['tara'] ?? 'RO']);
+    return array_filter(['@context' => 'https://schema.org', '@type' => $ev['tip'] ?? 'Event', 'name' => $e['titlu'] ?? '',
+        'description' => ($e['descriere'] ?? '') ?: null, 'startDate' => $ev['inceput'], 'endDate' => $ev['sfarsit'] ?? null,
+        'eventStatus' => 'https://schema.org/' . (EVENIMENT_STARI[$ev['stare'] ?? 'programat'] ?? 'EventScheduled'),
+        'eventAttendanceMode' => 'https://schema.org/OfflineEventAttendanceMode',
+        'location' => ['@type' => 'Place', 'name' => $ev['loc'], 'address' => $adresa],
+        'image' => $imagine !== '' ? [$imagine] : null, 'url' => $canonic,
+        'performer' => array_map(fn($a) => ['@type' => $a['grup'] ? 'PerformingGroup' : 'Person', 'name' => $a['nume']], $ev['artisti'] ?? []) ?: null,
+        'organizer' => ['@type' => 'Organization', 'name' => ($ev['organizator'] ?? '') ?: (string) config('site.nume'), 'url' => url_absolut('/')],
+        'offers' => ($ev['bilete'] ?? '') !== '' ? ['@type' => 'Offer', 'url' => $ev['bilete']] : null]);
+}
+
 // Două articole de citit mai departe: întâi cele cu prima etichetă a articolului, apoi cele mai noi.
 function articole_legate(array $e, int $cate = 2): array
 {
@@ -261,7 +310,7 @@ function variabile_acasa(?array $acasa): array
     return [
         'acasa' => $acasa,
         'html' => $acasa ? marcheaza_portret(curata_html((string) $acasa['continut_html'])) : '',
-        'articole' => array_slice(listeaza_elemente('articol', 'vizibil'), 0, 6),
+        'articole' => articole_acasa(),
         'titlu_pagina' => $acasa ? titlu_pagina((string) $acasa['titlu']) : (string) config('site.nume'),
         'descriere' => ($acasa['descriere'] ?? '') ?: (string) config('site.descriere'),
         'canonic' => url_absolut('/'),
@@ -318,6 +367,7 @@ function variabile_element(string $tip, array $e): array
             'isAccessibleForFree' => true,
             'publisher' => editor_jsonld(),
             'author' => ($e['autor'] ?? '') !== '' ? ['@type' => 'Person', 'name' => $e['autor']] : null]);
+        if ($ev = eveniment_jsonld($e, $v['canonic'], $v['imagine_og'])) $v['jsonld_extra'][] = $ev;
     } else {
         $v['jsonld'] = ['@context' => 'https://schema.org', '@type' => 'WebPage', '@id' => $v['canonic'],
                         'name' => $e['titlu'], 'url' => $v['canonic'], 'inLanguage' => (string) config('site.limba'),
