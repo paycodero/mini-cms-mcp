@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 if (!defined('MINICMS')) { http_response_code(403); exit; }
 
-const MINICMS_VERSIUNE = '0.17.0';
+const MINICMS_VERSIUNE = '0.18.0';
 
 ini_set('display_errors', '0');   // un avertisment afișat ar strica JSON-ul MCP și ar scurge căi de pe server
 error_reporting(E_ALL);
@@ -298,6 +298,7 @@ require __DIR__ . '/curatare.php';
 require __DIR__ . '/continut.php';
 require __DIR__ . '/pornire.php';
 require __DIR__ . '/imagini.php';
+require __DIR__ . '/fisiere.php';
 require __DIR__ . '/oauth.php';
 require __DIR__ . '/seo.php';
 require __DIR__ . '/actualizare.php';

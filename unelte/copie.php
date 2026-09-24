@@ -2,8 +2,8 @@
 // Copia de siguranță a unui site, de pe calculatorul tău, prin MCP:
 //
 //   php unelte/copie.php https://site.ro
-//      salvează tot conținutul (pagini, articole și ciorne, identitate, redirecționări, imagini) în
-//      <dosar>/_copii/<nume>/<data>/ — export.json + media/. Folosește cheia de citire.
+//      salvează tot conținutul (pagini, articole și ciorne, identitate, redirecționări, imagini, documente PDF) în
+//      <dosar>/_copii/<nume>/<data>/ — export.json + media/ + fisiere/. Folosește cheia de citire.
 //
 //   php unelte/copie.php https://site.ro --pune=DOSAR
 //      pune copia din DOSAR pe site (ex. pe un site nou, gol). Folosește cheia de scriere. Pe un site care are deja
@@ -24,7 +24,7 @@ function numara(array $export): string
     $ciorne = count(array_filter(array_merge($export['pagini'] ?? [], $export['articole'] ?? []), fn($e) => ($e['stare'] ?? '') !== 'publicat'));
     return count($export['pagini'] ?? []) . ' pagini, ' . count($export['articole'] ?? []) . ' articole'
         . ($ciorne ? " ($ciorne ciorne)" : '') . ', ' . count((array) ($export['redirectionari'] ?? [])) . ' redirecționări, '
-        . count($export['imagini'] ?? []) . ' imagini';
+        . count($export['imagini'] ?? []) . ' imagini' . (isset($export['fisiere']) ? ', ' . count($export['fisiere']) . ' documente' : '');
 }
 
 // --- salvarea copiei -------------------------------------------------------------------------
@@ -59,10 +59,27 @@ if (!isset($opt['pune'])) {
     }
     ok("$bune din " . count($export['imagini'] ?? []) . ' imagini, verificate după amprentă');
 
+    // documentele PDF (0.18+): stau pe server în date/fisiere/, se descarcă de la adresele lor publice
+    $docs = $export['fisiere'] ?? [];
+    $docs_bune = 0;
+    if ($docs) {
+        titlu('Documentele');
+        if (!is_dir("$tinta{$S}fisiere")) mkdir("$tinta{$S}fisiere", 0755, true);
+        foreach ($docs as $doc) {
+            $numef = (string) ($doc['nume'] ?? '');
+            if (!preg_match('/^[a-z0-9]+(-[a-z0-9]+)*\.pdf$/', $numef)) { gresit("nume de document neașteptat: $numef"); continue; }
+            $r = cerere('GET', "$site/fisiere/$numef", null, [], 120);
+            if ($r['cod'] !== 200 || hash('sha256', $r['corp']) !== ($doc['amprenta'] ?? '')) { gresit("$numef: nu s-a descărcat întreg (cod {$r['cod']})"); continue; }
+            file_put_contents("$tinta{$S}fisiere{$S}$numef", $r['corp']);
+            $docs_bune++;
+        }
+        ok("$docs_bune din " . count($docs) . ' documente, verificate după amprentă');
+    }
+
     titlu('Gata');
     ok("copia e în $tinta");
     info("Se pune înapoi cu: php unelte/copie.php $site --pune=\"$tinta\"");
-    exit($bune === count($export['imagini'] ?? []) ? 0 : 1);
+    exit($bune === count($export['imagini'] ?? []) && $docs_bune === count($docs) ? 0 : 1);
 }
 
 // --- punerea copiei pe site --------------------------------------------------------------------
@@ -101,6 +118,24 @@ foreach (glob("$sursa{$S}media{$S}*") ?: [] as $f) {
 }
 ok(count(glob("$sursa{$S}media{$S}*") ?: []) . ' imagini urcate' . ($mapare ? ', ' . count($mapare) . ' cu alt nume (adresele din conținut se corectează)' : ''));
 $schimba = fn(string $t) => strtr($t, $mapare);
+
+$docs = glob("$sursa{$S}fisiere{$S}*.pdf") ?: [];
+if ($docs) {
+    titlu('Documentele');
+    $docs_puse = 0;
+    foreach ($docs as $f) {
+        $numef = basename($f);
+        try {
+            // numele rămâne același, deci și adresa /fisiere/<nume>.pdf din conținut; prin base64 intră cel mult ~6 MB
+            $mcp('urca_fisier', ['nume' => $numef, 'continut_base64' => base64_encode((string) file_get_contents($f)), 'inlocuieste' => !empty($opt['peste'])]);
+            $docs_puse++;
+        } catch (Throwable $e) {
+            gresit("$numef: " . $e->getMessage());
+            $greseli++;
+        }
+    }
+    ok("$docs_puse din " . count($docs) . ' documente urcate');
+}
 
 titlu('Identitatea');
 $identitate = [];

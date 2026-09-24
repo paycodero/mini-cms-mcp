@@ -9,7 +9,7 @@ if (!defined('MINICMS')) { http_response_code(403); exit; }
 const TIPURI = ['pagina' => 'pagini', 'articol' => 'articole'];
 const STARI = ['ciorna', 'publicat'];
 const SLUGURI_REZERVATE = ['articole', 'eticheta', 'media', 'assets', 'app', 'sabloane', 'date', 'mcp', 'jurnal',
-    'index', 'sitemap', 'feed', 'robots', 'llms', 'admin', 'wp-admin', 'wp-login', 'favicon', 'cauta', 'api', 'previzualizare'];
+    'index', 'sitemap', 'feed', 'robots', 'llms', 'admin', 'wp-admin', 'wp-login', 'favicon', 'cauta', 'api', 'previzualizare', 'fisiere'];
 const LIMITA_HTML = 1000000;   // octeți de HTML pe element
 
 function tip_valid($tip): bool
@@ -547,7 +547,7 @@ function seteaza_identitate(array $campuri): array
 // Se aplică numai când la adresa veche nu mai e nimic (în locul paginii 404).
 
 const PREFIXE_REZERVATE = ['/mcp', '/mcp.php', '/app', '/date', '/media', '/assets', '/sabloane', '/jurnal.php', '/index.php',
-    '/sitemap.xml', '/feed.xml', '/robots.txt', '/llms.txt', '/cauta', '/previzualizare', '/articole', '/eticheta', '/.well-known'];
+    '/sitemap.xml', '/feed.xml', '/robots.txt', '/llms.txt', '/cauta', '/previzualizare', '/articole', '/eticheta', '/.well-known', '/fisiere'];
 
 function cale_redirectionare($v, string $camp): string
 {
@@ -706,6 +706,8 @@ function exporta_continut(): array
     $rez['redirectionari'] = citeste_redirectionari() ?: new stdClass();
     $rez['imagini'] = [];
     foreach (listeaza_imagini() as $i) $rez['imagini'][] = $i + ['amprenta' => hash_file('sha256', dir_media() . '/' . $i['nume'])];
+    $rez['fisiere'] = [];
+    foreach (listeaza_fisiere() as $f) $rez['fisiere'][] = $f + ['amprenta' => hash_file('sha256', dir_fisiere() . '/' . $f['nume'])];
     return $rez;
 }
 

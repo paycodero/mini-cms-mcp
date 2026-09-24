@@ -28,7 +28,7 @@ site/                    ← se urcă pe server, ca rădăcină a site-ului
   assets/teme/           teme alese cu seteaza_site: <nume>.css + fonturile în <nume>/ (de bază: simpluspv, cinesunt)
   app/                   codul (blocat din web)
   sabloane/              șabloanele HTML (blocate din web)
-  date/                  creat automat: pagini, articole, versiuni, jurnal (blocat din web)
+  date/                  creat automat: pagini, articole, versiuni, jurnal, documentele PDF (blocat din web)
   media/                 creat automat: imaginile urcate
 teste/ruleaza.php        testele: pornesc o copie a site-ului și încearcă funcțiile și atacurile
 unelte/instaleaza.php    instalarea: teste, chei, config.php, pachetul .zip, verificarea serverului, legarea Claude Code
@@ -230,6 +230,26 @@ semnarea pachetului cu o cheie privată de pe calculatorul tău; nu e construit�
 
 Toate trei trec prin aceleași verificări ca base64: tipul aflat din conținut, cel mult 5 MB, fără cod ascuns, fără SVG.
 
+## Documentele PDF
+
+`urca_fisier` pune pe site un document PDF (cel mult 25 MB) și întoarce adresa lui, `/fisiere/<nume>.pdf`, de pus într-un
+link în conținut. Numele îl alege AI-ul (curățat: litere mici, cifre, cratime) și rămâne adresa documentului.
+
+- **Nu stau în dosarul public**, ca imaginile, ci în `date/fisiere/`. Le servește PHP, cu `Content-Type: application/pdf`,
+  `nosniff`, `Content-Disposition: inline` și ETag. Un fișier urcat nu poate fi rulat de server oricum s-ar numi, antetele
+  merg și fără `mod_headers`, actualizarea codului nu le atinge, iar copia de siguranță le ia odată cu conținutul.
+- **Tipul se află din conținut:** începe cu `%PDF-` și se încheie cu `%%EOF`. O imagine, un text redenumit sau un PDF tăiat
+  sunt refuzate.
+- **De unde vine:** din `url` (https, aceeași apărare SSRF ca la imagini, 60 de secunde), așa că merg și documentele mari;
+  din `continut_base64` încap cel mult ~6 MB, din cauza limitei de 8 MB pe cerere.
+- **Înlocuirea** aceluiași nume cu alt conținut cere `inlocuieste=true`. Adresa rămâne aceeași, deci linkurile din pagini nu
+  se strică, iar versiunea veche se păstrează în `date/versiuni/fisiere/`. Același conținut urcat din nou nu scrie nimic.
+- **`sterge_fisier`** refuză un document legat dintr-o pagină sau dintr-un articol, în afară de cazul `forteaza=true`.
+- Documentul nu primește Content-Security-Policy, și asta e intenționat: `sandbox` și `object-src 'none'` fac vizualizatorul
+  PDF din Chrome să arate „blocat”. Protecția e tipul fix cu `nosniff`: browserul nu-l tratează niciodată ca pagină a site-ului.
+- Pe un site mutat de pe alt CMS, un PDF vechi pus de mână în dosarul public `/fisiere/` are întâietate, fiindcă e fișier real.
+  Un document nou cu același nume e refuzat, ca să nu stea ascuns în spatele celui vechi.
+
 ## Copia de siguranță
 
 ```
@@ -237,7 +257,7 @@ php unelte/copie.php https://site.ro
 ```
 
 Salvează tot site-ul în `_copii/<nume>/<data>/` (în folderul de deasupra repo-ului): `export.json` cu paginile și articolele
-(inclusiv ciornele și cele programate), identitatea și redirecționările, plus imaginile, verificate după amprentă. Folosește
+(inclusiv ciornele și cele programate), identitatea și redirecționările, plus imaginile și documentele PDF, verificate după amprentă. Folosește
 cheia de citire. Nicio copie nu se scrie peste alta.
 
 ```
@@ -321,6 +341,9 @@ Conectorul din claude.ai (web, telefon) cere OAuth, care e în lucru (vezi mai j
 | `link_urcare` | scriere | un link temporar la care omul urcă poze fără cheie; AI-ul le găsește apoi cu `listeaza_imagini` |
 | `urca_imagine` | scriere | JPEG/PNG/GIF/WebP, max 5 MB, din `url` (https, cu apărare SSRF) sau `continut_base64`; extensia se stabilește din conținut |
 | `sterge_imagine` | scriere | mută imaginea între versiuni; refuză dacă e folosită |
+| `listeaza_fisiere` | citire | documentele PDF din `/fisiere/` |
+| `urca_fisier` | scriere | un PDF, max 25 MB, din `url` (https, cu apărare SSRF) sau `continut_base64` (~6 MB); adresa `/fisiere/<nume>.pdf`; `inlocuieste=true` pune conținut nou la aceeași adresă, cu versiunea veche păstrată |
+| `sterge_fisier` | scriere | mută documentul între versiuni; refuză dacă e legat din conținut |
 
 Paginile și articolele au adrese comune: `/despre`, `/primul-articol`. Pagina `acasa` e prima pagină.
 
@@ -393,6 +416,7 @@ Site-ul e făcut ca să fie găsit de oameni prin Google și Bing, dar și citit
 - Înainte de orice modificare se salvează o versiune. Ștergerea mută fișierul între versiuni.
 - Paginile publice au Content-Security-Policy cu nonce (fără `unsafe-inline`), `nosniff`, `X-Frame-Options: DENY`.
 - Imaginile: tipul se află din conținut; fișierele cu cod PHP ascuns și SVG-urile sunt refuzate.
+- Documentele PDF: tipul se află din conținut (`%PDF-` … `%%EOF`); stau în afara rădăcinii web (`date/fisiere/`) și le servește PHP, ca `application/pdf` cu `nosniff`.
 - Arhivele și copiile de siguranță (`.zip`, `.tar`, `.gz`, `.sql`, `.bak` etc.) nu se servesc: pachetul de instalare uitat pe server nu se poate descărca.
 - IP-ul real din `CF-Connecting-IP` e crezut doar când cererea vine chiar din rețeaua Cloudflare; altfel antetul e ignorat. Setarea se potrivește singură, cu sau fără Cloudflare (`'cloudflare' => false` o oprește).
 - HSTS pe orice răspuns servit prin https (`'hsts' => false` îl oprește).

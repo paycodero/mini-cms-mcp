@@ -45,10 +45,12 @@ function unelte(): array
                 return [
                     'site' => ['url' => url_site()] + identitate_site(),
                     'versiune' => MINICMS_VERSIUNE, 'cheia_ta' => $rol, 'continut' => $numar, 'imagini' => count(listeaza_imagini()),
+                    'fisiere' => count(listeaza_fisiere()),
                     'adrese' => ['/' => 'pagina "acasa" + ultimele articole', '/<slug>' => 'pagină sau articol publicat',
                                  '/articole' => 'lista articolelor', '/eticheta/<eticheta>' => 'articolele cu o etichetă',
                                  '/cauta?q=' => 'căutarea pentru vizitatori (doar ce e pe site)',
-                                 '/media/<fisier>' => 'imagini urcate', '/sitemap.xml, /feed.xml, /llms.txt, /robots.txt' => 'generate automat'],
+                                 '/media/<fisier>' => 'imagini urcate', '/fisiere/<nume>.pdf' => 'documente PDF urcate (urca_fisier)',
+                                 '/sitemap.xml, /feed.xml, /llms.txt, /robots.txt' => 'generate automat'],
                     'reguli' => [
                         'Tot ce creezi pleacă drept ciornă; pe site apare doar după "publica".',
                         'Paginile și articolele au adrese comune: un slug nu poate fi folosit de ambele.',
@@ -75,6 +77,9 @@ function unelte(): array
                     'atribute_globale' => HTML_GLOBALE,
                     'iframe' => 'doar YouTube (youtube.com/embed, youtube-nocookie.com/embed) și Vimeo (player.vimeo.com/video)',
                     'imagini_acceptate' => 'JPEG, PNG, GIF, WebP, cel mult 5 MB; SVG nu',
+                    'fisiere_acceptate' => 'PDF, cel mult 25 MB, cu urca_fisier: prin "url" (https) orice mărime până la limită, '
+                        . 'prin base64 cel mult ~6 MB. Adresa e /fisiere/<nume>.pdf și rămâne aceeași la înlocuire (inlocuieste=true); '
+                        . 'în conținut se pune ca link: <a href="/fisiere/<nume>.pdf">…</a>.',
                     'imagini_fara_base64' => 'Nu trimite poze prin base64. Poza e la om (telefon, calculator, atașată în chat): cheamă '
                         . 'link_urcare, dă-i linkul, el alege poza fără nicio cheie, apoi listeaza_imagini (cele mai noi primele). '
                         . 'O imagine publică: urca_imagine cu "url" (https). Un fișier de pe calculator, când rulezi în Claude Code: '
@@ -370,6 +375,46 @@ function unelte(): array
                                        'forteaza' => ['type' => 'boolean', 'default' => false]], ['nume']),
             'fn' => fn(array $a) => sterge_imagine((string) arg_text($a, 'nume'), !empty($a['forteaza'])),
         ],
+        'urca_fisier' => [
+            'scriere' => true, 'titlu' => 'Urcă un document PDF',
+            'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
+            'descriere' => 'Urcă un document PDF (cel mult 25 MB) și întoarce adresa /fisiere/<nume>.pdf, de pus într-un link în conținut '
+                . '(ex. <a href="/fisiere/raport.pdf">Descarcă raportul (PDF)</a>). Numele îl dai tu și rămâne adresa documentului. '
+                . 'Trimite FIE "url" (adresa https a unui PDF public: serverul îl descarcă singur, adresele interne sunt refuzate; '
+                . 'așa merg și documentele mari), FIE "continut_base64" (cel mult ~6 MB). Doar PDF: conținutul se verifică, nu numele. '
+                . 'Dacă numele există deja cu alt conținut, înlocuirea cere inlocuieste=true: adresa rămâne, versiunea veche se păstrează.',
+            'schema' => schema_obiect([
+                'nume' => ['type' => 'string', 'description' => 'numele documentului, devine adresa: ex. "subiectiv-despre-identitatea-nationala.pdf"; '
+                    . 'la "url" poate lipsi (se ia din adresă)'],
+                'url' => ['type' => 'string', 'description' => 'adresa https a PDF-ului, ex. "https://exemplu.ro/documente/raport.pdf"'],
+                'continut_base64' => ['type' => 'string', 'description' => 'fișierul codat base64 (se acceptă și data:application/pdf;base64,...)'],
+                'inlocuieste' => ['type' => 'boolean', 'default' => false,
+                    'description' => 'true = pune noul conținut la aceeași adresă, peste un document existent (cel vechi rămâne între versiuni)'],
+            ]),
+            'fn' => function (array $a) {
+                $url = arg_text($a, 'url', false);
+                $b64 = arg_text($a, 'continut_base64', false);
+                if (($url === null) === ($b64 === null)) throw new EroareCms('trimite fie "url", fie "continut_base64" (exact unul)');
+                $inlocuieste = !empty($a['inlocuieste']);
+                if ($url !== null) return urca_fisier_din_url(trim($url), (string) arg_text($a, 'nume', false), $inlocuieste);
+                return urca_fisier((string) arg_text($a, 'nume'), $b64, $inlocuieste);
+            },
+        ],
+        'listeaza_fisiere' => [
+            'scriere' => false, 'titlu' => 'Listează documentele', 'adnotari' => $citire,
+            'descriere' => 'Documentele PDF urcate, cu adresele lor /fisiere/..., cele mai noi primele.',
+            'schema' => schema_obiect([]),
+            'fn' => fn(array $a) => ['fisiere' => listeaza_fisiere()],
+        ],
+        'sterge_fisier' => [
+            'scriere' => true, 'titlu' => 'Șterge un document (reversibil)',
+            'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'openWorldHint' => false],
+            'descriere' => 'Mută documentul între versiuni: adresa lui nu mai răspunde. Refuză dacă o pagină sau un articol are link spre el, '
+                . 'afară de cazul forteaza=true.',
+            'schema' => schema_obiect(['nume' => ['type' => 'string', 'description' => 'numele din listeaza_fisiere, ex. "raport-anual-2025.pdf"'],
+                                       'forteaza' => ['type' => 'boolean', 'default' => false]], ['nume']),
+            'fn' => fn(array $a) => sterge_fisier((string) arg_text($a, 'nume'), !empty($a['forteaza'])),
+        ],
     ];
 }
 
@@ -380,6 +425,11 @@ function tinta_apel(array $a, string $unealta = ''): string
     if ($unealta === 'retrage_conexiune' && isset($a['client_id']) && is_string($a['client_id'])) return 'conexiune ' . substr($a['client_id'], 0, 40);
     if ($unealta === 'redirectioneaza' && isset($a['de']) && is_string($a['de'])) return 'redirectionare ' . substr($a['de'], 0, 90);
     if (isset($a['tip'], $a['slug']) && is_string($a['tip']) && is_string($a['slug'])) return substr($a['tip'] . '/' . $a['slug'], 0, 100);
+    if (in_array($unealta, ['urca_fisier', 'sterge_fisier'], true)) {
+        if (isset($a['nume']) && is_string($a['nume'])) return 'fisiere/' . substr($a['nume'], 0, 80);
+        if (isset($a['url']) && is_string($a['url'])) return 'fisiere/ din ' . substr($a['url'], 0, 90);
+        return 'fisiere/';
+    }
     if (isset($a['nume']) && is_string($a['nume'])) return 'media/' . substr($a['nume'], 0, 80);
     return '';
 }

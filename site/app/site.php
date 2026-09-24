@@ -26,6 +26,7 @@ function ruleaza_site(): void
     if ($cale === '/cauta') { pagina_cautare(); return; }
     if (preg_match('#^/([a-f0-9]{32})\.txt$#', $cale, $m)) { fisier_indexnow($m[1]); return; }   // dovada pentru IndexNow (Bing)
     if ($cale === '/favicon.ico' || $cale === '/apple-touch-icon.png' || $cale === '/apple-touch-icon-precomposed.png') { fisier_favicon(); return; }
+    if (preg_match('#^/fisiere/([a-z0-9]+(?:-[a-z0-9]+)*\.pdf)$#', $cale, $m)) { serveste_fisier($m[1]); return; }   // documentele urcate (fisiere.php)
     if (preg_match('#^/previzualizare/([a-z0-9]+(?:-[a-z0-9]+)*)$#', $cale, $m)) { pagina_previzualizare($m[1]); return; }
     if (preg_match('#^/eticheta/([a-z0-9-]{1,60})$#', $cale, $m)) { pagina_lista($m[1]); return; }
     if (preg_match('#^/([a-z0-9]+(?:-[a-z0-9]+)*)$#', $cale, $m)) { pagina_element($m[1]); return; }

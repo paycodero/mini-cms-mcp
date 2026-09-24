@@ -156,10 +156,10 @@ $r = mcp($kc, 'notifications/initialized', [], null);
 verifica('Protocol', 'o notificare primește 202, fără corp', $r['cod'] === 202 && $r['corp'] === '', "cod {$r['cod']}");
 $r = mcp($kc, 'tools/list');
 $unelte_c = array_column($r['json']['result']['tools'] ?? [], 'name');
-verifica('Chei', 'cheia de citire vede doar cele 12 comenzi de citire', count($unelte_c) === 12 && !in_array('salveaza', $unelte_c, true), implode(', ', $unelte_c));
+verifica('Chei', 'cheia de citire vede doar cele 13 comenzi de citire', count($unelte_c) === 13 && !in_array('salveaza', $unelte_c, true), implode(', ', $unelte_c));
 $r = mcp($ks, 'tools/list');
 $lista_s = $r['json']['result']['tools'] ?? [];
-verifica('Protocol', 'cheia de scriere vede toate cele 23 de comenzi', count($lista_s) === 23, (string) count($lista_s));
+verifica('Protocol', 'cheia de scriere vede toate cele 26 de comenzi', count($lista_s) === 26, (string) count($lista_s));
 $bune = array_filter($lista_s, fn($t) => ($t['inputSchema']['type'] ?? '') === 'object' && isset($t['annotations']['readOnlyHint']));
 verifica('Protocol', 'fiecare comandă are schemă de tip obiect și adnotări', count($bune) === count($lista_s) && $lista_s);
 $r = mcp($kc, 'ping');
@@ -678,6 +678,83 @@ verifica('Export', 'exportul (cu cheia de citire) are tot: ciorne, programate, i
     !$u['eroare'] && in_array('ciorna-noua', $slugs, true) && in_array('programat', $slugs, true) && ($exp['site']['logo'] ?? '') === $url_img
     && isset($exp['redirectionari']['/despre-noi.html']) && preg_match('/^[a-f0-9]{64}$/', (string) ($exp['imagini'][0]['amprenta'] ?? '')), substr($u['text'], 0, 300));
 
+// --- 0.18: documente PDF (urca_fisier) ------------------------------------------------------------
+
+$pdf = "%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [] /Count 0 >> endobj\n"
+    . "trailer << /Root 1 0 R >>\n%%EOF\n";
+$pdf2 = str_replace('/Count 0', '/Count 0 /Versiunea 2', $pdf);
+$in_fisiere = fn() => count(glob("$tmp/site/date/fisiere/*.pdf") ?: []);
+$u = unealta($ks, 'urca_fisier', ['nume' => 'Raport Anual ĂÎ.pdf', 'continut_base64' => base64_encode($pdf)]);
+$r = cerere('GET', '/fisiere/raport-anual-ai.pdf');
+verifica('Documente', 'un PDF se urcă prin base64: nume curățat, servit la /fisiere/<nume>.pdf, identic, ca application/pdf cu nosniff',
+    !$u['eroare'] && ($u['date']['url'] ?? '') === '/fisiere/raport-anual-ai.pdf' && $r['cod'] === 200 && $r['corp'] === $pdf
+    && strpos($r['antete']['content-type'] ?? '', 'application/pdf') === 0 && ($r['antete']['x-content-type-options'] ?? '') === 'nosniff'
+    && strpos($r['antete']['content-disposition'] ?? '', 'inline') === 0 && !is_dir("$tmp/site/fisiere"), $u['text'] . " / {$r['cod']}");
+$r2 = cerere('GET', '/fisiere/raport-anual-ai.pdf', null, ['If-None-Match' => (string) ($r['antete']['etag'] ?? 'x')]);
+verifica('Documente', 'documentul are ETag: a doua cerere, cu If-None-Match, primește 304 fără corp', $r2['cod'] === 304 && $r2['corp'] === '', (string) $r2['cod']);
+$inainte = $in_fisiere();
+$refuzate = [];
+foreach (['o imagine PNG' => base64_decode($png), 'un text redenumit' => "nu sunt PDF\n", 'un PDF tăiat (fără %%EOF)' => substr($pdf, 0, 40),
+          'cod PHP cu nume de PDF' => "<?php echo 'x'; ?>\n%%EOF"] as $ce => $date) {
+    $u = unealta($ks, 'urca_fisier', ['nume' => 'atac.pdf', 'continut_base64' => base64_encode($date)]);
+    if (!$u['eroare']) $refuzate[] = "$ce: TRECUT";
+}
+verifica('Documente', 'doar PDF-uri adevărate: imagine, text redenumit, PDF tăiat, cod PHP — refuzate, nimic scris',
+    !$refuzate && $in_fisiere() === $inainte, implode('; ', $refuzate));
+$u = unealta($ks, 'urca_fisier', ['nume' => '../../app/config.php', 'continut_base64' => base64_encode($pdf)]);
+verifica('Documente', 'un nume cu cale și altă extensie devine un nume curat .pdf, în dosarul documentelor',
+    !$u['eroare'] && ($u['date']['url'] ?? '') === '/fisiere/config.pdf' && is_file("$tmp/site/date/fisiere/config.pdf")
+    && strpos((string) @file_get_contents("$tmp/site/app/config.php"), '%PDF') === false, $u['text']);
+unealta($ks, 'sterge_fisier', ['nume' => 'config.pdf']);
+$u = unealta($ks, 'urca_fisier', ['nume' => 'raport-anual-ai.pdf', 'continut_base64' => base64_encode($pdf2)]);
+verifica('Documente', 'același nume cu alt conținut e refuzat fără inlocuieste=true, iar documentul rămâne neatins',
+    $u['eroare'] && strpos($u['text'], 'inlocuieste') !== false && cerere('GET', '/fisiere/raport-anual-ai.pdf')['corp'] === $pdf, $u['text']);
+$u = unealta($ks, 'urca_fisier', ['nume' => 'raport-anual-ai.pdf', 'continut_base64' => base64_encode($pdf2), 'inlocuieste' => true]);
+$vechi = glob("$tmp/site/date/versiuni/fisiere/raport-anual-ai.pdf.*") ?: [];
+verifica('Documente', 'cu inlocuieste=true: aceeași adresă, conținut nou, versiunea veche păstrată',
+    !$u['eroare'] && cerere('GET', '/fisiere/raport-anual-ai.pdf')['corp'] === $pdf2 && count($vechi) === 1 && file_get_contents($vechi[0]) === $pdf, $u['text']);
+$u = unealta($ks, 'urca_fisier', ['nume' => 'raport-anual-ai.pdf', 'continut_base64' => base64_encode($pdf2)]);
+verifica('Documente', 'același conținut, urcat din nou, nu scrie nimic și nu face versiune', !$u['eroare']
+    && strpos($u['text'], 'exista deja') !== false && count(glob("$tmp/site/date/versiuni/fisiere/raport-anual-ai.pdf.*") ?: []) === 1, $u['text']);
+file_put_contents("$tmp/depozit/document-din-url.pdf", $pdf);
+$u = unealta($ks, 'urca_fisier', ['url' => "http://127.0.0.1:$port_depozit/document-din-url.pdf"]);
+verifica('Documente', 'un PDF se urcă după adresă: serverul îl descarcă singur, numele vine din adresă',
+    !$u['eroare'] && ($u['date']['url'] ?? '') === '/fisiere/document-din-url.pdf' && cerere('GET', '/fisiere/document-din-url.pdf')['corp'] === $pdf, $u['text']);
+$inainte = $in_fisiere();
+$refuzate = [];
+foreach (['https://127.0.0.1/x.pdf' => '127.0.0.1', 'https://169.254.169.254/latest/meta-data' => 'metadatele cloud',
+          'http://example.com/x.pdf' => 'http', "http://127.0.0.1:$port_depozit/text.txt" => 'un fișier care nu e PDF'] as $adresa => $ce) {
+    $u = unealta($ks, 'urca_fisier', ['nume' => 'atac', 'url' => $adresa]);
+    if (!$u['eroare']) $refuzate[] = "$ce: TRECUT";
+}
+verifica('Securitate', 'SSRF la documente: aceleași apărări ca la imagini (adrese interne, http, alt tip) — nimic scris',
+    !$refuzate && $in_fisiere() === $inainte, implode('; ', $refuzate));
+$lista = unealta($kc, 'listeaza_fisiere');
+$scriere_cu_citire = unealta($kc, 'urca_fisier', ['nume' => 'x.pdf', 'continut_base64' => base64_encode($pdf)]);
+verifica('Documente', 'cheia de citire vede lista documentelor, dar nu poate urca', !$lista['eroare']
+    && count($lista['date']['fisiere'] ?? []) === 2 && $scriere_cu_citire['eroare'], $lista['text'] . ' / ' . $scriere_cu_citire['text']);
+$coduri = [];
+foreach (['/fisiere/../app/config.php', '/fisiere/nu-exista.pdf', '/fisiere/x.php', '/fisiere/Raport.PDF', '/fisiere', '/date/fisiere/raport-anual-ai.pdf'] as $c) {
+    $coduri[$c] = cerere('GET', $c)['cod'];
+}
+verifica('Securitate', 'la /fisiere/ se servesc doar documentele urcate: cale cu .., alt tip, nume inexistent, dosarul de date — 403/404',
+    !array_filter($coduri, fn($c) => !in_array($c, [403, 404], true)), json_encode($coduri));
+unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'cu-document', 'titlu' => 'Cu document',
+    'continut_html' => '<p><a href="/fisiere/document-din-url.pdf">Descarcă (PDF)</a></p>']);
+$u = unealta($ks, 'sterge_fisier', ['nume' => 'document-din-url.pdf']);
+$u2 = unealta($ks, 'sterge_fisier', ['nume' => 'document-din-url.pdf', 'forteaza' => true]);
+verifica('Documente', 'ștergerea refuză un document legat dintr-o pagină; cu forteaza=true îl mută între versiuni și adresa dă 404',
+    $u['eroare'] && strpos($u['text'], 'pagina/cu-document') !== false && !$u2['eroare'] && cerere('GET', '/fisiere/document-din-url.pdf')['cod'] === 404
+    && glob("$tmp/site/date/versiuni/fisiere/document-din-url.pdf.*"), $u['text'] . ' / ' . $u2['text']);
+unealta($ks, 'sterge', ['tip' => 'pagina', 'slug' => 'cu-document']);
+$u = unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'fisiere', 'titlu' => 'X', 'continut_html' => '<p>x</p>']);
+$ds = unealta($kc, 'despre_site');
+verifica('Documente', 'slugul "fisiere" e rezervat, iar despre_site descrie documentele (adresa, limita, felul de urcare)',
+    $u['eroare'] && isset($ds['date']['fisiere_acceptate'], $ds['date']['adrese']['/fisiere/<nume>.pdf']) && ($ds['date']['fisiere'] ?? -1) === 1, $u['text']);
+$exp_doc = unealta($kc, 'exporta');
+verifica('Documente', 'exportul are documentele, cu amprentă',
+    preg_match('/^[a-f0-9]{64}$/', (string) ($exp_doc['date']['fisiere'][0]['amprenta'] ?? '')) === 1, substr($exp_doc['text'], -300));
+
 $copii = "$tmp/copii";
 mkdir($copii);
 file_put_contents("$copii/chei-127-0-0-1.json", json_encode(['citire' => ['cheie' => $kc, 'amprenta' => hash('sha256', $kc)],
@@ -689,6 +766,8 @@ $imagini_ok = $exp_copie && count(glob("$dosar_copie/media/*") ?: []) === count(
     && @file_get_contents("$dosar_copie/media/" . basename($url_img)) === @file_get_contents("$tmp/site/media/" . basename($url_img));
 verifica('Export', 'copie.php salvează copia pe calculator: export.json și imaginile, identice cu cele de pe site',
     $rc['cod'] === 0 && $imagini_ok && strpos($rc['iesire'], $kc) === false, $rc['iesire']);
+verifica('Export', 'copie.php salvează și documentele PDF, identice cu cele de pe site',
+    @file_get_contents("$dosar_copie/fisiere/raport-anual-ai.pdf") === $pdf2 && count(glob("$dosar_copie/fisiere/*.pdf") ?: []) === count($exp_copie['fisiere'] ?? [-1]), $rc['iesire']);
 
 // --- OAuth: conectorul din claude.ai --------------------------------------------------------------
 
@@ -804,7 +883,7 @@ $pe_server = implode('', array_map('file_get_contents', glob("$tmp/site/date/oau
 verifica('Securitate', 'OAuth: pe server nu stă niciun token sau cod în clar, doar amprente', $acces !== '' && strpos($pe_server, $acces) === false
     && strpos($pe_server, $reinnoire) === false && strpos($pe_server, $a['cod']) === false && strpos($pe_server, hash('sha256', $acces)) !== false);
 $r = mcp($acces, 'tools/list');
-verifica('OAuth', 'Claude folosește tokenul pe /mcp și vede toate comenzile', $r['cod'] === 200 && count($r['json']['result']['tools'] ?? []) === 23, $r['corp']);
+verifica('OAuth', 'Claude folosește tokenul pe /mcp și vede toate comenzile', $r['cod'] === 200 && count($r['json']['result']['tools'] ?? []) === 26, $r['corp']);
 $r = token(['grant_type' => 'refresh_token', 'refresh_token' => $reinnoire, 'client_id' => $client]);
 $acces2 = (string) ($r['json']['access_token'] ?? '');
 $r2 = token(['grant_type' => 'refresh_token', 'refresh_token' => $reinnoire, 'client_id' => $client]);
@@ -820,7 +899,7 @@ $a = aproba($client, $claude, b64url(hash('sha256', $ver, true)), $kc);
 $r = token(['grant_type' => 'authorization_code', 'code' => $a['cod'], 'redirect_uri' => $claude, 'client_id' => $client, 'code_verifier' => $ver]);
 $r2 = mcp((string) ($r['json']['access_token'] ?? ''), 'tools/list');
 verifica('OAuth', 'aprobat cu cheia de citire, tokenul are doar drept de citire', ($r['json']['scope'] ?? '') === 'citire'
-    && count($r2['json']['result']['tools'] ?? []) === 12, $r['corp']);
+    && count($r2['json']['result']['tools'] ?? []) === 13, $r['corp']);
 $l = unealta($kc, 'listeaza_conexiuni');
 verifica('OAuth', 'listeaza_conexiuni arată conexiunea Claude, aprobată, cu drepturile ei', ($l['date']['conexiuni'][0]['nume'] ?? '') === 'Claude'
     && ($l['date']['conexiuni'][0]['aprobat'] ?? false) === true && in_array('scriere', $l['date']['conexiuni'][0]['drepturi'] ?? [], true), $l['text']);

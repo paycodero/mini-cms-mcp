@@ -127,8 +127,10 @@ function adresa_absoluta(string $baza, string $locatie): string
     return $origine . rtrim(dirname($p['path'] ?? '/'), '/\\') . '/' . $locatie;
 }
 
-// O cerere GET, direct la adresa IP verificată. Întoarce codul, antetul Location și corpul (cel mult 5 MB).
-function cerere_imagine(string $schema, string $gazda, string $ip, int $port, string $cale, float $termen): array
+// O cerere GET, direct la adresa IP verificată. Întoarce codul, antetul Location și corpul (cel mult $max octeți:
+// 5 MB la imagini, mai mult la documente — vezi fisiere.php).
+function cerere_imagine(string $schema, string $gazda, string $ip, int $port, string $cale, float $termen,
+                        int $max = IMAGINE_MAX_OCTETI, string $accept = 'image/*', string $ce = 'imaginea'): array
 {
     $ctx = stream_context_create(['ssl' => ['peer_name' => $gazda, 'verify_peer' => true, 'verify_peer_name' => true, 'SNI_enabled' => true]]);
     $tinta = ($schema === 'https' ? 'ssl://' : 'tcp://') . (strpos($ip, ':') !== false ? "[$ip]" : $ip) . ":$port";
@@ -137,9 +139,9 @@ function cerere_imagine(string $schema, string $gazda, string $ip, int $port, st
     $implicit = ($schema === 'https' && $port === 443) || ($schema === 'http' && $port === 80);
     $antet_gazda = (strpos($gazda, ':') !== false ? "[$gazda]" : $gazda) . ($implicit ? '' : ":$port");
     fwrite($s, "GET $cale HTTP/1.1\r\nHost: $antet_gazda\r\nUser-Agent: mini-cms-mcp/" . MINICMS_VERSIUNE
-        . "\r\nAccept: image/*\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n");
+        . "\r\nAccept: $accept\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n");
     $brut = '';
-    $limita = IMAGINE_MAX_OCTETI + 65536;
+    $limita = $max + 65536;
     while (!feof($s)) {
         $ramas = $termen - microtime(true);
         if ($ramas <= 0) { fclose($s); throw new EroareCms('descărcarea a durat prea mult'); }
@@ -147,7 +149,7 @@ function cerere_imagine(string $schema, string $gazda, string $ip, int $port, st
         $bucata = fread($s, 65536);
         if ($bucata === false || ($bucata === '' && !empty(stream_get_meta_data($s)['timed_out']))) break;
         $brut .= $bucata;
-        if (strlen($brut) > $limita) { fclose($s); throw new EroareCms('imaginea depășește 5 MB'); }
+        if (strlen($brut) > $limita) { fclose($s); throw new EroareCms("$ce depășește " . intdiv($max, 1024 * 1024) . ' MB'); }
     }
     fclose($s);
     $sep = strpos($brut, "\r\n\r\n");
@@ -167,29 +169,37 @@ function cerere_imagine(string $schema, string $gazda, string $ip, int $port, st
         }
         $corp = $decodat;
     }
-    if (($antete['content-encoding'] ?? 'identity') !== 'identity') throw new EroareCms("$gazda a trimis imaginea comprimată, nu o pot citi");
+    if (($antete['content-encoding'] ?? 'identity') !== 'identity') throw new EroareCms("$gazda a trimis conținutul comprimat, nu îl pot citi");
     return ['cod' => (int) $m[1], 'locatie' => (string) ($antete['location'] ?? ''), 'corp' => $corp];
 }
 
-function urca_imagine_din_url(string $url, string $nume): array
+// Descărcarea după adresă, cu toate verificările de mai sus la fiecare salt. Întoarce [corpul, adresa finală].
+// Folosită de imagini și de documente (fisiere.php), cu limitele lor.
+function descarca_dupa_url(string $url, int $max = IMAGINE_MAX_OCTETI, string $accept = 'image/*',
+                           string $ce = 'imaginea', int $secunde = IMAGINE_URL_SECUNDE): array
 {
     if (config('imagini_url') === false) throw new EroareCms('urcarea după adresă e oprită pe acest site (\'imagini_url\' => false în config.php)');
-    $termen = microtime(true) + IMAGINE_URL_SECUNDE;
-    $inceput = $url;
+    $termen = microtime(true) + $secunde;
     for ($salt = 0; ; $salt++) {
         [$schema, $gazda, $port, $cale, $exceptie] = adresa_imagine($url);
         $ip = ip_pentru_descarcare($gazda, $exceptie);
-        $r = cerere_imagine($schema, $gazda, $ip, $port, $cale, $termen);
+        $r = cerere_imagine($schema, $gazda, $ip, $port, $cale, $termen, $max, $accept, $ce);
         if (in_array($r['cod'], [301, 302, 303, 307, 308], true) && $r['locatie'] !== '') {
             if ($salt >= IMAGINE_URL_SALTURI) throw new EroareCms('prea multe redirecționări');
             $url = adresa_absoluta($url, $r['locatie']);
             continue;
         }
-        if ($r['cod'] !== 200) throw new EroareCms("serverul imaginii a răspuns {$r['cod']}");
-        break;
+        if ($r['cod'] !== 200) throw new EroareCms("serverul a răspuns {$r['cod']} (adresa: $url)");
+        return [$r['corp'], $url];
     }
+}
+
+function urca_imagine_din_url(string $url, string $nume): array
+{
+    $inceput = $url;
+    [$corp, $url] = descarca_dupa_url($url);
     if ($nume === '') $nume = rawurldecode(basename((string) parse_url($url, PHP_URL_PATH))) ?: 'imagine';
-    return urca_imagine_date($nume, $r['corp']) + ['sursa' => $inceput] + ($url !== $inceput ? ['sursa_finala' => $url] : []);
+    return urca_imagine_date($nume, $corp) + ['sursa' => $inceput] + ($url !== $inceput ? ['sursa_finala' => $url] : []);
 }
 
 // --- linkul de urcare: omul alege poza, AI-ul o folosește ----------------------------------------------------------------
