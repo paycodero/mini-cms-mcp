@@ -294,8 +294,9 @@ php unelte/editor.php https://site.ro --scoate="Maria Popescu"   cheia ei nu mai
 - **Cine, ce, când:** fiecare rând din jurnal are `cine` (`admin` sau numele editorului), inclusiv refuzurile; fiecare
   pagină și articol ține `modificat_de`, care trece în versiuni — `listeaza_versiuni` arată cine a scris fiecare versiune.
   Pozele urcate cu un link de urcare apar pe numele celui care a cerut linkul (semnat, nu se poate schimba).
-- Pe claude.ai: deschizi tu fereastra (`instaleaza.php --oauth`), iar el aprobă cu cheia lui. Tokenul rămâne al lui;
-  când îl scoți, moare odată cu cheia.
+- Pe claude.ai (web, aplicația pentru calculator, telefon): își ia singur codul de conectare de pe `https://site/oauth/conectare`,
+  cu cheia lui, apoi aprobă tot cu ea. Tokenul rămâne al lui; când îl scoți, moare odată cu cheia. În Claude Code se leagă
+  direct cu cheia în antet (comanda e în fișierul lui), fără cod.
 
 ## Conectorul din claude.ai (web și telefon)
 
@@ -307,7 +308,8 @@ php unelte/instaleaza.php https://site.ro --oauth
 ```
 
 Comanda cere serverului, cu cheia de scriere, să deschidă înregistrarea 15 minute și îți arată în terminal un **cod de conectare**
-de 6 cifre. Apoi, în claude.ai: **Settings → Connectors → Add custom connector**, cu adresa `https://site/mcp`. Claude se
+de 6 cifre. Fără terminal (0.19.1): pagina `https://site/oauth/conectare` face același lucru, după ce lipești cheia de scriere
+sau o cheie de editor; codul apare pe pagină. Apoi, în claude.ai: **Settings → Connectors → Add custom connector**, cu adresa `https://site/mcp`. Claude se
 înregistrează singur și deschide pagina de aprobare a site-ului: acolo introduci **codul din terminal** și **cheia de scriere**
 (sau pe cea de citire, pentru acces doar de citire) și apeși *Permite*. După aprobare fereastra se închide singură; o închizi mai
 devreme cu `--oauth --inchide`. De acolo, Claude primește token-uri temporare; conectorul apare și în aplicația de telefon.

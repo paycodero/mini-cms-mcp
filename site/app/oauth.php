@@ -143,6 +143,15 @@ function ruleaza_oauth(string $cale): void
         return;
     }
 
+    // 0.19.1: aceeași deschidere, dintr-o pagină a site-ului, pentru cine nu are terminal (editorul, de pe telefon sau
+    // calculator). Cere tot cheia de scriere, deci nu dă nimic în plus față de /oauth/deschide: codul rămâne lucrul pe care
+    // un străin care îți citește codul sursă nu-l poate avea.
+    if ($cale === '/oauth/conectare') {
+        if ($metoda !== 'GET' && $metoda !== 'POST') { header('Allow: GET, POST'); oauth_eroare(405, 'invalid_request', 'metodă nepermisă'); return; }
+        oauth_pagina_conectare($metoda);
+        return;
+    }
+
     if (preg_match('#^/\.well-known/oauth-protected-resource(/mcp)?$#', $cale)) {
         oauth_json(200, ['resource' => oauth_resursa(), 'authorization_servers' => [oauth_emitent()], 'scopes_supported' => ['citire', 'scriere'],
                          'bearer_methods_supported' => ['header'], 'resource_name' => (string) config('site.nume')]);
@@ -166,6 +175,31 @@ function ruleaza_oauth(string $cale): void
         return;
     }
     oauth_eroare(404, 'invalid_request', 'adresă necunoscută');
+}
+
+function oauth_pagina_conectare(string $metoda): void
+{
+    header('Cache-Control: no-store');
+    $v = ['fereastra' => null, 'mesaj' => '', 'noindex' => true, 'titlu_pagina' => 'Conectare — ' . config('site.nume')];
+    $cod = 200;
+    if ($metoda === 'POST') {
+        $acces = verifica_acces('oauth', (string) ($_POST['cheie'] ?? ''));
+        if ($acces['cod'] === 200 && $acces['rol'] !== 'scriere') {
+            inregistreaza_esec();
+            jurnal_scrie(['punct' => 'oauth', 'cerere' => 'fereastra', 'rezultat' => 'refuzat', 'cheie' => $acces['rol'], 'cine' => $acces['cine'],
+                          'detalii' => ['motiv' => 'cheie de citire']]);
+            $acces = ['cod' => 403, 'mesaj' => 'Cheia de citire nu deschide conectarea: e nevoie de cheia de scriere sau de cheia ta de editor.'];
+        }
+        if ($acces['cod'] === 200) {
+            $f = oauth_mod() === 'deschis' ? ['cod' => '', 'expira' => ''] : fereastra_deschide(15, $acces['cine']);
+            $v['fereastra'] = ['cod' => (string) $f['cod'], 'pana_la' => $f['expira'] !== '' ? date('H:i', (int) strtotime($f['expira'])) : '',
+                               'mcp' => url_absolut('/mcp')];
+        } else {
+            $cod = $acces['cod'];
+            $v['mesaj'] = $acces['mesaj'];
+        }
+    }
+    randeaza('conectare', $v, $cod);
 }
 
 // --- înregistrarea clientului (RFC 7591) -----------------------------------------------------------
@@ -241,8 +275,8 @@ function oauth_autorizare(string $metoda): void
         $cerere[$k] = is_string($p[$k] ?? null) ? substr($p[$k], 0, 1000) : '';
     }
     if (!fereastra_deschisa()) {   // pagina care cere cheia nu se poate deschide oricând, de către oricine
-        pagina_autorizare_eroare('Conectarea nu e deschisă acum. Fereastra se deschide de pe calculatorul omului, '
-            . 'cu „php unelte/instaleaza.php <site> --oauth”, și ține câteva minute.');
+        pagina_autorizare_eroare('Conectarea nu e deschisă acum. Codul de conectare se cere pe ' . url_absolut('/oauth/conectare')
+            . ', cu cheia de scriere, și ține 15 minute.');
         return;
     }
     $client = oauth_citeste('clienti')[$cerere['client_id']] ?? null;

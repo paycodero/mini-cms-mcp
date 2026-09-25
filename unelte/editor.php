@@ -71,7 +71,7 @@ try {
         $j = cere($site, $cheie_cod, ['actiune' => 'adauga_editor', 'nume' => $om, 'amprenta' => (string) $c['amprenta']]);
         ok("$om poate scrie pe site; în jurnal și în versiuni apare cu numele lui");
         info('Dă-i omului fișierul ' . $fisier . ' (pe un canal sigur): are adresa MCP, antetul și comanda pentru Claude Code.');
-        info('Pe claude.ai (conectorul OAuth), deschide tu fereastra: php unelte/instaleaza.php ' . $site . ' --oauth — el aprobă cu cheia lui.');
+        info('Pe claude.ai (conectorul OAuth), își ia singur codul de conectare de pe ' . $site . '/oauth/conectare, cu cheia lui.');
     } elseif (isset($opt['scoate'])) {
         $om = trim($opt['scoate']);
         titlu("Scot editorul $om");

@@ -11,10 +11,11 @@
     </dl>
     <ul>
       <li>Cu <b>cheia de scriere</b> poate citi, crea, modifica și publica pagini și articole, urca imagini și schimba numele site-ului. Nu poate schimba codul, configurarea sau jurnalul.</li>
+      <li>Cu o <b>cheie de editor</b>, la fel, afară de numele, aspectul și conexiunile site-ului; tot ce face apare în jurnal pe numele editorului.</li>
       <li>Cu <b>cheia de citire</b> doar citește conținutul și jurnalul.</li>
     </ul>
 <?php if ($cere_cod): ?>
-    <p class="mic"><b>Ai nevoie de codul de conectare</b> — cele 6 cifre afișate în terminal când ai deschis conectarea de pe calculatorul tău. Dacă n-ai deschis-o tu chiar acum, înseamnă că altcineva a pornit această cerere: închide pagina.</p>
+    <p class="mic"><b>Ai nevoie de codul de conectare</b> — cele 6 cifre primite când ai deschis conectarea, pe <a href="/oauth/conectare" target="_blank" rel="noopener">pagina de conectare</a> a site-ului (sau în terminal). Dacă n-ai deschis-o tu chiar acum, înseamnă că altcineva a pornit această cerere: închide pagina.</p>
 <?php else: ?>
     <p class="mic">Continuă doar dacă tocmai ai pornit tu conectarea, din Claude. Accesul se poate retrage oricând, iar schimbarea cheilor îl anulează. Totul se scrie în jurnal.</p>
 <?php endif; ?>
@@ -27,7 +28,7 @@
     <input type="hidden" name="<?= esc($k) ?>" value="<?= esc($val) ?>">
 <?php endforeach; ?>
 <?php if ($cere_cod): ?>
-    <label for="cod_conectare">Codul de conectare (din terminal)</label>
+    <label for="cod_conectare">Codul de conectare (6 cifre)</label>
     <input id="cod_conectare" name="cod_conectare" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" required>
 <?php endif; ?>
     <label for="cheie">Cheia site-ului</label>

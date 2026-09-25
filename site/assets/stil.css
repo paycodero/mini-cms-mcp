@@ -152,6 +152,7 @@ figure.coperta.coperta-portret img{display:block;width:auto;max-width:100%;max-h
 
 /* aprobarea conectării (OAuth) */
 .autorizare{max-width:640px;margin:0 auto}
+.cod-conectare{font-size:44px;font-weight:700;letter-spacing:.12em;font-variant-numeric:tabular-nums;margin:8px 0;color:var(--accent)}
 .aplicatia{border:2px solid var(--linie);border-left:6px solid var(--accent);border-radius:var(--raza);padding:14px 18px;margin:0 0 18px;background:var(--panou)}
 .aplicatia ul{padding-left:20px}
 .aplicatia li{margin-bottom:6px}

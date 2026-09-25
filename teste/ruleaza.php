@@ -1545,8 +1545,22 @@ verifica('Editori', 'linkul de urcare poartă numele ei, semnat: schimbat, nu ma
     && cerere('GET', $link)['cod'] === 200 && cerere('GET', $falsificat)['cod'] === 403, $link);
 elibereaza();
 
-// Conectorul din claude.ai: fereastra o deschizi tu, clientul aprobă cu cheia lui; tokenul moare când îl scoți.
-$COD = (string) (fereastra_test($ks)['json']['cod'] ?? '');
+// Conectorul din claude.ai (0.19.1): editorul își ia singur codul de conectare, din pagina site-ului, cu cheia lui.
+$r = cerere('GET', '/oauth/conectare');
+verifica('Editori', 'pagina /oauth/conectare cere cheia, prin formular, și nu e indexată', $r['cod'] === 200
+    && strpos($r['corp'], 'name="cheie"') !== false && strpos($r['corp'], 'noindex') !== false, "cod {$r['cod']}");
+[$corp, $ant] = formular(['cheie' => $kc]);
+$r = cerere('POST', '/oauth/conectare', $corp, $ant);
+verifica('Securitate', 'OAuth: cheia de citire nu primește cod de conectare din pagină', $r['cod'] === 403
+    && preg_match('/class="cod-conectare"/', $r['corp']) === 0, "cod {$r['cod']}");
+elibereaza();
+[$corp, $ant] = formular(['cheie' => $ke]);
+$r = cerere('POST', '/oauth/conectare', $corp, $ant);
+$COD = preg_match('/class="cod-conectare"[^>]*>([0-9]{3}) ([0-9]{3})</', $r['corp'], $m) ? $m[1] . $m[2] : '';
+$j = unealta($kc, 'citeste_jurnal', ['ultimele' => 5]);
+verifica('Editori', 'cu cheia ei, editorul primește din pagină codul de 6 cifre; deschiderea e în jurnal pe numele ei', $r['cod'] === 200
+    && strlen($COD) === 6 && strpos($r['corp'], "$url/mcp") !== false
+    && array_filter($j['date']['intrari'] ?? [], fn($i) => ($i['cerere'] ?? '') === 'fereastra' && ($i['cine'] ?? '') === 'Maria Client'), substr(strip_tags($r['corp']), 0, 300));
 $r = cerere('POST', '/oauth/inregistrare', json_encode(['client_name' => 'Claude Maria', 'redirect_uris' => [$claude]]));
 $client_e = (string) (json_decode($r['corp'], true)['client_id'] ?? '');
 $ver = b64url(random_bytes(32));
