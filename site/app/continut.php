@@ -82,6 +82,7 @@ function rezumat_element(array $e): array
     if ($e['tip'] === 'articol' && !empty($e['eveniment'])) $r['eveniment'] = $e['eveniment']['inceput'];
     if ($e['tip'] === 'pagina') $r +=['meniu' => $e['meniu'] ?? null, 'parinte' => $e['parinte'] ?? null];
     if (($e['stare'] ?? '') === 'publicat' && !e_vizibil($e)) $r['programat_pentru'] = $e['publicat_la'];
+    if (isset($e['modificat_de'])) $r['modificat_de'] = $e['modificat_de'];
     return $r;
 }
 
@@ -103,6 +104,14 @@ function versioneaza_element(string $tip, string $slug, string $sufix = ''): ?st
     return $id;
 }
 
+// Cine a adus elementul în starea asta (admin sau numele editorului). Trece în versiune odată cu elementul,
+// deci listeaza_versiuni arată pentru fiecare versiune cine a scris-o. Scrierile din unelte locale nu au identitate.
+function marcheaza_autor(array &$e): void
+{
+    $cine = (string) (identitate_curenta()['cine'] ?? '');
+    if ($cine !== '') $e['modificat_de'] = $cine;
+}
+
 function listeaza_versiuni(string $tip, string $slug): array
 {
     verifica_tip_slug($tip, $slug);
@@ -111,7 +120,8 @@ function listeaza_versiuni(string $tip, string $slug): array
         $id = basename($f, '.json');
         $e = json_citeste($f) ?? [];
         $rez[] = ['versiune' => $id, 'salvata_la' => date('c', (int) filemtime($f)), 'titlu' => $e['titlu'] ?? '',
-                  'stare' => $e['stare'] ?? '', 'stearsa' => substr($id, -6) === '-sters', 'octeti' => filesize($f)];
+                  'stare' => $e['stare'] ?? '', 'stearsa' => substr($id, -6) === '-sters', 'octeti' => filesize($f)]
+                + (isset($e['modificat_de']) ? ['modificat_de' => $e['modificat_de']] : []);
     }
     usort($rez, fn($a, $b) => strcmp($b['versiune'], $a['versiune']));
     return $rez;
@@ -284,6 +294,7 @@ function salveaza_element(string $tip, string $slug, array $campuri): array
             throw new EroareCms('elementul e publicat, iar conținutul nou mai are ' . count($locuri) . ' locuri de completat, de ex. ' . $locuri[0]);
         }
         $nou['actualizat'] = date('c');
+        marcheaza_autor($nou);
         $json = json_text($nou, true);
         $versiune = $vechi !== null ? versioneaza_element($tip, $slug) : null;
         if (!scrie_atomic(fisier_element($tip, $slug), $json)) throw new EroareCms('scrierea pe disc a eșuat');
@@ -330,6 +341,7 @@ function schimba_stare(string $tip, string $slug, string $stare, ?string $la = n
         $e['stare'] = $stare;
         $e['publicat_la'] = $data;
         $e['actualizat'] = date('c');
+        marcheaza_autor($e);
         $json = json_text($e, true);
         if (!scrie_atomic(fisier_element($tip, $slug), $json)) throw new EroareCms('scrierea pe disc a eșuat');
         $rez = ['operatie' => $stare === 'publicat' ? 'publicat' : 'retras (ciornă)', 'element' => rezumat_element($e),
@@ -370,6 +382,7 @@ function restaureaza_element(string $tip, string $slug, string $versiune): array
         $e['continut_html'] = curata_html((string) ($e['continut_html'] ?? ''));
         $e['stare'] = 'ciorna';   // o versiune veche nu ajunge direct pe site: se verifică, apoi se publică
         $e['actualizat'] = date('c');
+        marcheaza_autor($e);
         $json = json_text($e, true);
         if (!scrie_atomic(fisier_element($tip, $slug), $json)) throw new EroareCms('scrierea pe disc a eșuat');
         return ['operatie' => 'restaurat ca ciornă', 'element' => rezumat_element($e), 'din_versiunea' => $versiune,

@@ -53,7 +53,7 @@ function fereastra_cod_valid(string $cod): bool
     return $f !== null && hash_equals((string) ($f['cod'] ?? ''), hash('sha256', trim($cod)));
 }
 
-function fereastra_deschide(int $minute): array
+function fereastra_deschide(int $minute, string $cine = 'admin'): array
 {
     $minute = max(1, min((int) (OAUTH_FEREASTRA_MAX / 60), $minute));
     $cod = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
@@ -61,7 +61,7 @@ function fereastra_deschide(int $minute): array
     cu_blocare(function () use ($cod, $expira) {
         oauth_scrie('fereastra', ['cod' => hash('sha256', $cod), 'expira' => $expira, 'creat' => time(), 'inregistrari' => 0]);
     });
-    jurnal_scrie(['punct' => 'oauth', 'cerere' => 'fereastra', 'rezultat' => 'ok', 'cheie' => 'scriere',
+    jurnal_scrie(['punct' => 'oauth', 'cerere' => 'fereastra', 'rezultat' => 'ok', 'cheie' => 'scriere', 'cine' => $cine,
                   'detalii' => ['minute' => $minute]]);
     return ['cod' => $cod, 'expira' => date('c', $expira), 'minute' => $minute];
 }
@@ -139,7 +139,7 @@ function ruleaza_oauth(string $cale): void
             oauth_json(200, ['fereastra' => 'închisă']);
             return;
         }
-        oauth_json(200, fereastra_deschide((int) ($j['minute'] ?? 15)) + ['mod' => oauth_mod()]);
+        oauth_json(200, fereastra_deschide((int) ($j['minute'] ?? 15), $acces['cine']) + ['mod' => oauth_mod()]);
         return;
     }
 
@@ -280,15 +280,16 @@ function oauth_autorizare(string $metoda): void
         if ($acces['cod'] === 200) {
             $cod = aleator('mcms_a_');
             $rol = $acces['rol'];
-            cu_blocare(function () use ($cod, $cerere, $rol) {
+            $amprenta = $acces['amprenta'];
+            cu_blocare(function () use ($cod, $cerere, $rol, $amprenta) {
                 $coduri = array_filter(oauth_citeste('coduri'), fn($c) => ($c['expira'] ?? 0) > time());
                 $coduri[hash('sha256', $cod)] = ['client' => $cerere['client_id'], 'redirect_uri' => $cerere['redirect_uri'],
-                    'provocare' => $cerere['code_challenge'], 'rol' => $rol, 'amprenta_cheie' => (string) config("chei.$rol"),
+                    'provocare' => $cerere['code_challenge'], 'rol' => $rol, 'amprenta_cheie' => $amprenta,
                     'expira' => time() + OAUTH_COD_SECUNDE];
                 oauth_scrie('coduri', $coduri);
             });
             fereastra_inchide();   // o fereastră = o conectare; ce urmează (schimbul de token) nu mai are nevoie de ea
-            jurnal_scrie(['punct' => 'oauth', 'cerere' => 'autorizare', 'rezultat' => 'ok', 'cheie' => $rol, 'tinta' => $client['nume'],
+            jurnal_scrie(['punct' => 'oauth', 'cerere' => 'autorizare', 'rezultat' => 'ok', 'cheie' => $rol, 'cine' => $acces['cine'], 'tinta' => $client['nume'],
                           'detalii' => ['intoarcere' => $v['gazda_intoarcere']]]);
             redirectioneaza_client($cerere, ['code' => $cod]);
             return;
@@ -385,18 +386,26 @@ function emite_tokenuri(string $client_id, string $rol, string $amprenta_cheie):
     return ['access_token' => $acces, 'token_type' => 'Bearer', 'expires_in' => OAUTH_ACCES_SECUNDE, 'refresh_token' => $reinnoire, 'scope' => $rol];
 }
 
-// Un token merge cât nu a expirat și cât cheia cu care a fost aprobat e încă cea din config.php.
-function token_valid(array $t): bool
+// Un token merge cât nu a expirat și cât cheia cu care a fost aprobat e încă în config.php, cu același rol.
+// Cheia unui editor scoasă din config = token-urile aprobate cu ea mor pe loc.
+function token_identitate(array $t): ?array
 {
-    return ($t['expira'] ?? 0) > time() && hash_equals((string) config('chei.' . ($t['rol'] ?? '')), (string) ($t['amprenta_cheie'] ?? ''));
+    if (($t['expira'] ?? 0) <= time()) return null;
+    $id = identitate_pentru_amprenta((string) ($t['amprenta_cheie'] ?? ''));
+    return $id !== null && $id['rol'] === ($t['rol'] ?? '') ? $id : null;
 }
 
-// Pentru /mcp: rolul și numele conexiunii unui token de acces, sau null.
+function token_valid(array $t): bool
+{
+    return token_identitate($t) !== null;
+}
+
+// Pentru /mcp: identitatea (rol, cine) și numele conexiunii unui token de acces, sau null.
 function rol_token_oauth(string $amprenta): ?array
 {
     $t = oauth_citeste('tokenuri')[$amprenta] ?? null;
-    if (!$t || ($t['tip'] ?? '') !== 'acces' || !token_valid($t)) return null;
-    return ['rol' => (string) $t['rol'], 'conexiune' => (string) (oauth_citeste('clienti')[$t['client']]['nume'] ?? $t['client'])];
+    if (!$t || ($t['tip'] ?? '') !== 'acces' || !($id = token_identitate($t))) return null;
+    return $id + ['conexiune' => (string) (oauth_citeste('clienti')[$t['client']]['nume'] ?? $t['client'])];
 }
 
 // --- conexiunile, pentru comenzile listeaza_conexiuni și retrage_conexiune --------------------------
@@ -410,6 +419,7 @@ function conexiuni_oauth(): array
         $rez[] = ['client_id' => $id, 'nume' => $c['nume'], 'intoarcere' => array_values(array_unique(array_map(fn($u) => parse_url($u, PHP_URL_HOST), $c['redirect_uris']))),
                   'inregistrat' => date('c', (int) $c['creat']), 'aprobat' => (bool) $active,
                   'drepturi' => $active ? array_values(array_unique(array_column($active, 'rol'))) : [],
+                  'aprobat_de' => array_values(array_unique(array_map(fn($t) => token_identitate($t)['cine'] ?? '?', $active))),
                   'ultima_aprobare_sau_reinnoire' => $active ? date('c', max(array_column($active, 'creat'))) : null];
     }
     return $rez;

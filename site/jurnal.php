@@ -13,7 +13,7 @@ $cod = 200;
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $acces = verifica_acces('jurnal', (string) ($_POST['cheie'] ?? ''));
     if ($acces['cod'] === 200) {
-        jurnal_scrie(['punct' => 'jurnal', 'cheie' => $acces['rol'], 'cerere' => 'vizualizare', 'rezultat' => 'ok']);
+        jurnal_scrie(['punct' => 'jurnal', 'cheie' => $acces['rol'], 'cine' => $acces['cine'], 'cerere' => 'vizualizare', 'rezultat' => 'ok']);
         $v['lant'] = jurnal_verifica();
         $v['intrari'] = jurnal_ultimele(300, !empty($_POST['doar_probleme']));
     } else {

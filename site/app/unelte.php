@@ -1,5 +1,6 @@
 <?php
-// Comenzile pe care le vede AI-ul. Cheia de citire le vede doar pe cele marcate 'scriere' => false.
+// Comenzile pe care le vede AI-ul. Cheia de citire le vede doar pe cele marcate 'scriere' => false;
+// cheia unui editor le vede pe toate, afară de cele marcate 'admin' => true (identitatea site-ului, conexiunile).
 // Principiul: AI-ul e singurul editor — schimbă conținut, niciodată cod. Nicio comandă nu scrie .php,
 // nu atinge șabloanele, configurarea sau jurnalul.
 declare(strict_types=1);
@@ -44,7 +45,11 @@ function unelte(): array
                 }
                 return [
                     'site' => ['url' => url_site()] + identitate_site(),
-                    'versiune' => MINICMS_VERSIUNE, 'cheia_ta' => $rol, 'continut' => $numar, 'imagini' => count(listeaza_imagini()),
+                    'versiune' => MINICMS_VERSIUNE, 'cheia_ta' => $rol, 'cine' => identitate_curenta()['cine'] ?? '',
+                ] + ($rol === 'scriere' && empty(identitate_curenta()['admin']) ? ['limite_editor' =>
+                    'Cheie de editor: creezi, modifici, publici și ștergi conținut, imagini și documente. Identitatea site-ului (seteaza_site: nume, '
+                    . 'logo, temă, subsol) și conexiunile OAuth le schimbă doar administratorul; comenzile lui nu apar în lista ta.'] : []) + [
+                    'continut' => $numar, 'imagini' => count(listeaza_imagini()),
                     'fisiere' => count(listeaza_fisiere()),
                     'adrese' => ['/' => 'pagina "acasa" + ultimele articole', '/<slug>' => 'pagină sau articol publicat',
                                  '/articole' => 'lista articolelor', '/eticheta/<eticheta>' => 'articolele cu o etichetă',
@@ -240,7 +245,7 @@ function unelte(): array
             },
         ],
         'seteaza_site' => [
-            'scriere' => true, 'titlu' => 'Setează numele și descrierea site-ului',
+            'scriere' => true, 'admin' => true, 'titlu' => 'Setează numele și descrierea site-ului',
             'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
             'descriere' => 'Schimbă identitatea site-ului: numele (antet, titluri, feed), descrierea (Google, feed, llms.txt), '
                 . 'autorul implicit al articolelor, limba, culoarea de accent, tema (aspectul), legăturile și textul din subsol, '
@@ -329,7 +334,7 @@ function unelte(): array
             'fn' => fn(array $a) => seteaza_redirectionare(arg_text($a, 'de'), arg_text($a, 'la', false)),
         ],
         'retrage_conexiune' => [
-            'scriere' => true, 'titlu' => 'Retrage accesul unei conexiuni',
+            'scriere' => true, 'admin' => true, 'titlu' => 'Retrage accesul unei conexiuni',
             'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'openWorldHint' => false],
             'descriere' => 'Anulează accesul unei aplicații legate prin OAuth (client_id din listeaza_conexiuni): token-urile ei nu mai merg, '
                 . 'iar ca să se lege din nou trebuie aprobată iar, cu cheia. Doar la cererea omului.',

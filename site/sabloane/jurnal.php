@@ -16,7 +16,7 @@
   </p>
   <div class="tabel">
   <table>
-    <thead><tr><th>Când</th><th>Rezultat</th><th>Cerere</th><th>Țintă</th><th>Cheie</th><th>IP</th><th>Detalii</th></tr></thead>
+    <thead><tr><th>Când</th><th>Rezultat</th><th>Cerere</th><th>Țintă</th><th>Cine</th><th>IP</th><th>Detalii</th></tr></thead>
     <tbody>
 <?php foreach ($intrari as $i): $r = (string) ($i['rezultat'] ?? ''); ?>
       <tr>
@@ -24,7 +24,7 @@
         <td><span class="stare stare-<?= esc(preg_replace('/[^a-z_]/', '', $r)) ?>"><?= esc($r) ?></span></td>
         <td><?= esc(trim(($i['punct'] ?? '') . ' ' . ($i['cerere'] ?? '') . ' ' . ($i['unealta'] ?? ''))) ?></td>
         <td><?= esc($i['tinta'] ?? '') ?></td>
-        <td><?= esc($i['cheie'] ?? '') ?><?= isset($i['conexiune']) ? '<br><small>' . esc($i['conexiune']) . '</small>' : '' ?></td>
+        <td><?= esc($i['cine'] ?? $i['cheie'] ?? '') ?><?= isset($i['cine'], $i['cheie']) && $i['cine'] !== $i['cheie'] ? '<br><small>cheie ' . esc($i['cheie']) . '</small>' : '' ?><?= isset($i['conexiune']) ? '<br><small>' . esc($i['conexiune']) . '</small>' : '' ?></td>
         <td class="nowrap"><?= esc($i['ip'] ?? '') ?></td>
         <td class="detalii"><?= esc(isset($i['detalii']) ? json_text($i['detalii']) : '') ?><?= isset($i['amprenta']) ? '<br><small>amprentă ' . esc(substr((string) $i['amprenta'], 0, 16)) . '…</small>' : '' ?></td>
       </tr>

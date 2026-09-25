@@ -37,6 +37,7 @@
 <?php if ($link): ?>
     <input type="hidden" name="e" value="<?= (int) $link['e'] ?>">
     <input type="hidden" name="s" value="<?= esc($link['s']) ?>">
+    <?php if ($link['c'] !== ''): ?><input type="hidden" name="c" value="<?= esc($link['c']) ?>"><?php endif; ?>
 <?php else: ?>
     <label for="cheie">Cheia de scriere</label>
     <input id="cheie" name="cheie" type="password" autocomplete="current-password" required minlength="20">

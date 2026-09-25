@@ -35,6 +35,7 @@ unelte/instaleaza.php    instalarea: teste, chei, config.php, pachetul .zip, ver
 unelte/actualizeaza.php  actualizarea codului de pe depozit, cerută de om (cheia de cod), cu copie și punere înapoi
 unelte/copie.php         copia de siguranță: salvează tot site-ul pe calculator și îl poate pune la loc (sau pe alt site)
 unelte/urca-imagine.php  urcă poze de pe calculator: le întoarce după telefon, le micșorează, scoate locația GPS
+unelte/editor.php        editorii unui site (de ex. clientul): cheie pe numele lor, adăugare și scoatere (cheia de cod)
 unelte/tema.php          temele proprii ale unui site (lucrări pentru un client): le pune, le înlocuiește, le scoate (cheia de cod)
 unelte/comun.php         funcțiile comune ale uneltelor
 unelte/genereaza-cheie.php, unelte/router-local.php
@@ -274,6 +275,28 @@ Dacă o cheie a scăpat: `php unelte/instaleaza.php https://site --chei-noi`. Ch
 config-ul și pachetul se refac. Urci pe server doar `app/config.php` din `_livrare/<nume>/` (sau tot pachetul): din acel
 moment cheile vechi nu mai merg. Apoi `--verifica`, care înlocuiește și cheia din conexiunea Claude Code.
 
+## Editorii: clientul scrie cu cheia lui (0.19)
+
+Când clientul vrea să modifice singur site-ul, primește **cheia lui**, nu pe a ta. Poate tot ce poate cheia de scriere —
+creează, modifică, **publică direct**, retrage, șterge (reversibil), restaurează, urcă imagini și PDF-uri, redirecționează —
+afară de două lucruri, care rămân la tine: identitatea site-ului (`seteaza_site`: nume, logo, temă, subsol, mențiunea
+realizatorului) și conexiunile OAuth (`retrage_conexiune`). Comenzile acestea nici nu apar în lista lui.
+
+```
+php unelte/editor.php https://site.ro                            editorii de pe site
+php unelte/editor.php https://site.ro --adauga="Maria Popescu"   cheie nouă pentru Maria, pusă pe site
+php unelte/editor.php https://site.ro --scoate="Maria Popescu"   cheia ei nu mai merge, nici conexiunile ei OAuth
+```
+
+- Cheia se scrie în `chei-<nume>-editor-<om>.json`, lângă cheile tale, cu adresa MCP și comanda `claude mcp add` gata de
+  copiat: fișierul acela i-l dai omului. Pe server ajunge doar amprenta, în `date/securitate/editori.json`.
+- Merge cu **cheia de cod**, ca temele: AI-ul nu își poate face singur chei. Nu se urcă nimic în cPanel.
+- **Cine, ce, când:** fiecare rând din jurnal are `cine` (`admin` sau numele editorului), inclusiv refuzurile; fiecare
+  pagină și articol ține `modificat_de`, care trece în versiuni — `listeaza_versiuni` arată cine a scris fiecare versiune.
+  Pozele urcate cu un link de urcare apar pe numele celui care a cerut linkul (semnat, nu se poate schimba).
+- Pe claude.ai: deschizi tu fereastra (`instaleaza.php --oauth`), iar el aprobă cu cheia lui. Tokenul rămâne al lui;
+  când îl scoți, moare odată cu cheia.
+
 ## Conectorul din claude.ai (web și telefon)
 
 Legarea se face într-o **fereastră deschisă de tine**, de pe calculator (din 0.6 — înainte, oricine putea porni o aprobare pe
@@ -427,7 +450,7 @@ Site-ul e făcut ca să fie găsit de oameni prin Google și Bing, dar și citit
 
 ## Jurnalul
 
-Fiecare apel (citire, scriere, încercare eșuată, blocare) e un rând JSON în `date/jurnal/AAAA-LL.ndjson`: când, IP, cheie, comandă, țintă, rezultat, amprenta conținutului scris, durata. Fără rotație care să șteargă istoric.
+Fiecare apel (citire, scriere, încercare eșuată, blocare) e un rând JSON în `date/jurnal/AAAA-LL.ndjson`: când, IP, cheie, cine (`admin` sau numele editorului), comandă, țintă, rezultat, amprenta conținutului scris, durata. Fără rotație care să șteargă istoric.
 
 Fiecare rând poartă amprenta rândului anterior (lanț SHA-256): un rând modificat, scos sau adăugat pe dinafară rupe lanțul, iar verificarea arată unde. AI-ul poate citi jurnalul, nu îl poate modifica.
 

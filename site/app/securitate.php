@@ -38,14 +38,114 @@ function chei_configurate(): bool
     return preg_match('/^[a-f0-9]{64}$/', $c) === 1 && preg_match('/^[a-f0-9]{64}$/', $s) === 1 && $c !== $s;
 }
 
-// 'scriere', 'citire' sau null. Ambele comparații rulează mereu, cu hash_equals.
-function rol_pentru_cheie(string $cheie): ?string
+// Editorii (0.19): oameni cu cheia lor, de scriere, dar fără comenzile marcate 'admin' în unelte.php (identitatea
+// site-ului, conexiunile). Numele fiecăruia ajunge în jurnal și în versiuni. Lista stă în date/securitate/editori.json,
+// doar cu amprente, și o schimbă omul de pe calculatorul lui, cu cheia de cod: php unelte/editor.php <site> --adauga="Nume".
+// AI-ul nu poate adăuga editori: cheia de cod nu e cheie de MCP.
+const EDITOR_NUME_REZERVATE = ['admin', 'citire', 'scriere', 'cod', 'link'];
+
+function editori_fisier(): string
+{
+    return dir_date('securitate') . '/editori.json';
+}
+
+// ['Nume' => ['amprenta' => ..., 'adaugat' => ...]]. Se ignoră intrările stricate sau care se suprapun cu cheile
+// site-ului: o cheie are un singur stăpân. $reciteste după o scriere din aceeași cerere.
+function editori_configurati(bool $reciteste = false): array
+{
+    static $cache = null;
+    if ($cache !== null && !$reciteste) return $cache;
+    $rez = [];
+    $vazute = [(string) config('chei.citire'), (string) config('chei.scriere'), (string) config('chei.cod')];
+    foreach ((array) (json_citeste(editori_fisier()) ?? []) as $nume => $e) {
+        $amprenta = (string) ($e['amprenta'] ?? '');
+        if (!is_string($nume) || $nume === '' || !preg_match('/^[a-f0-9]{64}$/', $amprenta) || in_array($amprenta, $vazute, true)) continue;
+        $vazute[] = $amprenta;
+        $rez[$nume] = ['amprenta' => $amprenta, 'adaugat' => (string) ($e['adaugat'] ?? '')];
+    }
+    return $cache = $rez;
+}
+
+function editor_nume_valid(string $nume): string
+{
+    $nume = text_simplu($nume, 61);
+    if (!preg_match('/^.{2,60}$/u', $nume)) throw new EroareCms('numele editorului are între 2 și 60 de caractere');
+    if (in_array(strtolower($nume), EDITOR_NUME_REZERVATE, true)) throw new EroareCms("\"$nume\" e un nume rezervat în jurnal; alege numele omului");
+    return $nume;
+}
+
+function editor_adauga(string $nume, string $amprenta): array
+{
+    $nume = editor_nume_valid($nume);
+    if (!preg_match('/^[a-f0-9]{64}$/', $amprenta)) throw new EroareCms('amprenta cheii trebuie să fie SHA-256, 64 de caractere hex');
+    if (in_array($amprenta, [(string) config('chei.citire'), (string) config('chei.scriere'), (string) config('chei.cod')], true)) {
+        throw new EroareCms('cheia asta e deja una dintre cheile site-ului; editorul primește o cheie a lui');
+    }
+    return cu_blocare(function () use ($nume, $amprenta) {
+        $lista = editori_configurati(true);
+        if (isset($lista[$nume])) throw new EroareCms("există deja editorul \"$nume\". Ca să-i schimbi cheia, scoate-l întâi, apoi adaugă-l din nou");
+        if (in_array($amprenta, array_column($lista, 'amprenta'), true)) throw new EroareCms('cheia asta e deja a altui editor');
+        $lista[$nume] = ['amprenta' => $amprenta, 'adaugat' => date('c')];
+        if (!scrie_atomic(editori_fisier(), json_text($lista, true))) throw new EroareCms('scrierea listei de editori a eșuat');
+        editori_configurati(true);
+        jurnal_scrie(['punct' => 'actualizare', 'cerere' => 'adauga_editor', 'cheie' => 'cod', 'tinta' => $nume, 'rezultat' => 'ok']);
+        return ['operatie' => 'editor adăugat', 'editor' => $nume];
+    });
+}
+
+// Scoaterea taie și conexiunile OAuth aprobate cu cheia lui: token-urile se verifică pe amprentă, la fiecare cerere.
+function editor_scoate(string $nume): array
+{
+    return cu_blocare(function () use ($nume) {
+        $lista = editori_configurati(true);
+        if (!isset($lista[$nume])) throw new EroareCms("nu există editorul \"$nume\"" . ($lista ? ' (sunt: ' . implode(', ', array_keys($lista)) . ')' : ''));
+        unset($lista[$nume]);
+        if (!scrie_atomic(editori_fisier(), json_text($lista ?: new stdClass(), true))) throw new EroareCms('scrierea listei de editori a eșuat');
+        editori_configurati(true);
+        jurnal_scrie(['punct' => 'actualizare', 'cerere' => 'scoate_editor', 'cheie' => 'cod', 'tinta' => $nume, 'rezultat' => 'ok']);
+        return ['operatie' => 'editor scos', 'editor' => $nume, 'atentie' => 'cheia lui și conexiunile aprobate cu ea nu mai merg'];
+    });
+}
+
+// Pentru om (actualizare.php): numele și data, niciodată amprentele.
+function editori_stare(): array
+{
+    $rez = [];
+    foreach (editori_configurati() as $nume => $e) $rez[] = ['nume' => $nume, 'adaugat' => $e['adaugat']];
+    return $rez;
+}
+
+// Cine stă în spatele unei amprente: ['rol' => 'scriere'|'citire', 'cine' => ..., 'admin' => bool, 'amprenta' => ...] sau null.
+// Toate comparațiile rulează mereu, cu hash_equals. Folosită și de token-urile OAuth, care țin amprenta cheii cu care au fost aprobate.
+function identitate_pentru_amprenta(string $h): ?array
+{
+    $gasit = null;
+    if (hash_equals((string) config('chei.scriere'), $h)) $gasit = ['rol' => 'scriere', 'cine' => 'admin', 'admin' => true];
+    if (hash_equals((string) config('chei.citire'), $h)) $gasit = ['rol' => 'citire', 'cine' => 'citire', 'admin' => false];
+    foreach (editori_configurati() as $nume => $e) {
+        if (hash_equals($e['amprenta'], $h)) $gasit = ['rol' => 'scriere', 'cine' => (string) $nume, 'admin' => false];
+    }
+    return $gasit === null || !preg_match('/^[a-f0-9]{64}$/', $h) ? null : $gasit + ['amprenta' => $h];
+}
+
+function identitate_pentru_cheie(string $cheie): ?array
 {
     if (strlen($cheie) < 20 || strlen($cheie) > 200) return null;
-    $h = hash('sha256', $cheie);
-    $scriere = hash_equals((string) config('chei.scriere'), $h);
-    $citire = hash_equals((string) config('chei.citire'), $h);
-    return $scriere ? 'scriere' : ($citire ? 'citire' : null);
+    return identitate_pentru_amprenta(hash('sha256', $cheie));
+}
+
+// 'scriere', 'citire' sau null.
+function rol_pentru_cheie(string $cheie): ?string
+{
+    return identitate_pentru_cheie($cheie)['rol'] ?? null;
+}
+
+// Cine face cererea curentă: se pune după verificarea cheii și ajunge în versiunile scrise (câmpul "modificat_de").
+function identitate_curenta(?array $noua = null): array
+{
+    static $id = [];
+    if ($noua !== null) $id = $noua;
+    return $id;
 }
 
 // Găleata în care intră adresa: IPv4 întreg, IPv6 doar prefixul /64. Un atacator cu un bloc IPv6 are
@@ -177,7 +277,8 @@ function limita_cereri(string $punct): bool
 
 // Poarta comună pentru mcp.php, jurnal.php și aprobarea OAuth. Scrie singură în jurnal eșecurile.
 // Pe /mcp se acceptă și token-urile OAuth (conectorul din claude.ai); la jurnal și la aprobare, doar cheile.
-// Întoarce ['cod' => 200, 'rol' => ..., 'conexiune' => ...?] sau ['cod' => 401|429|503, 'mesaj' => ...].
+// Întoarce ['cod' => 200, 'rol' => ..., 'cine' => ..., 'admin' => bool, 'amprenta' => ..., 'conexiune' => ...?]
+// sau ['cod' => 401|429|503, 'mesaj' => ...].
 function verifica_acces(string $punct, string $cheie): array
 {
     if (!chei_configurate()) {
@@ -188,16 +289,13 @@ function verifica_acces(string $punct, string $cheie): array
         jurnal_scrie(['punct' => $punct, 'rezultat' => 'blocat']);
         return ['cod' => 429, 'mesaj' => 'Prea multe încercări eșuate de pe această adresă. Reîncearcă peste 15 minute.'];
     }
-    $rol = rol_pentru_cheie($cheie);
-    $conexiune = null;
-    if ($rol === null && $punct === 'mcp' && strncmp($cheie, 'mcms_t_', 7) === 0 && ($t = rol_token_oauth(hash('sha256', $cheie)))) {
-        $rol = $t['rol'];
-        $conexiune = $t['conexiune'];
-    }
-    if ($rol === null) {
+    $id = identitate_pentru_cheie($cheie);
+    if ($id === null && $punct === 'mcp' && strncmp($cheie, 'mcms_t_', 7) === 0) $id = rol_token_oauth(hash('sha256', $cheie));
+    if ($id === null) {
         inregistreaza_esec();
         jurnal_scrie(['punct' => $punct, 'rezultat' => 'auth_esuat', 'detalii' => ['cheie' => $cheie === '' ? 'lipsă' : 'greșită']]);
         return ['cod' => 401, 'mesaj' => 'Cheie lipsă sau greșită.'];
     }
-    return ['cod' => 200, 'rol' => $rol] + ($conexiune !== null ? ['conexiune' => $conexiune] : []);
+    identitate_curenta($id);
+    return ['cod' => 200] + $id;
 }

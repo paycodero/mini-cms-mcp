@@ -69,7 +69,9 @@ function ruleaza_mcp(): void
         mcp_eroare($acces['cod'], null, -32001, $acces['mesaj']);
     }
     $rol = $acces['rol'];
+    $admin = $acces['admin'];
     $baza['cheie'] = $rol;
+    $baza['cine'] = $acces['cine'];
     if (isset($acces['conexiune'])) $baza['conexiune'] = $acces['conexiune'];
 
     $corp = (string) file_get_contents('php://input', false, null, 0, MCP_MAX_OCTETI + 1);
@@ -105,7 +107,7 @@ function ruleaza_mcp(): void
                 'capabilities' => ['tools' => ['listChanged' => false]],
                 'serverInfo' => ['name' => 'mini-cms-mcp', 'title' => 'Mini CMS — ' . config('site.nume'), 'version' => MINICMS_VERSIUNE],
                 'instructions' => 'Administrezi conținutul site-ului ' . config('site.nume') . ' (' . url_site() . '). '
-                    . 'Cheia ta are drept de ' . $rol . '. Cheamă întâi despre_site pentru reguli. '
+                    . 'Cheia ta are drept de ' . $rol . ($rol === 'scriere' && !$admin ? ' (editor: ' . $acces['cine'] . ')' : '') . '. Cheamă întâi despre_site pentru reguli. '
                     . 'Tot ce creezi pleacă drept ciornă; publici doar după aprobarea omului. Fiecare apel e scris în jurnal.',
             ];
             $client = $params['clientInfo'] ?? [];
@@ -118,7 +120,7 @@ function ruleaza_mcp(): void
         case 'tools/list':
             $lista = [];
             foreach (unelte() as $nume => $u) {
-                if ($u['scriere'] && $rol !== 'scriere') continue;
+                if (($u['scriere'] && $rol !== 'scriere') || (!empty($u['admin']) && !$admin)) continue;
                 $lista[] = ['name' => $nume, 'title' => $u['titlu'], 'description' => $u['descriere'],
                             'inputSchema' => $u['schema'], 'annotations' => ['title' => $u['titlu']] + $u['adnotari']];
             }
@@ -126,7 +128,7 @@ function ruleaza_mcp(): void
             jurnal_scrie($baza + ['rezultat' => 'ok', 'detalii' => ['unelte' => count($lista)]]);
             break;
         case 'tools/call':
-            $rezultat = mcp_apel_unealta($params, $rol, $baza, $start, $id);
+            $rezultat = mcp_apel_unealta($params, $rol, $admin, $baza, $start, $id);
             break;
         default:
             jurnal_scrie($baza + ['rezultat' => 'respins', 'detalii' => ['motiv' => 'metodă necunoscută']]);
@@ -136,7 +138,7 @@ function ruleaza_mcp(): void
     mcp_trimite(200, ['jsonrpc' => '2.0', 'id' => $id, 'result' => $rezultat]);
 }
 
-function mcp_apel_unealta(array $params, string $rol, array $baza, float $start, $id): array
+function mcp_apel_unealta(array $params, string $rol, bool $admin, array $baza, float $start, $id): array
 {
     $nume = (string) ($params['name'] ?? '');
     $args = is_array($params['arguments'] ?? null) ? $params['arguments'] : [];
@@ -151,6 +153,10 @@ function mcp_apel_unealta(array $params, string $rol, array $baza, float $start,
     if ($u['scriere'] && $rol !== 'scriere') {
         jurnal_scrie($jurnal + ['rezultat' => 'refuzat', 'detalii' => ['motiv' => 'cheie de citire']]);
         return mcp_rezultat_eroare('Refuzat: cheia folosită are doar drept de citire.');
+    }
+    if (!empty($u['admin']) && !$admin) {
+        jurnal_scrie($jurnal + ['rezultat' => 'refuzat', 'detalii' => ['motiv' => 'cheie de editor']]);
+        return mcp_rezultat_eroare('Refuzat: comanda e doar pentru administratorul site-ului; cheia de editor nu o are.');
     }
     try {
         $rez = ($u['fn'])($args, $rol);

@@ -208,21 +208,25 @@ function urca_imagine_din_url(string $url, string $nume): array
 // Fără cheie și fără nimic de completat. Semnătura folosește cheia previzualizărilor, dar într-un domeniu separat
 // („imagini:urcare|" conține „:", deci nu poate fi un slug): un link de previzualizare nu devine niciodată link de urcare.
 
+// Linkul poartă și numele celui care l-a cerut (admin sau editorul), semnat odată cu expirarea:
+// pozele urcate cu el apar în jurnal pe numele lui, nu doar ca „link".
 function link_urcare(int $minute): array
 {
     $minute = max(5, min(120, $minute));
     $expira = time() + $minute * 60;
-    $semn = hash_hmac('sha256', "imagini:urcare|$expira", cheie_previzualizare(true));
-    return ['url' => url_absolut("/imagini.php?e=$expira&s=$semn"), 'expira' => date('c', $expira), 'minute' => $minute,
+    $cine = (string) (identitate_curenta()['cine'] ?? '');
+    $semn = hash_hmac('sha256', "imagini:urcare|$expira|$cine", cheie_previzualizare(true));
+    return ['url' => url_absolut("/imagini.php?e=$expira" . ($cine !== '' ? '&c=' . rawurlencode($cine) : '') . "&s=$semn"), 'expira' => date('c', $expira), 'minute' => $minute,
             'pasul_urmator' => 'Dă-i omului linkul. După ce spune că a urcat, cheamă listeaza_imagini: cele mai noi sunt primele.',
             'atentie' => 'oricine are linkul poate urca imagini până la expirare (doar imagini, verificate, scrise în jurnal)'];
 }
 
-function link_urcare_valid(int $expira, string $semn): bool
+function link_urcare_valid(int $expira, string $semn, string $cine = ''): bool
 {
     $cheie = cheie_previzualizare(false);
     if ($cheie === '' || $semn === '' || $expira < time() || $expira > time() + 120 * 60 + 60) return false;
-    return hash_equals(hash_hmac('sha256', "imagini:urcare|$expira", $cheie), $semn);
+    $mesaj = $cine !== '' ? "imagini:urcare|$expira|$cine" : "imagini:urcare|$expira";   // fără nume: linkurile de dinainte de 0.19
+    return hash_equals(hash_hmac('sha256', $mesaj, $cheie), $semn);
 }
 
 function listeaza_imagini(): array

@@ -1191,7 +1191,7 @@ parse_str((string) parse_url($link, PHP_URL_QUERY), $q_link);
 $r = cerere('GET', cale_din($link));
 verifica('Imagini', 'linkul de urcare deschide pagina fără câmpul de cheie', !$u['eroare'] && $r['cod'] === 200
     && strpos($r['corp'], 'name="cheie"') === false && strpos($r['corp'], 'name="s"') !== false, $u['text']);
-[$corp, $ant] = $multipart(['e' => (string) ($q_link['e'] ?? ''), 's' => (string) ($q_link['s'] ?? '')], [['Poza din link.png', $poza]]);
+[$corp, $ant] = $multipart(['e' => (string) ($q_link['e'] ?? ''), 'c' => (string) ($q_link['c'] ?? ''), 's' => (string) ($q_link['s'] ?? '')], [['Poza din link.png', $poza]]);
 $r = cerere('POST', '/imagini.php', $corp, $ant);
 $nume_imagini = array_column((array) (unealta($kc, 'listeaza_imagini')['date']['imagini'] ?? []), 'nume');
 verifica('Imagini', 'cu linkul, poza urcă fără cheie, iar AI-ul o găsește cu listeaza_imagini', $r['cod'] === 200 && strpos($r['corp'], 'Gata.') !== false
@@ -1484,6 +1484,105 @@ $rc = unealta_locala('tema.php', [$url, '--local', '--scoate=simpluspv', "--dosa
 verifica('Teme proprii', 'o temă de bază nu se scoate de aici', $rc['cod'] === 1 && strpos($rc['iesire'], 'temă de bază') !== false
     && is_file("$tmp/site/assets/teme/simpluspv.css"), $rc['iesire']);
 unealta($ks, 'seteaza_site', ['tema' => 'simpluspv']);
+
+// --- 0.19: editorii — clientul scrie cu cheia lui, iar jurnalul și versiunile spun cine a făcut ce ----------------
+
+elibereaza();
+$ke = 'mcms_e_' . rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+$r = mcp($ke, 'tools/list');
+verifica('Editori', 'înainte să fie adăugată, cheia editorului nu merge', $r['cod'] === 401, "cod {$r['cod']}");
+$r = actualizare($ks, ['actiune' => 'adauga_editor', 'nume' => 'Maria Client', 'amprenta' => hash('sha256', $ke)]);
+verifica('Securitate', 'un editor NU se poate adăuga cu cheia de scriere (AI-ul nu-și face singur chei)', $r['cod'] === 401
+    && !is_file("$tmp/site/date/securitate/editori.json"), "cod {$r['cod']}");
+$r = actualizare($kd, ['actiune' => 'adauga_editor', 'nume' => 'admin', 'amprenta' => hash('sha256', $ke)]);
+verifica('Editori', 'numele rezervate în jurnal (admin, citire, link…) sunt refuzate', $r['cod'] === 400 && strpos($r['corp'], 'rezervat') !== false, $r['corp']);
+$r = actualizare($kd, ['actiune' => 'adauga_editor', 'nume' => 'Hoțul', 'amprenta' => hash('sha256', $ks)]);
+verifica('Securitate', 'cheia de scriere a site-ului nu poate deveni cheie de editor', $r['cod'] === 400, $r['corp']);
+$r = actualizare($kd, ['actiune' => 'adauga_editor', 'nume' => 'Maria Client', 'amprenta' => hash('sha256', $ke)]);
+$pe_disc = (string) @file_get_contents("$tmp/site/date/securitate/editori.json");
+verifica('Editori', 'cu cheia de cod, editorul e adăugat; pe server stă doar amprenta cheii lui', $r['cod'] === 200
+    && ($r['json']['editori'][0]['nume'] ?? '') === 'Maria Client' && strpos($pe_disc, $ke) === false
+    && strpos($pe_disc, hash('sha256', $ke)) !== false && strpos($r['corp'], hash('sha256', $ke)) === false, $r['corp']);
+
+$r = mcp($ke, 'tools/list');
+$unelte_e = array_column($r['json']['result']['tools'] ?? [], 'name');
+verifica('Editori', 'editorul vede 24 de comenzi: tot, fără seteaza_site și retrage_conexiune', count($unelte_e) === 24
+    && in_array('publica', $unelte_e, true) && in_array('sterge', $unelte_e, true)
+    && !in_array('seteaza_site', $unelte_e, true) && !in_array('retrage_conexiune', $unelte_e, true), implode(', ', $unelte_e));
+$u = unealta($ke, 'seteaza_site', ['nume' => 'Site furat']);
+verifica('Editori', 'seteaza_site cerut direct de editor → refuzat, identitatea rămâne', $u['eroare'] && strpos($u['text'], 'administratorul') !== false
+    && strpos(cerere('GET', '/')['corp'], 'Site furat') === false, $u['text']);
+$u = unealta($ke, 'despre_site');
+verifica('Editori', 'despre_site îi spune AI-ului cine e și ce nu poate', ($u['date']['cine'] ?? '') === 'Maria Client'
+    && ($u['date']['cheia_ta'] ?? '') === 'scriere' && isset($u['date']['limite_editor']), $u['text']);
+$u = unealta($ks, 'despre_site');
+verifica('Editori', 'cheia ta de scriere rămâne admin, fără limite', ($u['date']['cine'] ?? '') === 'admin' && !isset($u['date']['limite_editor']), $u['text']);
+
+$u = unealta($ke, 'salveaza', ['tip' => 'pagina', 'slug' => 'pagina-clientului', 'titlu' => 'A clientului', 'continut_html' => '<p>Scrisă de client.</p>']);
+$u2 = unealta($ke, 'publica', ['tip' => 'pagina', 'slug' => 'pagina-clientului']);
+verifica('Editori', 'editorul creează și publică singur, fără aprobarea adminului', !$u['eroare'] && !$u2['eroare']
+    && ($u2['date']['element']['modificat_de'] ?? '') === 'Maria Client' && strpos(cerere('GET', '/pagina-clientului')['corp'], 'Scrisă de client.') !== false, $u2['text']);
+unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'pagina-clientului', 'continut_html' => '<p>Corectată de admin.</p>']);
+$v = unealta($kc, 'listeaza_versiuni', ['tip' => 'pagina', 'slug' => 'pagina-clientului']);
+$c = unealta($kc, 'citeste', ['tip' => 'pagina', 'slug' => 'pagina-clientului']);
+verifica('Editori', 'versiunile spun cine a scris fiecare stare; elementul, cine l-a modificat ultimul',
+    array_column($v['date']['versiuni'] ?? [], 'modificat_de') === ['Maria Client', 'Maria Client']
+    && strpos($c['text'], '"modificat_de": "admin"') !== false, $v['text']);
+$j = unealta($kc, 'citeste_jurnal', ['ultimele' => 40]);
+$ale_ei = array_filter($j['date']['intrari'] ?? [], fn($i) => ($i['cine'] ?? '') === 'Maria Client' && in_array($i['unealta'] ?? '', ['salveaza', 'publica'], true));
+$refuz = array_filter($j['date']['intrari'] ?? [], fn($i) => ($i['cine'] ?? '') === 'Maria Client' && ($i['unealta'] ?? '') === 'seteaza_site' && ($i['rezultat'] ?? '') === 'refuzat');
+$ale_adminului = array_filter($j['date']['intrari'] ?? [], fn($i) => ($i['cine'] ?? '') === 'admin' && ($i['unealta'] ?? '') === 'salveaza');
+verifica('Editori', 'jurnalul are numele ei la fiecare apel, inclusiv la refuz, și „admin” la ale tale', count($ale_ei) === 2 && $refuz && $ale_adminului, $j['text']);
+[$corp, $ant] = formular(['cheie' => $kc]);
+$r = cerere('POST', '/jurnal.php', $corp, $ant);
+verifica('Editori', 'pagina jurnalului are coloana „Cine” cu numele ei', strpos($r['corp'], '<th>Cine</th>') !== false && strpos($r['corp'], 'Maria Client') !== false, "cod {$r['cod']}");
+
+$u = unealta($ke, 'link_urcare');
+$link = cale_din((string) ($u['date']['url'] ?? ''));
+parse_str((string) parse_url($link, PHP_URL_QUERY), $q);
+$falsificat = str_replace('c=' . rawurlencode('Maria Client'), 'c=admin', $link);
+verifica('Editori', 'linkul de urcare poartă numele ei, semnat: schimbat, nu mai merge', ($q['c'] ?? '') === 'Maria Client'
+    && cerere('GET', $link)['cod'] === 200 && cerere('GET', $falsificat)['cod'] === 403, $link);
+elibereaza();
+
+// Conectorul din claude.ai: fereastra o deschizi tu, clientul aprobă cu cheia lui; tokenul moare când îl scoți.
+$COD = (string) (fereastra_test($ks)['json']['cod'] ?? '');
+$r = cerere('POST', '/oauth/inregistrare', json_encode(['client_name' => 'Claude Maria', 'redirect_uris' => [$claude]]));
+$client_e = (string) (json_decode($r['corp'], true)['client_id'] ?? '');
+$ver = b64url(random_bytes(32));
+$a = aproba($client_e, $claude, b64url(hash('sha256', $ver, true)), $ke);
+$r = token(['grant_type' => 'authorization_code', 'code' => $a['cod'], 'redirect_uri' => $claude, 'client_id' => $client_e, 'code_verifier' => $ver]);
+$acces_e = (string) ($r['json']['access_token'] ?? '');
+$u = unealta($acces_e, 'despre_site');
+$r2 = mcp($acces_e, 'tools/list');
+verifica('Editori', 'aprobat cu cheia ei, tokenul OAuth e tot al ei: nume în jurnal, fără comenzile de admin',
+    ($u['date']['cine'] ?? '') === 'Maria Client' && count($r2['json']['result']['tools'] ?? []) === 24, $u['text']);
+$l = unealta($kc, 'listeaza_conexiuni');
+$con = array_values(array_filter($l['date']['conexiuni'] ?? [], fn($c) => $c['client_id'] === $client_e));
+verifica('Editori', 'listeaza_conexiuni spune cine a aprobat conexiunea', ($con[0]['aprobat_de'] ?? []) === ['Maria Client'], $l['text']);
+
+$r = actualizare($kd, ['actiune' => 'scoate_editor', 'nume' => 'Maria Client']);
+verifica('Editori', 'scoasă cu cheia de cod: cheia ei și tokenul ei OAuth mor pe loc', $r['cod'] === 200 && ($r['json']['editori'] ?? null) === []
+    && mcp($ke, 'tools/list')['cod'] === 401 && mcp($acces_e, 'tools/list')['cod'] === 401, $r['corp']);
+elibereaza();
+
+// Comanda de pe calculator: cheia se scrie într-un fișier pentru client, nu pe ecran; a doua rulare n-o suprascrie.
+$dosar_e = "$tmp/editori";
+mkdir($dosar_e);
+file_put_contents("$dosar_e/chei-proba.json", json_encode(['citire' => ['cheie' => $kc, 'amprenta' => hash('sha256', $kc)],
+    'scriere' => ['cheie' => $ks, 'amprenta' => hash('sha256', $ks)], 'cod' => ['cheie' => $kd, 'amprenta' => hash('sha256', $kd)]]));
+$arg_e = [$url, '--local', "--dosar=$dosar_e", '--nume=proba'];
+$r = unealta_locala('editor.php', array_merge($arg_e, ['--adauga=Ștefan Țepeș']));
+$fis_e = json_decode((string) @file_get_contents("$dosar_e/chei-proba-editor-stefan-tepes.json"), true) ?? [];
+verifica('Editori', 'editor.php --adauga: cheia în chei-<site>-editor-<om>.json, cu comanda de conectare, nu pe ecran', $r['cod'] === 0
+    && preg_match('/^mcms_e_/', (string) ($fis_e['cheie'] ?? '')) === 1 && strpos($r['iesire'], (string) ($fis_e['cheie'] ?? 'x')) === false
+    && strpos((string) ($fis_e['claude_code'] ?? ''), "$url/mcp") !== false && mcp((string) ($fis_e['cheie'] ?? ''), 'tools/list')['cod'] === 200, $r['iesire']);
+$r = unealta_locala('editor.php', $arg_e);
+verifica('Editori', 'editor.php fără opțiuni arată editorii de pe site', $r['cod'] === 0 && strpos($r['iesire'], 'Ștefan Țepeș') !== false, $r['iesire']);
+$r = unealta_locala('editor.php', array_merge($arg_e, ['--scoate=Ștefan Țepeș']));
+verifica('Editori', 'editor.php --scoate: cheia nu mai merge, fișierul local rămâne', $r['cod'] === 0
+    && mcp((string) ($fis_e['cheie'] ?? ''), 'tools/list')['cod'] === 401 && is_file("$dosar_e/chei-proba-editor-stefan-tepes.json"), $r['iesire']);
+elibereaza();
 
 // --- plafon pe adresele care răspund fără cheie (OAuth) ------------------------------------------
 

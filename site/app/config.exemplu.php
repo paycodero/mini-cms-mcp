@@ -16,6 +16,7 @@ return [
     'chei' => [
         'citire' => '',    // vede conținutul, versiunile și jurnalul
         'scriere' => '',   // poate și crea, modifica, publica, șterge (reversibil), urca imagini
+        // Editorii (clientul) nu stau aici: au cheile lor, puse de pe calculator cu php unelte/editor.php (cheia de cod).
     ],
 
     // Opționale — valorile implicite se potrivesc singure:
