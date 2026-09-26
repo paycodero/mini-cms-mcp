@@ -114,10 +114,36 @@ register_shutdown_function(function () use ($server_depozit) {
     $st = @proc_get_status($server_depozit);
     if ($st && $st['running']) proc_terminate($server_depozit);
 });
+// Un server „Cloudflare fals” pentru verifica_boti: răspunde după numele botului, cum ar face o regulă de blocare.
+$port_fals = 0;
+for ($i = 0; $i < 20 && !$port_fals; $i++) {
+    $p = random_int(20100, 20999);
+    $s = @fsockopen('127.0.0.1', $p, $e1, $e2, 0.2);
+    if ($s) fclose($s); else $port_fals = $p;
+}
+@mkdir("$tmp/fals", 0755, true);
+file_put_contents("$tmp/fals/router.php", <<<'PHP'
+<?php
+$ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
+if (parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) === '/robots.txt') {
+    header('Content-Type: text/plain'); echo "User-agent: ClaudeBot\nDisallow: /\n\nUser-agent: *\nAllow: /\n"; return true;
+}
+if (stripos($ua, 'GPTBot') !== false) { http_response_code(403); header('Server: cloudflare'); echo 'error code: 1010'; return true; }
+if (stripos($ua, 'PerplexityBot') !== false) { http_response_code(403); header('cf-mitigated: challenge'); echo '<title>Just a moment...</title>'; return true; }
+if (stripos($ua, 'bingbot') !== false) { echo '<html><head><title>Access denied</title></head></html>'; return true; }
+echo '<html><head><title>Pagina de test</title></head><body>ok</body></html>';
+return true;
+PHP);
+$server_fals = proc_open([PHP_BINARY, '-S', "127.0.0.1:$port_fals", "$tmp/fals/router.php"],
+    [0 => ['pipe', 'r'], 1 => ['file', "$tmp/fals.log", 'a'], 2 => ['file', "$tmp/fals.log", 'a']], $pf, "$tmp/fals");
+register_shutdown_function(function () use ($server_fals) {
+    $st = @proc_get_status($server_fals);
+    if ($st && $st['running']) proc_terminate($server_fals);
+});
 $config = ['site' => ['nume' => 'Site de test', 'descriere' => 'Site pentru teste automate.', 'url' => $url, 'limba' => 'ro',
                       'autor' => 'Autor Test', 'culoare' => '#6d2be8'],
            'chei' => ['citire' => hash('sha256', $kc), 'scriere' => hash('sha256', $ks), 'cod' => hash('sha256', $kd)],
-           'depozit_zip' => "http://127.0.0.1:$port_depozit/pachet.bin", 'autocontrol_secunde' => 2,
+           'depozit_zip' => "http://127.0.0.1:$port_depozit/pachet.bin", 'autocontrol_secunde' => 2, 'verifica_boti_url' => "http://127.0.0.1:$port_fals",
            'imagini_url_permise' => ["127.0.0.1:$port_depozit"]];   // doar serverul de probă; orice altă adresă locală rămâne refuzată
 file_put_contents("$tmp/site/app/config.php", "<?php\nif (!defined('MINICMS')) { http_response_code(403); exit; }\nreturn "
     . var_export($config, true) . ";\n");
@@ -156,10 +182,10 @@ $r = mcp($kc, 'notifications/initialized', [], null);
 verifica('Protocol', 'o notificare primește 202, fără corp', $r['cod'] === 202 && $r['corp'] === '', "cod {$r['cod']}");
 $r = mcp($kc, 'tools/list');
 $unelte_c = array_column($r['json']['result']['tools'] ?? [], 'name');
-verifica('Chei', 'cheia de citire vede doar cele 14 comenzi de citire', count($unelte_c) === 14 && !in_array('salveaza', $unelte_c, true), implode(', ', $unelte_c));
+verifica('Chei', 'cheia de citire vede doar cele 15 comenzi de citire', count($unelte_c) === 15 && !in_array('salveaza', $unelte_c, true), implode(', ', $unelte_c));
 $r = mcp($ks, 'tools/list');
 $lista_s = $r['json']['result']['tools'] ?? [];
-verifica('Protocol', 'cheia de scriere vede toate cele 27 de comenzi', count($lista_s) === 27, (string) count($lista_s));
+verifica('Protocol', 'cheia de scriere vede toate cele 28 de comenzi', count($lista_s) === 28, (string) count($lista_s));
 $bune = array_filter($lista_s, fn($t) => ($t['inputSchema']['type'] ?? '') === 'object' && isset($t['annotations']['readOnlyHint']));
 verifica('Protocol', 'fiecare comandă are schemă de tip obiect și adnotări', count($bune) === count($lista_s) && $lista_s);
 $r = mcp($kc, 'ping');
@@ -549,6 +575,54 @@ verifica('Citiri AI', 'fișierul lunii nu ține IP-uri și nici user-agentul în
 verifica('Citiri AI', 'fișierul stă în date/, închis pentru vizitatori', is_file("$tmp/site/date/vizite-ai/.htaccess")
     && cerere('GET', '/date/vizite-ai/' . date('Y-m') . '.json')['cod'] !== 200);
 
+// --- 0.22: sfaturi de citabilitate la previzualizare și publicare --------------------------------
+
+$lung = '<p>' . str_repeat('cuvânt ', 70) . '</p>';
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'greu-de-citat', 'titlu' => 'Greu de citat',
+    'continut_html' => $lung . '<p>' . str_repeat('text ', 480) . '</p><h3>Întrebări frecvente</h3>']);
+$pv = unealta($kc, 'previzualizeaza', ['tip' => 'articol', 'slug' => 'greu-de-citat']);
+$sf = implode(' | ', $pv['date']['sfaturi_ai'] ?? []);
+verifica('Citabilitate', 'previzualizarea spune: fără descriere, primul paragraf lung, articol lung fără <h2>',
+    !$pv['eroare'] && strpos($sf, 'Lipsește descrierea') !== false
+    && strpos($sf, 'Primul paragraf are 70 de cuvinte') !== false && strpos($sf, 'niciun subtitlu') !== false && !empty($pv['date']['url']), $sf);
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'greu-de-citat', 'titlu' => 'Greu de citat', 'descriere' => 'Răspunsul pe scurt.',
+    'continut_html' => '<p>Răspunsul direct.</p><h2>Întrebări frecvente</h2><h3>Doar una?</h3><p>Da.</p>']);
+$pb = unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'greu-de-citat']);
+$sf = implode(' | ', $pb['date']['sfaturi_ai'] ?? []);
+verifica('Citabilitate', 'publicarea merge și spune că secțiunea de întrebări nu devine FAQ (o singură întrebare)',
+    !$pb['eroare'] && count($pb['date']['sfaturi_ai'] ?? []) === 1 && strpos($sf, 'nu devine FAQ') !== false
+    && cerere('GET', '/greu-de-citat')['cod'] === 200, $pb['text']);
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'greu-de-citat', 'titlu' => 'Greu de citat', 'descriere' => 'Răspunsul pe scurt.',
+    'continut_html' => '<p>Răspunsul direct.</p><h2>Întrebări frecvente</h2><h3>Prima?</h3><p>Da.</p><h3>A doua?</h3><p>Tot da.</p>']);
+$pv = unealta($kc, 'previzualizeaza', ['tip' => 'articol', 'slug' => 'greu-de-citat']);
+verifica('Citabilitate', 'un articol bine așezat nu primește niciun sfat', !$pv['eroare'] && !isset($pv['date']['sfaturi_ai']), $pv['text']);
+unealta($ks, 'sterge', ['tip' => 'articol', 'slug' => 'greu-de-citat']);
+
+// --- 0.22: verifica_boti -------------------------------------------------------------------------
+
+$vb = unealta($kc, 'verifica_boti');
+$b = $vb['date']['boti'] ?? [];
+$rez = fn($bot) => array_column($b[$bot]['pagini'] ?? [], 'rezultat');
+verifica('Boți', 'verifica_boti: un bot lăsat să treacă primește „ok”',
+    !$vb['eroare'] && ($b['OAI-SearchBot']['poate_citi'] ?? null) === true && ($b['ChatGPT-User']['poate_citi'] ?? null) === true
+    && $rez('OAI-SearchBot') && !array_diff($rez('OAI-SearchBot'), ['ok']), $vb['text']);
+verifica('Boți', 'verifica_boti: 403 de la Cloudflare, provocarea „Just a moment” și o pagină schimbată se văd fiecare cu numele lor',
+    in_array('blocat_cloudflare', $rez('GPTBot'), true) && in_array('provocare_cloudflare', $rez('PerplexityBot'), true)
+    && in_array('alta_pagina', $rez('bingbot'), true) && ($vb['date']['stare'] ?? '') === 'probleme', $vb['text']);
+verifica('Boți', 'verifica_boti: robots.txt schimbat pe drum și „Disallow: /” pentru ClaudeBot',
+    ($vb['date']['robots_txt']['identic_cu_cel_scris_de_site'] ?? null) === false && ($b['ClaudeBot']['poate_citi'] ?? null) === false
+    && !empty($b['ClaudeBot']['robots_txt_il_opreste']) && ($b['Claude-User']['poate_citi'] ?? null) === true, $vb['text']);
+verifica('Boți', 'verifica_boti: a doua cerere în același minut e refuzată, iar cheia de probă nu rămâne pe disc',
+    unealta($kc, 'verifica_boti')['eroare'] && !is_file("$tmp/site/date/securitate/proba-boti.cheie"));
+$inainte = unealta($kc, 'vizite_ai', ['zile' => 7])['date']['pe_fel']['om'] ?? -1;
+$cheie_proba = bin2hex(random_bytes(16));
+file_put_contents("$tmp/site/date/securitate/proba-boti.cheie", $cheie_proba);
+cerere('GET', '/chiar-atelierul-test', null, ['User-Agent' => $ua_chatgpt, 'X-MiniCMS-Proba' => $cheie_proba]);
+cerere('GET', '/chiar-atelierul-test', null, ['User-Agent' => $ua_chatgpt, 'X-MiniCMS-Proba' => 'cheie-gresita']);
+@unlink("$tmp/site/date/securitate/proba-boti.cheie");
+$dupa = unealta($kc, 'vizite_ai', ['zile' => 7])['date']['pe_fel']['om'] ?? -1;
+verifica('Boți', 'cererile de probă (cu cheia bună) nu intră în citirile AI; cu o cheie falsă se numără', $dupa === $inainte + 1, "$inainte → $dupa");
+
 // --- 0.3: previzualizare, publicare programată, căutare, redirecționări, logo, export -------------
 
 function cale_din(string $url_absolut): string { return (string) preg_replace('#^https?://[^/]+#', '', $url_absolut); }
@@ -914,7 +988,7 @@ $pe_server = implode('', array_map('file_get_contents', glob("$tmp/site/date/oau
 verifica('Securitate', 'OAuth: pe server nu stă niciun token sau cod în clar, doar amprente', $acces !== '' && strpos($pe_server, $acces) === false
     && strpos($pe_server, $reinnoire) === false && strpos($pe_server, $a['cod']) === false && strpos($pe_server, hash('sha256', $acces)) !== false);
 $r = mcp($acces, 'tools/list');
-verifica('OAuth', 'Claude folosește tokenul pe /mcp și vede toate comenzile', $r['cod'] === 200 && count($r['json']['result']['tools'] ?? []) === 27, $r['corp']);
+verifica('OAuth', 'Claude folosește tokenul pe /mcp și vede toate comenzile', $r['cod'] === 200 && count($r['json']['result']['tools'] ?? []) === 28, $r['corp']);
 $r = token(['grant_type' => 'refresh_token', 'refresh_token' => $reinnoire, 'client_id' => $client]);
 $acces2 = (string) ($r['json']['access_token'] ?? '');
 $r2 = token(['grant_type' => 'refresh_token', 'refresh_token' => $reinnoire, 'client_id' => $client]);
@@ -930,7 +1004,7 @@ $a = aproba($client, $claude, b64url(hash('sha256', $ver, true)), $kc);
 $r = token(['grant_type' => 'authorization_code', 'code' => $a['cod'], 'redirect_uri' => $claude, 'client_id' => $client, 'code_verifier' => $ver]);
 $r2 = mcp((string) ($r['json']['access_token'] ?? ''), 'tools/list');
 verifica('OAuth', 'aprobat cu cheia de citire, tokenul are doar drept de citire', ($r['json']['scope'] ?? '') === 'citire'
-    && count($r2['json']['result']['tools'] ?? []) === 14, $r['corp']);
+    && count($r2['json']['result']['tools'] ?? []) === 15, $r['corp']);
 $l = unealta($kc, 'listeaza_conexiuni');
 verifica('OAuth', 'listeaza_conexiuni arată conexiunea Claude, aprobată, cu drepturile ei', ($l['date']['conexiuni'][0]['nume'] ?? '') === 'Claude'
     && ($l['date']['conexiuni'][0]['aprobat'] ?? false) === true && in_array('scriere', $l['date']['conexiuni'][0]['drepturi'] ?? [], true), $l['text']);
@@ -1537,7 +1611,7 @@ verifica('Editori', 'cu cheia de cod, editorul e adăugat; pe server stă doar a
 
 $r = mcp($ke, 'tools/list');
 $unelte_e = array_column($r['json']['result']['tools'] ?? [], 'name');
-verifica('Editori', 'editorul vede 25 de comenzi: tot, fără seteaza_site și retrage_conexiune', count($unelte_e) === 25
+verifica('Editori', 'editorul vede 26 de comenzi: tot, fără seteaza_site și retrage_conexiune', count($unelte_e) === 26
     && in_array('publica', $unelte_e, true) && in_array('sterge', $unelte_e, true)
     && !in_array('seteaza_site', $unelte_e, true) && !in_array('retrage_conexiune', $unelte_e, true), implode(', ', $unelte_e));
 $u = unealta($ke, 'seteaza_site', ['nume' => 'Site furat']);
@@ -1601,7 +1675,7 @@ $acces_e = (string) ($r['json']['access_token'] ?? '');
 $u = unealta($acces_e, 'despre_site');
 $r2 = mcp($acces_e, 'tools/list');
 verifica('Editori', 'aprobat cu cheia ei, tokenul OAuth e tot al ei: nume în jurnal, fără comenzile de admin',
-    ($u['date']['cine'] ?? '') === 'Maria Client' && count($r2['json']['result']['tools'] ?? []) === 25, $u['text']);
+    ($u['date']['cine'] ?? '') === 'Maria Client' && count($r2['json']['result']['tools'] ?? []) === 26, $u['text']);
 $l = unealta($kc, 'listeaza_conexiuni');
 $con = array_values(array_filter($l['date']['conexiuni'] ?? [], fn($c) => $c['client_id'] === $client_e));
 verifica('Editori', 'listeaza_conexiuni spune cine a aprobat conexiunea', ($con[0]['aprobat_de'] ?? []) === ['Maria Client'], $l['text']);

@@ -641,11 +641,17 @@ function fisier_indexnow(string $cerut): void
 function fisier_robots(): void
 {
     antete_text('text/plain');
+    echo text_robots();
+}
+
+// Textul lui robots.txt; îl folosește și verifica_boti, ca să vadă dacă ajunge neschimbat la boți.
+function text_robots(): string
+{
     $interzise = "Disallow: /mcp\nDisallow: /mcp.php\nDisallow: /jurnal.php\nDisallow: /actualizare.php\nDisallow: /imagini.php\nDisallow: /cauta\nDisallow: /previzualizare/\nDisallow: /oauth/\n";
-    echo "User-agent: *\nAllow: /\n", $interzise;
-    foreach (ROBOTI as $bot) echo "\nUser-agent: $bot\nAllow: /\n", $interzise;
-    echo "\n# Rezumatul site-ului pentru modele de limbaj: ", url_absolut('/llms.txt'), "\n";
-    echo "Sitemap: ", url_absolut('/sitemap.xml'), "\n";
+    $t = "User-agent: *\nAllow: /\n" . $interzise;
+    foreach (ROBOTI as $bot) $t .= "\nUser-agent: $bot\nAllow: /\n" . $interzise;
+    $t .= "\n# Rezumatul site-ului pentru modele de limbaj: " . url_absolut('/llms.txt') . "\n";
+    return $t . 'Sitemap: ' . url_absolut('/sitemap.xml') . "\n";
 }
 
 // Rezumatul site-ului pentru modelele AI care îl citesc (llmstxt.org).

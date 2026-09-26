@@ -62,8 +62,8 @@ function vizita_ai_din(string $ua, string $referer, string $interogare): ?array
 // Se cheamă la începutul oricărei cereri publice. Numărarea se face la sfârșit, când se știe codul răspunsului.
 function vizite_ai_urmareste(string $cale): void
 {
-    if (!vizite_ai_pornit()) return;
-    $v = vizita_ai_din((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), (string) ($_SERVER['HTTP_REFERER'] ?? ''),
+    if (!vizite_ai_pornit() || e_proba_boti()) return;   // cererile de probă ale lui verifica_boti nu sunt citiri reale
+    $v =vizita_ai_din((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), (string) ($_SERVER['HTTP_REFERER'] ?? ''),
                        (string) ($_SERVER['QUERY_STRING'] ?? ''));
     if (!$v) return;
     register_shutdown_function(function () use ($v, $cale) {

@@ -371,6 +371,7 @@ Conectorul din claude.ai (web, telefon) cere OAuth, care e în lucru (vezi mai j
 | `listeaza_versiuni` | citire | versiunile salvate automat ale unui element |
 | `listeaza_imagini` | citire | imaginile din `/media/` |
 | `citeste_jurnal` | citire | ultimele intrări și verificarea lanțului |
+| `verifica_boti` | citire | site-ul se cere singur ca OAI-SearchBot, ChatGPT-User, GPTBot, Claude, Perplexity, Bing, Google: cine e oprit și de cine |
 | `vizite_ai` | citire | ce pagini au citit ChatGPT, Claude, Perplexity & co. și câți oameni au venit din ei (numărat pe server) |
 | `previzualizeaza` | citire | link temporar (implicit 60 de minute) la care omul vede o ciornă exact ca pe site, înainte de publicare |
 | `listeaza_redirectionari` | citire | adresele vechi care trimit spre adrese noi |
@@ -418,6 +419,14 @@ Site-ul e făcut ca să fie găsit de oameni prin Google și Bing, dar și citit
   `OAI-SearchBot`, `PerplexityBot`, `bingbot` (indexul din care se aleg sursele), `GPTBot` & co. (antrenare) și oamenii
   veniți din asistenți (Referer sau `utm_source`). Fără IP-uri, în `date/vizite-ai/AAAA-LL.json`; se citește cu `vizite_ai`.
   Se oprește cu `'vizite_ai' => false`. Paginile servite din cache-ul Cloudflare nu ajung la server și nu se numără.
+- **Verificarea boților (0.22):** robots.txt poate spune „Allow”, iar Cloudflare („Block AI bots”) sau firewallul găzduirii
+  să-i oprească totuși. `verifica_boti` cere prima pagină și cel mai nou articol pe drumul public, ca browser și ca fiecare bot,
+  și spune ce primește fiecare: aceeași pagină, 403 de la Cloudflare sau de la găzduire, provocarea „Just a moment”, altă pagină;
+  plus dacă robots.txt ajunge la boți altfel decât îl scrie site-ul („Managed robots.txt”). Cererile de probă nu intră în `vizite_ai`.
+  Limită: proba pleacă de pe server cu numele botului, nu de la IP-ul lui — un „ok” e un semn bun, nu o garanție.
+- **Sfaturi de citabilitate (0.22):** `previzualizeaza` și `publica` întorc `sfaturi_ai` când textul e greu de citat de un
+  asistent: lipsește descrierea, primul paragraf are peste 60 de cuvinte, secțiunea „Întrebări frecvente” nu devine FAQPage,
+  un articol de peste 500 de cuvinte n-are niciun `<h2>`. Sunt sfaturi, nu reguli: publicarea nu se oprește.
 - **Măsurarea (GA4):** `seteaza_site` (`ga4`) primește DOAR identificatorul, ex. `G-798XLP278H` — eticheta o compune
   site-ul, cu nonce-ul paginii, iar sursele de care are nevoie intră singure în CSP. AI-ul poate porni măsurarea, dar
   nu poate pune JavaScript în pagină: identificatorul e validat cu un tipar, iar orice altceva e refuzat. Se încarcă

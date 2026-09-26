@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 if (!defined('MINICMS')) { http_response_code(403); exit; }
 
-const MINICMS_VERSIUNE = '0.21.0';
+const MINICMS_VERSIUNE = '0.22.0';
 
 ini_set('display_errors', '0');   // un avertisment afișat ar strica JSON-ul MCP și ar scurge căi de pe server
 error_reporting(E_ALL);
@@ -47,6 +47,8 @@ function config(string $cale = '')
             'hsts' => 'auto',         // antetul HSTS pe orice răspuns servit prin https
             'csp_extra' => [],
             'verificari' => [],       // etichete meta de verificare, ex. ['google-site-verification' => '...', 'msvalidate.01' => '...']
+            'vizite_ai' => 'auto',    // numără pe server citirile boților AI și vizitele venite din asistenți (fără IP); false îl oprește
+            'verifica_boti_url' => '', // doar pentru teste: de unde își cere verifica_boti paginile (implicit: adresa site-ului)
             'indexnow' => 'auto',     // anunță Bing (IndexNow) când un articol apare, se schimbă sau iese de pe site; false îl oprește
             'oauth' => 'fereastra',   // 'fereastra' = înregistrarea și aprobarea merg doar în fereastra deschisă de om
                                       // (cu --oauth, cod de 6 cifre în terminal) · 'deschis' = ca în 0.5 · false = fără OAuth
@@ -354,4 +356,6 @@ require __DIR__ . '/fisiere.php';
 require __DIR__ . '/oauth.php';
 require __DIR__ . '/seo.php';
 require __DIR__ . '/vizite_ai.php';
+require __DIR__ . '/verifica_boti.php';
+require __DIR__ . '/citabilitate.php';
 require __DIR__ . '/actualizare.php';

@@ -74,6 +74,8 @@ function unelte(): array
                             . 'site-ul compune din el datele structurate Event și pune ziua evenimentului pe card. Nu scrie <script> JSON-LD în conținut: filtrul îl scoate.',
                         'Un site nou sau gol: cheamă pagini_de_pornire (acasă, despre, servicii, contact, confidențialitate) și completează-le cu omul.',
                         'Un loc [[COMPLETEAZĂ: …]] rămas în titlu, descriere sau conținut oprește publicarea.',
+                        'previzualizeaza și publica pot întoarce "sfaturi_ai" (descriere lipsă, primul paragraf lung, FAQ nerecunoscut, articol lung fără <h2>): '
+                            . 'spune-i omului și întreabă-l dacă vrea să le aplici; nu blochează nimic.',
                     ],
                     'blocuri' => ['nota' => 'Blocurile comune: merg sub orice temă (tema le poate restiliza). Folosește-le în conținut exact ca în exemple; '
                         . 'poți schimba textele și numărul de elemente. Nu inventa cifre, citate sau clienți ca să umpli un bloc.',
@@ -187,13 +189,24 @@ function unelte(): array
             ]),
             'fn' => fn(array $a) => raport_vizite_ai((int) ($a['zile'] ?? 30), (int) ($a['pagini'] ?? 50)),
         ],
+        'verifica_boti' => [
+            'scriere' => false, 'titlu' => 'Verifică dacă boții AI pot citi site-ul',
+            'adnotari' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => true],
+            'descriere' => 'Site-ul își cere singur prima pagină și cel mai nou articol, pe drumul public (prin Cloudflare, dacă e pornit), '
+                . 'ca un browser și apoi ca OAI-SearchBot, ChatGPT-User, GPTBot, Claude, Perplexity, Bing și Google, și compară. Spune '
+                . 'care bot e oprit și de cine (Cloudflare, firewallul găzduirii, robots.txt schimbat pe drum). Durează până la un minut; '
+                . 'cel mult o dată pe minut. Rostul: robots.txt poate spune „Allow”, iar boții să fie totuși blocați, fără niciun semn vizibil.',
+            'schema' => schema_obiect([]),
+            'fn' => fn(array $a) => verifica_boti(),
+        ],
         'previzualizeaza' => [
             'scriere' => false, 'titlu' => 'Link de previzualizare', 'adnotari' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => false, 'openWorldHint' => false],
             'descriere' => 'Un link temporar la care omul vede o ciornă (sau un element programat) exact cum va arăta pe site, înainte de "publica". '
                 . 'Linkul expiră după "minute" (implicit 60) și nu e indexat.',
             'schema' => schema_obiect(['tip' => $tip, 'slug' => $slug,
                 'minute' => ['type' => 'integer', 'minimum' => 5, 'maximum' => 1440, 'default' => 60]], ['tip', 'slug']),
-            'fn' => fn(array $a) => link_previzualizare((string) arg_text($a, 'tip'), (string) arg_text($a, 'slug'), (int) ($a['minute'] ?? 60)),
+            'fn' => fn(array $a) => cu_sfaturi_ai(link_previzualizare((string) arg_text($a, 'tip'), (string) arg_text($a, 'slug'), (int) ($a['minute'] ?? 60)),
+                (string) $a['tip'], (string) $a['slug']),
         ],
         'listeaza_redirectionari' => [
             'scriere' => false, 'titlu' => 'Listează redirecționările', 'adnotari' => $citire,
@@ -328,7 +341,8 @@ function unelte(): array
             'schema' => schema_obiect(['tip' => $tip, 'slug' => $slug,
                 'la' => ['type' => 'string', 'description' => 'opțional: data și ora publicării, ex. "2026-10-01 09:00" (ora României). '
                     . 'În viitor = programat; în trecut = păstrează data (ex. la mutarea unui articol vechi).']], ['tip', 'slug']),
-            'fn' => fn(array $a) => schimba_stare((string) arg_text($a, 'tip'), (string) arg_text($a, 'slug'), 'publicat', arg_text($a, 'la', false)),
+            'fn' => fn(array $a) => cu_sfaturi_ai(schimba_stare((string) arg_text($a, 'tip'), (string) arg_text($a, 'slug'), 'publicat', arg_text($a, 'la', false)),
+                (string) $a['tip'], (string) $a['slug']),
         ],
         'retrage' => [
             'scriere' => true, 'titlu' => 'Retrage de pe site',
