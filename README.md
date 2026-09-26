@@ -38,6 +38,7 @@ unelte/urca-imagine.php  urcă poze de pe calculator: le întoarce după telefon
 unelte/editor.php        editorii unui site (de ex. clientul): cheie pe numele lor, adăugare și scoatere (cheia de cod)
 unelte/tema.php          temele proprii ale unui site (lucrări pentru un client): le pune, le înlocuiește, le scoate (cheia de cod)
 unelte/comun.php         funcțiile comune ale uneltelor
+unelte/stdio.php         puntea stdio: un site demo gol, local, pentru inspectoare și cataloage MCP (Dockerfile)
 unelte/genereaza-cheie.php, unelte/router-local.php
 ```
 
