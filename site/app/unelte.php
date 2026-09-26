@@ -217,6 +217,12 @@ function unelte(): array
                 'etichete' => ['type' => 'array', 'items' => ['type' => 'string'], 'maxItems' => 10, 'description' => 'doar la articole'],
                 'imagine' => ['type' => 'string', 'description' => 'doar la articole: coperta, adresa /media/... întoarsă de urca_imagine'],
                 'imagine_alt' => ['type' => 'string', 'description' => 'doar la articole: descrierea copertei'],
+                'limba' => ['type' => 'string', 'pattern' => '^[a-z]{2,3}(-[A-Z]{2})?$',
+                    'description' => 'doar pe un site multilingv: limba elementului (una din „limbi"); implicit = limba de bază. '
+                        . 'Limba a doua primește prefix de adresă (/en/...)'],
+                'grup' => ['type' => 'string', 'maxLength' => 80,
+                    'description' => 'doar pe un site multilingv: leagă acest element de traducerile lui (același grup în toate limbile), '
+                        . 'pentru comutatorul de limbă și hreflang. ex. ambele „despre" ↔ „about" au grup "despre"'],
                 'meniu' => ['type' => ['integer', 'null'], 'minimum' => 0, 'maximum' => 99, 'description' => 'doar la pagini: poziția în meniu (la o subpagină: în submeniul părintelui); null = nu apare în meniu'],
                 'parinte' => ['type' => ['string', 'null'], 'maxLength' => 80, 'description' => 'doar la pagini: slugul paginii din meniu sub care stă în submeniu (un singur nivel); "" = nicio secțiune'],
                 'autor' => ['type' => 'string', 'maxLength' => 80, 'description' => 'doar la articole: autorul, dacă nu e cel implicit al site-ului'],
@@ -258,6 +264,18 @@ function unelte(): array
                 'descriere' => ['type' => 'string', 'maxLength' => 300, 'description' => 'o frază despre site'],
                 'autor' => ['type' => 'string', 'maxLength' => 80, 'description' => 'autorul implicit al articolelor noi'],
                 'limba' => ['type' => 'string', 'pattern' => '^[a-z]{2,3}(-[A-Z]{2})?$', 'description' => 'ex. "ro"'],
+                'limbi' => ['type' => 'array', 'items' => ['type' => 'string', 'pattern' => '^[a-z]{2,3}(-[A-Z]{2})?$'],
+                    'description' => 'limbile site-ului, prima e cea implicită (stă la /), restul primesc prefix de adresă (/en/...). '
+                        . 'ex. ["ro","en"]. Una singură sau [] = site monolingv'],
+                'traduceri' => ['type' => 'object',
+                    'description' => 'identitatea în celelalte limbi: cheia e codul limbii, valoarea are nume/descriere/subsol/nume_articole. '
+                        . 'Ce lipsește într-o limbă cade pe valoarea de bază. ex. {"en":{"nume":"The New Journal…","descriere":"…"}}',
+                    'additionalProperties' => ['type' => 'object', 'properties' => [
+                        'nume' => ['type' => 'string', 'maxLength' => 80],
+                        'descriere' => ['type' => 'string', 'maxLength' => 300],
+                        'subsol' => ['type' => 'string', 'maxLength' => 300],
+                        'nume_articole' => ['type' => 'string', 'maxLength' => 80],
+                    ]]],
                 'culoare' => ['type' => 'string', 'pattern' => '^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$', 'description' => 'culoarea de accent, ex. "#6d2be8"'],
                 'logo' => ['type' => 'string', 'description' => 'sigla din antet: adresa /media/... întoarsă de urca_imagine; "" = fără logo'],
                 'favicon' => ['type' => 'string', 'description' => 'iconița din tab: adresa /media/... a unei imagini pătrate (PNG); "" = fără'],

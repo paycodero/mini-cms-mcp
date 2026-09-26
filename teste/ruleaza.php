@@ -1598,6 +1598,59 @@ verifica('Editori', 'editor.php --scoate: cheia nu mai merge, fișierul local r�
     && mcp((string) ($fis_e['cheie'] ?? ''), 'tools/list')['cod'] === 401 && is_file("$dosar_e/chei-proba-editor-stefan-tepes.json"), $r['iesire']);
 elibereaza();
 
+// --- 0.20: site multilingv (RO + EN) — prefix /en/, adresă canonică pe limbă, comutator și hreflang ----
+unealta($ks, 'seteaza_site', ['limbi' => ['ro', 'en'],
+    'traduceri' => ['en' => ['nume' => 'Village EN Name', 'descriere' => 'EN description of the site', 'subsol' => 'EN footer note']]]);
+unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'despremulti', 'titlu' => 'Despre proiect', 'continut_html' => '<p>RO continut despre</p>', 'grup' => 'grupmulti', 'meniu' => 5]);
+unealta($ks, 'publica', ['tip' => 'pagina', 'slug' => 'despremulti']);
+unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'aboutmulti', 'titlu' => 'About project', 'continut_html' => '<p>EN content about</p>', 'limba' => 'en', 'grup' => 'grupmulti', 'meniu' => 5]);
+unealta($ks, 'publica', ['tip' => 'pagina', 'slug' => 'aboutmulti']);
+unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'homeen', 'titlu' => 'Home EN', 'continut_html' => '<p>EN home page</p>', 'limba' => 'en', 'grup' => 'acasa']);
+unealta($ks, 'publica', ['tip' => 'pagina', 'slug' => 'homeen']);
+
+$m_ro = cerere('GET', '/despremulti');
+$m_en = cerere('GET', '/en/aboutmulti');
+$m_en_rad = cerere('GET', '/aboutmulti');       // pagina EN la rădăcină: nu se vede acolo
+$m_ro_pref = cerere('GET', '/en/despremulti');  // pagina RO sub /en: nu se vede acolo
+$m_home_en = cerere('GET', '/en');
+$m_home_slug = cerere('GET', '/en/homeen');      // home-ul EN prin slug duce la /en
+
+verifica('Multilingv', 'pagina se vede în limba ei: RO la /<slug>, EN la /en/<slug>',
+    $m_ro['cod'] === 200 && $m_en['cod'] === 200 && strpos($m_ro['corp'], 'RO continut despre') !== false
+    && strpos($m_en['corp'], 'EN content about') !== false, "ro {$m_ro['cod']} en {$m_en['cod']}");
+verifica('Multilingv', 'fiecare pagină are o singură adresă canonică (prefixul greșit dă 404)',
+    $m_en_rad['cod'] === 404 && $m_ro_pref['cod'] === 404, "en_la_radacina {$m_en_rad['cod']} ro_sub_en {$m_ro_pref['cod']}");
+verifica('Multilingv', 'atributul html lang urmează limba paginii',
+    strpos($m_en['corp'], '<html lang="en">') !== false && strpos($m_ro['corp'], '<html lang="ro">') !== false);
+verifica('Multilingv', 'hreflang leagă perechea RO↔EN și pune x-default',
+    strpos($m_ro['corp'], 'hreflang="en"') !== false && strpos($m_ro['corp'], '/en/aboutmulti') !== false
+    && strpos($m_ro['corp'], 'hreflang="x-default"') !== false && strpos($m_en['corp'], 'hreflang="ro"') !== false,
+    'lipsește hreflang sau adresa perechii');
+verifica('Multilingv', 'comutatorul de limbă apare, cu ambele limbi',
+    strpos($m_ro['corp'], 'class="limbi"') !== false && strpos($m_ro['corp'], '>EN<') !== false && strpos($m_ro['corp'], '>RO<') !== false);
+verifica('Multilingv', 'prima pagină a limbii a doua stă la /en (slugul ei redirecționează acolo)',
+    $m_home_en['cod'] === 200 && strpos($m_home_en['corp'], 'EN home page') !== false && $m_home_slug['cod'] === 301,
+    "home_en {$m_home_en['cod']} home_slug {$m_home_slug['cod']}");
+verifica('Multilingv', 'identitatea tradusă: pagina EN poartă numele și descrierea EN, RO pe cele de bază',
+    strpos($m_en['corp'], 'og:site_name" content="Village EN Name"') !== false
+    && strpos($m_en['corp'], 'EN description of the site') !== false
+    && strpos($m_ro['corp'], 'Village EN Name') === false, 'numele/descrierea EN nu apar (sau apar și pe RO)');
+$m_sitemap = cerere('GET', '/sitemap.xml');
+verifica('Multilingv', 'sitemap: rădăcina /en apare și fiecare adresă își declară traducerile (xhtml:link)',
+    $m_sitemap['cod'] === 200 && strpos($m_sitemap['corp'], 'xmlns:xhtml') !== false
+    && strpos($m_sitemap['corp'], '/en</loc>') !== false && preg_match('#/en/aboutmulti</loc>#', $m_sitemap['corp'])
+    && strpos($m_sitemap['corp'], 'hreflang="en"') !== false && strpos($m_sitemap['corp'], 'hreflang="x-default"') !== false,
+    "cod {$m_sitemap['cod']}");
+
+// curățenie: site-ul revine monolingv, ca testele următoare (și exportul deja rulat) să nu fie afectate
+unealta($ks, 'sterge', ['tip' => 'pagina', 'slug' => 'despremulti']);
+unealta($ks, 'sterge', ['tip' => 'pagina', 'slug' => 'aboutmulti']);
+unealta($ks, 'sterge', ['tip' => 'pagina', 'slug' => 'homeen']);
+unealta($ks, 'seteaza_site', ['limbi' => [], 'traduceri' => []]);
+$m_dupa = cerere('GET', '/despre');
+verifica('Multilingv', 'după revenirea la o limbă, site-ul e din nou monolingv (fără comutator)',
+    $m_dupa['cod'] === 200 && strpos($m_dupa['corp'], 'class="limbi"') === false && strpos($m_dupa['corp'], 'hreflang=') === false);
+
 // --- plafon pe adresele care răspund fără cheie (OAuth) ------------------------------------------
 
 @unlink("$tmp/site/date/securitate/incercari.json");
