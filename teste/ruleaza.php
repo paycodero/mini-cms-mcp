@@ -569,6 +569,13 @@ verifica('Citiri AI', 'oamenii veniți din ChatGPT (Referer) și din Perplexity 
     && ($va['date']['pe_fel']['vizitator'] ?? 0) === 2, $va['text']);
 verifica('Citiri AI', 'erorile boților se țin pe cod, nu pe adresă', (($va['date']['erori']['GPTBot'] ?? [])['404'] ?? 0) === 1
     && !isset($pa['/adresa-care-nu-exista']), $va['text']);
+// Prin Worker-ul Cloudflare care ocolește blocajul găzduirii: User-Agent de browser, botul real în X-Original-User-Agent.
+cerere('GET', '/', null, ['User-Agent' => $ua_browser,
+    'X-Original-User-Agent' => 'Mozilla/5.0 (compatible; PerplexityBot/1.0; +https://perplexity.ai/perplexitybot)']);
+$va2 = unealta($kc, 'vizite_ai', ['zile' => 7]);
+$pa2 = array_column($va2['date']['pagini'] ?? [], null, 'adresa');
+verifica('Citiri AI', 'botul trecut prin Worker-ul Cloudflare (X-Original-User-Agent) se numără cu numele lui real',
+    ($pa2['/']['pe_asistent']['PerplexityBot'] ?? 0) === 1 && ($va2['date']['pe_fel']['cautare'] ?? 0) === 2, $va2['text']);
 $f_va = "$tmp/site/date/vizite-ai/" . date('Y-m') . '.json';
 $brut_va = is_file($f_va) ? (string) file_get_contents($f_va) : '';
 verifica('Citiri AI', 'fișierul lunii nu ține IP-uri și nici user-agentul întreg',

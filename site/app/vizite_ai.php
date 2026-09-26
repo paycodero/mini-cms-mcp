@@ -63,8 +63,11 @@ function vizita_ai_din(string $ua, string $referer, string $interogare): ?array
 function vizite_ai_urmareste(string $cale): void
 {
     if (!vizite_ai_pornit() || e_proba_boti()) return;   // cererile de probă ale lui verifica_boti nu sunt citiri reale
-    $v =vizita_ai_din((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), (string) ($_SERVER['HTTP_REFERER'] ?? ''),
-                       (string) ($_SERVER['QUERY_STRING'] ?? ''));
+    // Un Worker Cloudflare care ocolește blocajul găzduirii (ex. boti-ai, pe paycode.ro) îi schimbă botului numele în unul
+    // de browser și păstrează originalul în X-Original-User-Agent. Îl luăm de acolo; un antet fals n-ar păcăli mai mult
+    // decât un User-Agent fals, iar aici e doar o statistică.
+    $ua = trim((string) ($_SERVER['HTTP_X_ORIGINAL_USER_AGENT'] ?? '')) ?: (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
+    $v = vizita_ai_din($ua, (string) ($_SERVER['HTTP_REFERER'] ?? ''), (string) ($_SERVER['QUERY_STRING'] ?? ''));
     if (!$v) return;
     register_shutdown_function(function () use ($v, $cale) {
         $cod = (int) (http_response_code() ?: 200);
