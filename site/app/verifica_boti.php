@@ -56,14 +56,18 @@ function titlu_din(string $html): string
 // Ce a primit botul, față de ce a primit browserul.
 function clasifica_proba(array $r, string $titlu_asteptat): array
 {
-    $cf = stripos((string) ($r['antete']['server'] ?? ''), 'cloudflare') !== false || isset($r['antete']['cf-ray']);
+    // Printr-un site cu proxy Cloudflare, orice răspuns poartă „Server: cloudflare”, și cele venite de la găzduire.
+    // Blocajul e al Cloudflare doar când pagina e a lui (error code 1xxx, Ray ID); altfel doar a trecut prin el.
+    $prin_cf = stripos((string) ($r['antete']['server'] ?? ''), 'cloudflare') !== false || isset($r['antete']['cf-ray']);
+    $cf = $prin_cf && preg_match('/error code: 1\d{3}|Cloudflare Ray ID|cf-error-details|cdn-cgi\/styles\/cf/i', substr($r['corp'], 0, 20000)) === 1;
     if ($r['cod'] === 0) return ['rezultat' => 'fara_raspuns', 'explicatie' => 'nu a venit niciun răspuns în ' . PROBA_BOTI_SECUNDE . ' secunde'];
     if (($r['antete']['cf-mitigated'] ?? '') !== '' || preg_match('/Just a moment|challenge-platform|cf-chl-|Attention Required/i', substr($r['corp'], 0, 20000)))
         return ['rezultat' => 'provocare_cloudflare', 'explicatie' => 'Cloudflare i-a cerut o verificare de om, pe care un bot n-o poate trece: pagina nu ajunge la el'];
     if (in_array($r['cod'], [401, 403, 406, 429, 503], true))
         return ['rezultat' => $cf ? 'blocat_cloudflare' : 'blocat_gazduire',
                 'explicatie' => $cf ? "Cloudflare a răspuns {$r['cod']}: o regulă de acolo oprește botul"
-                                    : "serverul a răspuns {$r['cod']}: firewallul găzduirii (ModSecurity, Imunify360…) oprește botul"];
+                                    : "serverul găzduirii a răspuns {$r['cod']}" . ($prin_cf ? ' (trecut prin Cloudflare, dar nu de la el)' : '')
+                                      . ': firewallul găzduirii (LiteSpeed, ModSecurity, Imunify360…) oprește botul'];
     if ($r['cod'] >= 300 && $r['cod'] < 400) return ['rezultat' => 'redirectionat', 'explicatie' => "{$r['cod']} spre " . ($r['antete']['location'] ?? '?')];
     if ($r['cod'] !== 200) return ['rezultat' => 'eroare', 'explicatie' => "răspuns {$r['cod']}"];
     $titlu = titlu_din($r['corp']);

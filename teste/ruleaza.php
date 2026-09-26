@@ -131,6 +131,7 @@ if (parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) === '/robots.txt') {
 if (stripos($ua, 'GPTBot') !== false) { http_response_code(403); header('Server: cloudflare'); echo 'error code: 1010'; return true; }
 if (stripos($ua, 'PerplexityBot') !== false) { http_response_code(403); header('cf-mitigated: challenge'); echo '<title>Just a moment...</title>'; return true; }
 if (stripos($ua, 'bingbot') !== false) { echo '<html><head><title>Access denied</title></head></html>'; return true; }
+if (stripos($ua, 'Googlebot') !== false) { http_response_code(403); header('Server: cloudflare'); header('CF-RAY: 8f00aa11bb22cc33-OTP'); echo '<title> 403 Forbidden</title>'; return true; }
 echo '<html><head><title>Pagina de test</title></head><body>ok</body></html>';
 return true;
 PHP);
@@ -609,6 +610,8 @@ verifica('Boți', 'verifica_boti: un bot lăsat să treacă primește „ok”',
 verifica('Boți', 'verifica_boti: 403 de la Cloudflare, provocarea „Just a moment” și o pagină schimbată se văd fiecare cu numele lor',
     in_array('blocat_cloudflare', $rez('GPTBot'), true) && in_array('provocare_cloudflare', $rez('PerplexityBot'), true)
     && in_array('alta_pagina', $rez('bingbot'), true) && ($vb['date']['stare'] ?? '') === 'probleme', $vb['text']);
+verifica('Boți', 'verifica_boti: un 403 al găzduirii, doar trecut prin Cloudflare, nu e pus în seama Cloudflare',
+    in_array('blocat_gazduire', $rez('Googlebot'), true) && strpos($vb['text'], 'trecut prin Cloudflare') !== false, $vb['text']);
 verifica('Boți', 'verifica_boti: robots.txt schimbat pe drum și „Disallow: /” pentru ClaudeBot',
     ($vb['date']['robots_txt']['identic_cu_cel_scris_de_site'] ?? null) === false && ($b['ClaudeBot']['poate_citi'] ?? null) === false
     && !empty($b['ClaudeBot']['robots_txt_il_opreste']) && ($b['Claude-User']['poate_citi'] ?? null) === true, $vb['text']);
