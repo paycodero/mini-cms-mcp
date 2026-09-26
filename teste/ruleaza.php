@@ -1607,6 +1607,12 @@ unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'aboutmulti', 'titlu' => 
 unealta($ks, 'publica', ['tip' => 'pagina', 'slug' => 'aboutmulti']);
 unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'homeen', 'titlu' => 'Home EN', 'continut_html' => '<p>EN home page</p>', 'limba' => 'en', 'grup' => 'acasa']);
 unealta($ks, 'publica', ['tip' => 'pagina', 'slug' => 'homeen']);
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'enarticol', 'titlu' => 'EN article', 'continut_html' => '<p>en</p>', 'limba' => 'en', 'etichete' => ['Tag One']]);
+unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'enarticol']);
+$m_enart = cerere('GET', '/en/enarticol');
+verifica('Multilingv', 'eticheta unui articol EN duce la /en/eticheta/... (nu la lista în română)',
+    $m_enart['cod'] === 200 && strpos($m_enart['corp'], 'href="/en/eticheta/tag-one"') !== false
+    && strpos($m_enart['corp'], 'href="/eticheta/tag-one"') === false, "cod {$m_enart['cod']}");
 
 $m_ro = cerere('GET', '/despremulti');
 $m_en = cerere('GET', '/en/aboutmulti');
@@ -1658,6 +1664,7 @@ verifica('Multilingv', 'sitemap: rădăcina /en apare și fiecare adresă își 
 unealta($ks, 'sterge', ['tip' => 'pagina', 'slug' => 'despremulti']);
 unealta($ks, 'sterge', ['tip' => 'pagina', 'slug' => 'aboutmulti']);
 unealta($ks, 'sterge', ['tip' => 'pagina', 'slug' => 'homeen']);
+unealta($ks, 'sterge', ['tip' => 'articol', 'slug' => 'enarticol']);
 unealta($ks, 'seteaza_site', ['limbi' => [], 'traduceri' => []]);
 $m_dupa = cerere('GET', '/despre');
 verifica('Multilingv', 'după revenirea la o limbă, site-ul e din nou monolingv (fără comutator)',

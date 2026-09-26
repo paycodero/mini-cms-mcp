@@ -7,7 +7,7 @@
 <?php endif; ?>
     <div class="card-text">
 <?php if ($a['etichete'] ?? []): $s_t = slug_din_text((string) $a['etichete'][0]); ?>
-      <a class="card-eticheta eticheta-<?= esc($s_t) ?>" href="/eticheta/<?= esc($s_t) ?>"><?= esc($a['etichete'][0]) ?></a>
+      <a class="card-eticheta eticheta-<?= esc($s_t) ?>" href="<?= esc(prefix_limba(limba_element($a))) ?>/eticheta/<?= esc($s_t) ?>"><?= esc($a['etichete'][0]) ?></a>
 <?php endif; ?>
 <?php if (data_eveniment($a) !== ''): ?>
       <p class="data data-eveniment"><time datetime="<?= esc($a['eveniment']['inceput']) ?>"><?= esc(data_eveniment($a)) ?></time></p>

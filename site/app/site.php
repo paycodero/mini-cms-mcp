@@ -556,11 +556,15 @@ function fisier_sitemap(): void
             echo '</url>', "\n";
         }
     }
-    if ($articole) {
-        echo '<url><loc>', xml(url_absolut('/articole')), '</loc>', ($ultima !== '' ? '<lastmod>' . xml($ultima) . '</lastmod>' : ''), '</url>', "\n";
+    // Lista de articole și etichetele, per limbă: fiecare limbă are /articole și /eticheta ale ei, sub prefixul ei.
+    foreach (limbi() as $lang) {
+        $art_lb = listeaza_limba('articol', 'vizibil', $lang);
+        if (!$art_lb) continue;
+        $pref = prefix_limba($lang);
+        echo '<url><loc>', xml(url_absolut($pref . '/articole')), '</loc>', ($ultima !== '' ? '<lastmod>' . xml($ultima) . '</lastmod>' : ''), '</url>', "\n";
         $etichete = [];
-        foreach ($articole as $e) foreach ($e['etichete'] ?? [] as $t) $etichete[slug_din_text((string) $t)] = true;
-        foreach (array_keys($etichete) as $s) if ($s !== '') echo '<url><loc>', xml(url_absolut('/eticheta/' . $s)), '</loc></url>', "\n";
+        foreach ($art_lb as $e) foreach ($e['etichete'] ?? [] as $t) $etichete[slug_din_text((string) $t)] = true;
+        foreach (array_keys($etichete) as $s) if ($s !== '') echo '<url><loc>', xml(url_absolut($pref . '/eticheta/' . $s)), '</loc></url>', "\n";
     }
     echo '</urlset>', "\n";
 }

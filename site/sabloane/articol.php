@@ -10,7 +10,7 @@
 <?php if ($e['etichete'] ?? []): ?>
   <p class="etichete">
 <?php foreach ($e['etichete'] as $t): $s_t = slug_din_text((string) $t); ?>
-    <a class="eticheta eticheta-<?= esc($s_t) ?>" href="/eticheta/<?= esc($s_t) ?>"><?= esc($t) ?></a>
+    <a class="eticheta eticheta-<?= esc($s_t) ?>" href="<?= esc(prefix_limba(limba_element($e))) ?>/eticheta/<?= esc($s_t) ?>"><?= esc($t) ?></a>
 <?php endforeach; ?>
   </p>
 <?php endif; ?>
