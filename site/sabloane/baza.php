@@ -25,7 +25,7 @@ if (!$noindex && count($alternative) > 1): foreach ($alternative as $cod_alt => 
 <link rel="alternate" hreflang="x-default" href="<?= esc($alternative[limba_implicita()]) ?>">
 <?php endif; endif; ?>
 <meta property="og:title" content="<?= esc($titlu_pagina) ?>">
-<meta property="og:site_name" content="<?= esc(config('site.nume')) ?>">
+<meta property="og:site_name" content="<?= esc(text_site('nume')) ?>">
 <meta property="og:type" content="<?= esc($tip_og) ?>">
 <?php if ($descriere !== ''): ?><meta property="og:description" content="<?= esc($descriere) ?>">
 <?php endif; ?>
@@ -53,7 +53,7 @@ if ((string) config('site.ga4') !== '' && !$noindex): $ga4 = (string) config('si
 <link rel="stylesheet" href="/assets/stil.css?v=<?= (int) @filemtime(dirname(__DIR__) . '/assets/stil.css') ?>">
 <?php if (($tema = tema_activa()) !== ''): ?><link rel="stylesheet" href="/assets/teme/<?= esc($tema) ?>.css?v=<?= (int) @filemtime(dirname(__DIR__) . "/assets/teme/$tema.css") ?>">
 <?php endif; ?>
-<link rel="alternate" type="application/rss+xml" title="<?= esc(config('site.nume')) ?>" href="/feed.xml">
+<link rel="alternate" type="application/rss+xml" title="<?= esc(text_site('nume')) ?>" href="<?= esc(prefix_limba() . '/feed.xml') ?>">
 <style nonce="<?= esc($nonce) ?>">:root{--accent:<?= culoare_accent() ?>}</style>
 <?php foreach (array_merge($jsonld ? [$jsonld] : [], $jsonld_extra) as $bloc_ld): ?><script type="application/ld+json" nonce="<?= esc($nonce) ?>"><?= json_encode($bloc_ld, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 <?php endforeach; ?>
@@ -64,7 +64,7 @@ if ((string) config('site.ga4') !== '' && !$noindex): $ga4 = (string) config('si
 <?php endif; ?>
 <header class="antet">
   <div class="lat antet-rand">
-    <a class="sigla" href="<?= esc(prefix_limba() ?: '/') ?>"><?php if ((string) config('site.logo') !== ''): ?><img src="<?= esc(config('site.logo')) ?>" alt="" height="40"><?php endif; ?><span><?= esc(config('site.nume')) ?></span></a>
+    <a class="sigla" href="<?= esc(prefix_limba() ?: '/') ?>"><?php if ((string) config('site.logo') !== ''): ?><img src="<?= esc(config('site.logo')) ?>" alt="" height="40"><?php endif; ?><span><?= esc(text_site('nume')) ?></span></a>
     <nav class="meniu" aria-label="Meniu">
 <?php foreach (meniu() as $m): ?>
 <?php if (!empty($m['copii'])): // submeniul se deschide la trecerea mouse-ului și din tastatură (:focus-within), fără JavaScript ?>
@@ -108,17 +108,17 @@ if ((string) config('site.ga4') !== '' && !$noindex): $ga4 = (string) config('si
   </div>
 <?php endif; ?>
   <div class="lat">
-    <span>© <?= date('Y') ?> <?= esc(config('site.nume')) ?></span>
+    <span>© <?= date('Y') ?> <?= esc(text_site('nume')) ?></span>
 <?php $realizare = (string) config('site.realizare'); $realizare_url = (string) config('site.realizare_url'); if ($realizare !== ''): ?>
 <?php if ($realizare_url !== ''): ?>
     <a class="realizare" href="<?= esc($realizare_url) ?>" rel="noopener" target="_blank"><?= esc($realizare) ?></a>
 <?php else: ?>
     <span class="realizare"><?= esc($realizare) ?></span>
 <?php endif; endif; ?>
-    <a href="/feed.xml">RSS</a>
+    <a href="<?= esc(prefix_limba() . '/feed.xml') ?>">RSS</a>
   </div>
-<?php if ((string) config('site.subsol') !== ''): ?>
-  <div class="lat nota-subsol"><p><?= esc(config('site.subsol')) ?></p></div>
+<?php if ((string) text_site('subsol') !== ''): ?>
+  <div class="lat nota-subsol"><p><?= esc(text_site('subsol')) ?></p></div>
 <?php endif; ?>
 </footer>
 <?php // Butonul „Copiază" pe blocurile <pre> (prompturi, comenzi). Scriptul e al șablonului, cu nonce: conținutul nu poate aduce cod.

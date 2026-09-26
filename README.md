@@ -252,6 +252,24 @@ link în conținut. Numele îl alege AI-ul (curățat: litere mici, cifre, crati
 - Pe un site mutat de pe alt CMS, un PDF vechi pus de mână în dosarul public `/fisiere/` are întâietate, fiindcă e fișier real.
   Un document nou cu același nume e refuzat, ca să nu stea ascuns în spatele celui vechi.
 
+## Site multilingv (RO + EN) — 0.20
+
+Un site poate fi în mai multe limbi. Se pornește cu `seteaza_site` (`limbi`), o listă de coduri unde **prima e limba
+implicită** și stă la rădăcină (`/`), iar celelalte primesc un prefix de adresă (`/en/...`). O singură limbă sau lista goală
+= site monolingv, exact ca înainte — funcția e aditivă, nimic nu se schimbă pe site-urile cu o singură limbă.
+
+- **Fiecare pagină și articol are un câmp `limba`** (una dintre `limbi`; lipsa lui = limba implicită) și un câmp `grup`, care
+  leagă un element de traducerile lui: `despre` (ro) și `about` (en) primesc același `grup`, iar site-ul știe astfel că sunt
+  aceeași pagină în limbi diferite. Se pun la `salveaza`.
+- **O singură adresă canonică pe limbă:** pagina în engleză se vede la `/en/<slug>` și **nu** la rădăcină; cea în română la
+  `/<slug>`. Prima pagină a fiecărei limbi stă la `/` și `/en` (slugul ei redirecționează acolo).
+- **Comutatorul de limbă** apare în antet și duce la traducerea paginii curente (sau la prima pagină a limbii, dacă nu are una).
+- **hreflang** peste tot: `<link rel="alternate" hreflang="…">` + `x-default` în `<head>`, și `xhtml:link` în sitemap — așa
+  Google și asistenții AI știu că paginile sunt aceeași, în limbi diferite. `<html lang>`, JSON-LD `inLanguage`, feed-ul și
+  llms.txt urmează limba paginii.
+- **Identitatea tradusă:** `seteaza_site` (`traduceri`) dă, per limbă, variantele de `nume`, `descriere`, `subsol` și
+  `nume_articole`. Ce lipsește într-o limbă cade pe valoarea de bază. ex. `{"en":{"nume":"The New Journal…"}}`.
+
 ## Copia de siguranță
 
 ```
@@ -357,8 +375,8 @@ Conectorul din claude.ai (web, telefon) cere OAuth, care e în lucru (vezi mai j
 | `listeaza_redirectionari` | citire | adresele vechi care trimit spre adrese noi |
 | `exporta` | citire | tot conținutul, pentru copia de siguranță (vezi `unelte/copie.php`) |
 | `listeaza_conexiuni` | citire | aplicațiile legate prin OAuth (conectorul claude.ai): cine, cu ce drepturi, dacă au acces acum |
-| `salveaza` | scriere | creează (ca ciornă) sau modifică o pagină ori un articol |
-| `seteaza_site` | scriere | numele, descrierea, autorul, limba, culoarea, logo-ul, favicon-ul, tema, legăturile și textul din subsol, mențiunea realizatorului, identificatorul GA4, numele articolelor și data vizibilă; păstrează versiunea anterioară |
+| `salveaza` | scriere | creează (ca ciornă) sau modifică o pagină ori un articol (pe un site multilingv: și `limba` + `grup`) |
+| `seteaza_site` | scriere | numele, descrierea, autorul, limba (și `limbi` + `traduceri` pentru un site multilingv), culoarea, logo-ul, favicon-ul, tema, legăturile și textul din subsol, mențiunea realizatorului, identificatorul GA4, numele articolelor și data vizibilă; păstrează versiunea anterioară |
 | `publica` / `retrage` | scriere | pune pe site / scoate de pe site (rămâne ciornă); `publica` cu `la` în viitor programează, în trecut păstrează data |
 | `retrage_conexiune` | scriere | anulează accesul unei aplicații legate prin OAuth |
 | `redirectioneaza` | scriere | adresă veche → adresă nouă de pe site, 301 (doar când la adresa veche nu mai e nimic); `la` gol o scoate |

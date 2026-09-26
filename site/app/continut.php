@@ -570,6 +570,23 @@ function seteaza_identitate(array $campuri): array
             if (!in_array($cod, $nou['limbi'], true)) $nou['limbi'][] = $cod;
         }
     }
+    // Identitatea tradusă: pentru fiecare limbă, variantele de nume/descriere/subsol/nume_articole. Ce lipsește cade pe limba de bază.
+    if (array_key_exists('traduceri', $campuri)) {
+        $nou['traduceri'] = [];
+        foreach ((array) ($campuri['traduceri'] ?? []) as $cod => $campuri_lb) {
+            $cod = (string) $cod;
+            if (!preg_match('/^[a-z]{2,3}(-[A-Z]{2})?$/', $cod)) throw new EroareCms('cheile din "traduceri" sunt coduri de limbă, ex. "en"');
+            if (!is_array($campuri_lb)) throw new EroareCms("\"traduceri.$cod\" e un obiect cu nume/descriere/subsol/nume_articole");
+            $t = [];
+            foreach (CAMPURI_TRADUSE as $k) {
+                if (!array_key_exists($k, $campuri_lb)) continue;
+                $lung = $k === 'descriere' ? 300 : ($k === 'subsol' ? 300 : 80);
+                $v = text_simplu($campuri_lb[$k] ?? '', $lung);
+                if ($v !== '') $t[$k] = $v;
+            }
+            if ($t) $nou['traduceri'][$cod] = $t;
+        }
+    }
     if (array_key_exists('culoare', $campuri)) {
         $nou['culoare'] = strtolower((string) ($campuri['culoare'] ?? ''));
         if (!preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/', $nou['culoare'])) throw new EroareCms('"culoare" e un cod hex, ex. "#6d2be8"');

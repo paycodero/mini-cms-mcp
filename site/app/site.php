@@ -65,7 +65,7 @@ function randeaza(string $sablon, array $v, int $cod = 200, array $csp = []): vo
     header('Content-Type: text/html; charset=utf-8');
     if (!preg_grep('/^Cache-Control:/i', headers_list())) header('Cache-Control: no-cache');
     antete_securitate(csp_pagina($nonce, $csp));
-    $v += ['titlu_pagina' => (string) config('site.nume'), 'descriere' => (string) config('site.descriere'),
+    $v += ['titlu_pagina' => (string) text_site('nume'), 'descriere' => (string) text_site('descriere'),
            'canonic' => null, 'imagine_og' => '', 'tip_og' => 'website', 'jsonld' => null, 'jsonld_extra' => [],
            'noindex' => false, 'previzualizare' => null, 'cautare' => '', 'e' => null];
     if ($v['imagine_og'] === '' && (string) config('site.logo') !== '') $v['imagine_og'] = url_absolut((string) config('site.logo'));
@@ -115,7 +115,7 @@ function alternate_limbi(?array $e): array
 // $majuscula pune prima literă mare („Ghiduri"). Adresa rămâne /articole oricum.
 function nume_articole(bool $articulat = false, bool $majuscula = false): string
 {
-    $n = (string) config('site.nume_articole');
+    $n = (string) text_site('nume_articole');
     if ($n === '') $n = 'articole';
     if ($articulat) $n .= 'le';
     if ($majuscula && preg_match('/^(.)(.*)$/us', $n, $m)) {
@@ -177,7 +177,7 @@ function eveniment_jsonld(array $e, string $canonic, string $imagine): ?array
         'location' => ['@type' => 'Place', 'name' => $ev['loc'], 'address' => $adresa],
         'image' => $imagine !== '' ? [$imagine] : null, 'url' => $canonic,
         'performer' => array_map(fn($a) => ['@type' => $a['grup'] ? 'PerformingGroup' : 'Person', 'name' => $a['nume']], $ev['artisti'] ?? []) ?: null,
-        'organizer' => ['@type' => 'Organization', 'name' => ($ev['organizator'] ?? '') ?: (string) config('site.nume'), 'url' => url_absolut('/')],
+        'organizer' => ['@type' => 'Organization', 'name' => ($ev['organizator'] ?? '') ?: (string) text_site('nume'), 'url' => url_absolut('/')],
         'offers' => ($ev['bilete'] ?? '') !== '' ? ['@type' => 'Offer', 'url' => $ev['bilete']] : null]);
 }
 
@@ -248,7 +248,7 @@ function marcheaza_portret(string $html): string
 
 function editor_jsonld(): array
 {
-    $ed = ['@type' => 'Organization', '@id' => url_absolut('/#editor'), 'name' => (string) config('site.nume'), 'url' => url_absolut('/')];
+    $ed = ['@type' => 'Organization', '@id' => url_absolut('/#editor'), 'name' => (string) text_site('nume'), 'url' => url_absolut('/')];
     if ((string) config('site.logo') !== '') $ed['logo'] = url_absolut((string) config('site.logo'));
     // sameAs: celelalte site-uri și conturi. De aici află motoarele că profilurile sunt ale aceleiași entități.
     $sameas = array_values(array_filter(array_column((array) config('site.legaturi'), 'url')));
@@ -334,12 +334,12 @@ function variabile_acasa(?array $acasa): array
         'acasa' => $acasa,
         'html' => $acasa ? marcheaza_portret(curata_html((string) $acasa['continut_html'])) : '',
         'articole' => articole_acasa(),
-        'titlu_pagina' => $acasa ? titlu_pagina((string) $acasa['titlu']) : (string) config('site.nume'),
-        'descriere' => ($acasa['descriere'] ?? '') ?: (string) config('site.descriere'),
+        'titlu_pagina' => $acasa ? titlu_pagina((string) $acasa['titlu']) : (string) text_site('nume'),
+        'descriere' => ($acasa['descriere'] ?? '') ?: (string) text_site('descriere'),
         'canonic' => url_absolut('/'),
         // WebSite + editorul: așa știu Google, Bing și asistenții AI ce entitate e site-ul, nu doar ce pagini are.
         'jsonld' => ['@context' => 'https://schema.org', '@type' => 'WebSite', '@id' => url_absolut('/#site'),
-            'name' => config('site.nume'), 'url' => url_absolut('/'), 'description' => (string) config('site.descriere'),
+            'name' => text_site('nume'), 'url' => url_absolut('/'), 'description' => (string) text_site('descriere'),
             'inLanguage' => limba_curenta(), 'publisher' => editor_jsonld(),
             'potentialAction' => ['@type' => 'SearchAction', 'target' => ['@type' => 'EntryPoint',
                 'urlTemplate' => url_absolut('/cauta?q={search_term_string}')], 'query-input' => 'required name=search_term_string']],
@@ -370,7 +370,7 @@ function variabile_element(string $tip, array $e): array
     $html = marcheaza_portret(curata_html((string) ($e['continut_html'] ?? '')));
     $v = ['e' => $e, 'html' => $html,
           'titlu_pagina' => titlu_pagina((string) $e['titlu']),
-          'descriere' => ($e['descriere'] ?? '') ?: (string) config('site.descriere'),
+          'descriere' => ($e['descriere'] ?? '') ?: (string) text_site('descriere'),
           'canonic' => url_absolut(url_element($e)),
           'jsonld_extra' => [firimituri_jsonld($e)]];
     $faq = faq_jsonld($html);
@@ -407,7 +407,7 @@ function variabile_element(string $tip, array $e): array
 // iar Google taie oricum după vreo 60 de caractere).
 function titlu_pagina(string $titlu): string
 {
-    $nume = (string) config('site.nume');
+    $nume = (string) text_site('nume');
     if ($nume === '' || stripos($titlu, $nume) !== false) return $titlu;
     return $titlu . ' — ' . $nume;
 }
@@ -449,7 +449,7 @@ function pagina_cautare(): void
     $q = text_simplu($_GET['q'] ?? '', 100);
     $gasit = $q === '' ? ['modele' => [], 'rezultate' => []] : cauta_public($q);
     randeaza('cauta', ['q' => $q, 'cautare' => $q, 'rezultate' => $gasit['rezultate'], 'modele' => $gasit['modele'], 'noindex' => true,
-                       'titlu_pagina' => ($q !== '' ? 'Caută: ' . $q : 'Caută') . ' — ' . config('site.nume')]);
+                       'titlu_pagina' => ($q !== '' ? 'Caută: ' . $q : 'Caută') . ' — ' . text_site('nume')]);
 }
 
 function numar_rezultate(int $n): string
@@ -479,7 +479,7 @@ function pagina_lista(?string $eticheta): void
     randeaza('lista', [
         'titlu' => $titlu, 'eticheta' => $eticheta, 'articole' => array_slice($toate, ($nr - 1) * $pe_pagina, $pe_pagina),
         'nr' => $nr, 'total_pagini' => $total_pagini, 'baza' => $baza,
-        'titlu_pagina' => $titlu . ' — ' . config('site.nume'),
+        'titlu_pagina' => $titlu . ' — ' . text_site('nume'),
         'canonic' => url_absolut($baza . ($nr > 1 ? '?pagina=' . $nr : '')),
     ]);
 }
@@ -498,8 +498,8 @@ function pagina_eroare(int $cod): void
     }
     $mesaje = [403 => 'Linkul nu mai e valabil.', 404 => 'Pagina nu există.', 405 => 'Metodă nepermisă.'];
     randeaza('eroare', ['cod' => $cod, 'mesaj' => $mesaje[$cod] ?? 'Eroare.', 'noindex' => true,
-                        'articole' => array_slice(listeaza_elemente('articol', 'vizibil'), 0, 3),
-                        'titlu_pagina' => $cod . ' — ' . config('site.nume')], $cod);
+                        'articole' => array_slice(listeaza_limba('articol', 'vizibil'), 0, 3),
+                        'titlu_pagina' => $cod . ' — ' . text_site('nume')], $cod);
 }
 
 // --- fișiere generate --------------------------------------------------------------------------
@@ -524,12 +524,26 @@ function fisier_sitemap(): void
     $toate = array_merge($pagini, $articole);
     $ultima = '';
     foreach ($toate as $e) $ultima = max($ultima, substr((string) ($e['actualizat'] ?? ''), 0, 10));
+    // Pe un site multilingv, fiecare adresă își declară traducerile (xhtml:link) — așa Google le tratează ca aceeași pagină.
+    $alternative_xml = function (?array $e): void {
+        if (!e_multilingv()) return;
+        $alt = alternate_limbi($e);
+        foreach ($alt as $cod => $u) echo '<xhtml:link rel="alternate" hreflang="', xml($cod), '" href="', xml($u), '"/>';
+        if (isset($alt[limba_implicita()])) echo '<xhtml:link rel="alternate" hreflang="x-default" href="', xml($alt[limba_implicita()]), '"/>';
+    };
     echo '<?xml version="1.0" encoding="UTF-8"?>', "\n",
-         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">', "\n";
-    echo '<url><loc>', xml(url_absolut('/')), '</loc>', ($ultima !== '' ? '<lastmod>' . xml($ultima) . '</lastmod>' : ''), '</url>', "\n";
+         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"',
+         ' xmlns:xhtml="http://www.w3.org/1999/xhtml">', "\n";
+    // Rădăcina fiecărei limbi (/, /en): prima pagină a limbii stă acolo, nu la /<limba>/<slug>.
+    foreach (limbi() as $lang) {
+        echo '<url><loc>', xml(url_absolut($lang === limba_implicita() ? '/' : '/' . $lang)), '</loc>',
+             ($ultima !== '' ? '<lastmod>' . xml($ultima) . '</lastmod>' : '');
+        $alternative_xml(null);
+        echo '</url>', "\n";
+    }
     foreach (['pagina' => $pagini, 'articol' => $articole] as $tip => $lista) {
         foreach ($lista as $e) {
-            if ($tip === 'pagina' && $e['slug'] === 'acasa') continue;
+            if ($tip === 'pagina' && e_home($e)) continue;   // prima pagină a fiecărei limbi e deja în lista de rădăcini
             echo '<url><loc>', xml(url_absolut(url_element($e))), '</loc>';
             if (!empty($e['actualizat'])) echo '<lastmod>', xml(substr((string) $e['actualizat'], 0, 10)), '</lastmod>';
             // coperta, ca să ajungă și în căutarea de imagini
@@ -538,6 +552,7 @@ function fisier_sitemap(): void
                 if (($e['imagine_alt'] ?? '') !== '') echo '<image:title>', xml($e['imagine_alt']), '</image:title>';
                 echo '</image:image>';
             }
+            $alternative_xml($e);
             echo '</url>', "\n";
         }
     }
@@ -553,12 +568,12 @@ function fisier_sitemap(): void
 function fisier_feed(): void
 {
     antete_text('application/rss+xml');
-    $articole = array_slice(listeaza_elemente('articol', 'vizibil'), 0, 20);
+    $articole = array_slice(listeaza_limba('articol', 'vizibil'), 0, 20);
     echo '<?xml version="1.0" encoding="UTF-8"?>', "\n",
          '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/"><channel>', "\n";
-    echo '<title>', xml(config('site.nume')), '</title><link>', xml(url_absolut('/')), '</link>';
+    echo '<title>', xml(text_site('nume')), '</title><link>', xml(url_absolut('/')), '</link>';
     echo '<atom:link href="', xml(url_absolut('/feed.xml')), '" rel="self" type="application/rss+xml"/>';
-    echo '<description>', xml(config('site.descriere')), '</description><language>', xml(config('site.limba')), '</language>';
+    echo '<description>', xml(text_site('descriere')), '</description><language>', xml(limba_curenta()), '</language>';
     if ($articole && !empty($articole[0]['publicat_la'])) echo '<lastBuildDate>', xml(date(DATE_RSS, (int) strtotime((string) $articole[0]['publicat_la']))), '</lastBuildDate>';
     echo "\n";
     foreach ($articole as $e) {
@@ -610,10 +625,10 @@ function fisier_robots(): void
 function fisier_llms(): void
 {
     antete_text('text/plain');
-    echo '# ', config('site.nume'), "\n\n";
-    if (config('site.descriere')) echo '> ', config('site.descriere'), "\n\n";
-    if ((string) config('site.subsol') !== '') echo config('site.subsol'), "\n\n";   // ce stă pe fiecare pagină, citesc și modelele
-    echo 'Adresa site-ului: ', url_absolut('/'), ' · limba: ', config('site.limba');
+    echo '# ', text_site('nume'), "\n\n";
+    if (text_site('descriere')) echo '> ', text_site('descriere'), "\n\n";
+    if ((string) text_site('subsol') !== '') echo text_site('subsol'), "\n\n";   // ce stă pe fiecare pagină, citesc și modelele
+    echo 'Adresa site-ului: ', url_absolut('/'), ' · limba: ', limba_curenta();
     if ((string) config('site.autor') !== '') echo ' · autor: ', config('site.autor');
     echo "\n", 'Conținutul se poate citi și prin ', url_absolut('/feed.xml'), ' (RSS) sau ', url_absolut('/sitemap.xml'), ' (toate adresele).', "\n\n";
     $legaturi = (array) config('site.legaturi');
