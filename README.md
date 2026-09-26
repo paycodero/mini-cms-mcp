@@ -487,3 +487,7 @@ location / { try_files $uri /index.php$is_args$args; }
 
 - `post_max_size` al găzduirii limitează mărimea imaginilor urcate (base64 adaugă ~33%).
 - Căutarea și listele citesc toate fișierele JSON la fiecare cerere: potrivit pentru zeci sau sute de elemente, nu pentru zeci de mii.
+
+## Licență
+
+MIT — vezi [LICENSE](LICENSE). Poți folosi, modifica și distribui codul, inclusiv comercial, cu condiția să păstrezi mențiunea de copyright.
