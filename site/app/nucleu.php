@@ -17,9 +17,9 @@ class EroareCms extends RuntimeException {}   // eroare de validare, cu mesaj bu
 
 // Identitatea site-ului e conținut: AI-ul o schimbă cu seteaza_site, iar valorile stau în date/site.json.
 // Ce scrie în config.php e doar punctul de plecare. Adresa (url) și cheile rămân numai în config.php.
-const CAMPURI_IDENTITATE = ['nume', 'descriere', 'limba', 'autor', 'culoare', 'logo', 'favicon', 'tema', 'legaturi', 'ga4',
+const CAMPURI_IDENTITATE = ['nume', 'descriere', 'limba', 'limbi', 'autor', 'culoare', 'logo', 'favicon', 'tema', 'legaturi', 'ga4',
     'subsol', 'realizare', 'realizare_url', 'nume_articole', 'arata_data'];
-const CAMPURI_LISTA = ['legaturi'];   // câmpurile de identitate care sunt liste, nu text
+const CAMPURI_LISTA = ['legaturi', 'limbi'];   // câmpurile de identitate care sunt liste, nu text
 
 function config(string $cale = '')
 {
@@ -30,7 +30,7 @@ function config(string $cale = '')
         $dat = require $fisier;
         if (!is_array($dat)) oprire(503, 'app/config.php trebuie să întoarcă un array.');
         $implicit = [
-            'site' => ['nume' => '', 'descriere' => '', 'url' => '', 'limba' => 'ro', 'autor' => '', 'culoare' => '#6d2be8',
+            'site' => ['nume' => '', 'descriere' => '', 'url' => '', 'limba' => 'ro', 'limbi' => [], 'autor' => '', 'culoare' => '#6d2be8',
                        'logo' => '', 'favicon' => '', 'tema' => '', 'legaturi' => [], 'ga4' => '',
                        'subsol' => '', 'realizare' => '', 'realizare_url' => '', 'nume_articole' => '', 'arata_data' => ''],
             'chei' => ['citire' => '', 'scriere' => '', 'cod' => ''],
@@ -71,6 +71,45 @@ function config(string $cale = '')
         $v = $v[$p];
     }
     return $v;
+}
+
+// Limbile site-ului: prima e cea implicită (stă la /), celelalte primesc prefix de adresă (/en/...).
+// O singură limbă (sau niciuna în „limbi") = site monolingv, exact ca înainte. „limba" rămâne codul implicit.
+function limbi(): array
+{
+    $brut = (array) config('site.limbi');
+    $l = [];
+    foreach ($brut as $cod) {
+        $cod = (string) $cod;
+        if (preg_match('/^[a-z]{2,3}(-[A-Z]{2})?$/', $cod) && !in_array($cod, $l, true)) $l[] = $cod;
+    }
+    if (!$l) $l = [(string) config('site.limba')];
+    return $l;
+}
+
+function limba_implicita(): string
+{
+    return limbi()[0];
+}
+
+// Limba cererii curente: pusă de rutare când adresa începe cu un prefix de limbă (/en/...). Implicit, limba de bază.
+function limba_curenta(?string $set = null): string
+{
+    static $l = null;
+    if ($set !== null) $l = $set;
+    return $l ?? limba_implicita();
+}
+
+function e_multilingv(): bool
+{
+    return count(limbi()) > 1;
+}
+
+// Limba unui element: ce scrie în el, sau limba implicită dacă lipsește. Mereu una din limbile site-ului.
+function limba_element(array $e): string
+{
+    $lang = (string) ($e['limba'] ?? '');
+    return ($lang !== '' && in_array($lang, limbi(), true)) ? $lang : limba_implicita();
 }
 
 function oprire(int $cod, string $mesaj): void

@@ -69,9 +69,76 @@ function listeaza_elemente(string $tip, string $stare = 'toate'): array
     return $rez;
 }
 
+// Elementele unei limbi. Pe un site monolingv, limba_element întoarce mereu limba implicită, deci lista e neschimbată.
+function listeaza_limba(string $tip, string $stare, ?string $lang = null): array
+{
+    $lang = $lang ?? limba_curenta();
+    return array_values(array_filter(listeaza_elemente($tip, $stare), fn($e) => limba_element($e) === $lang));
+}
+
+// Grupul de traducere al unei pagini de start: al ei, sau „acasa" implicit. Home-ul fiecărei limbi împarte acest grup.
+function grup_acasa(): string
+{
+    static $g = null;
+    if ($g === null) {
+        $h = citeste_element('pagina', 'acasa');
+        $g = (string) (($h['grup'] ?? '') ?: 'acasa');
+    }
+    return $g;
+}
+
+// E acest element prima pagină a limbii lui? (slugul „acasa" al limbii implicite, sau o pagină din grupul home-ului.)
+function e_home(array $e): bool
+{
+    if (($e['tip'] ?? '') !== 'pagina') return false;
+    if (($e['slug'] ?? '') === 'acasa') return true;
+    return e_multilingv() && (string) ($e['grup'] ?? '') !== '' && (string) ($e['grup'] ?? '') === grup_acasa();
+}
+
+// Prima pagină a unei limbi: „acasa" pentru limba implicită; pentru o limbă a doua, pagina ei din grupul home-ului.
+function home_limba(string $lang): ?array
+{
+    if ($lang === limba_implicita()) {
+        $h = citeste_element('pagina', 'acasa');
+        return $h && e_vizibil($h) ? $h : null;
+    }
+    $grup = grup_acasa();
+    foreach (listeaza_limba('pagina', 'vizibil', $lang) as $p) {
+        if ((string) ($p['grup'] ?? '') === $grup) return $p;
+    }
+    return null;
+}
+
+// Traducerea unui element în altă limbă: elementul vizibil cu același grup, în limba cerută. Fără grup, fără pereche.
+function pereche_element(array $e, string $lang): ?array
+{
+    if (limba_element($e) === $lang) return $e;
+    $grup = (string) ($e['grup'] ?? '');
+    // home-ul se împerechează după grupul lui, chiar dacă e „acasa" fără câmp grup
+    if ($grup === '' && ($e['tip'] ?? '') === 'pagina' && ($e['slug'] ?? '') === 'acasa') return home_limba($lang);
+    if ($grup === '') return null;
+    foreach (['pagina', 'articol'] as $tip) {
+        foreach (listeaza_limba($tip, 'vizibil', $lang) as $x) {
+            if ((string) ($x['grup'] ?? '') === $grup) return $x;
+        }
+    }
+    return null;
+}
+
+// Prefixul de adresă al unei limbi: „/en" pentru o limbă a doua, „" pentru limba implicită (care stă la /).
+function prefix_limba(?string $lang = null): string
+{
+    $lang = $lang ?? limba_curenta();
+    return $lang !== limba_implicita() ? '/' . $lang : '';
+}
+
 function url_element(array $e): string
 {
-    return (($e['tip'] ?? '') === 'pagina' && ($e['slug'] ?? '') === 'acasa') ? '/' : '/' . $e['slug'];
+    // Limba a doua primește prefix de adresă (/en/...); limba implicită stă la rădăcină, ca înainte.
+    $lang = limba_element($e);
+    $prefix = ($lang !== limba_implicita()) ? '/' . $lang : '';
+    if (e_home($e)) return $prefix === '' ? '/' : $prefix;
+    return $prefix . '/' . $e['slug'];
 }
 
 function rezumat_element(array $e): array
@@ -280,6 +347,19 @@ function salveaza_element(string $tip, string $slug, array $campuri): array
         if ($tip === 'pagina' && !in_array($campuri['eveniment'] ?? null, [null, [], ''], true)) {
             throw new EroareCms('"eveniment" e doar pentru articole: un eveniment se anunță într-un articol');
         }
+        // Limba elementului (site multilingv): limba implicită nu primește câmp, ca elementele vechi să rămână neatinse.
+        if (array_key_exists('limba', $campuri)) {
+            $lang = (string) ($campuri['limba'] ?? '');
+            if ($lang !== '' && !preg_match('/^[a-z]{2,3}(-[A-Z]{2})?$/', $lang)) throw new EroareCms('"limba" e un cod ca "ro" sau "en"');
+            if ($lang === '' || $lang === limba_implicita()) unset($nou['limba']);
+            else $nou['limba'] = $lang;
+        }
+        // Grupul: leagă un element de traducerile lui în alte limbi (ex. despre_noi ro ↔ about_us en au același grup).
+        if (array_key_exists('grup', $campuri)) {
+            $g = slug_din_text((string) ($campuri['grup'] ?? ''));
+            if ($g === '') unset($nou['grup']);
+            else $nou['grup'] = $g;
+        }
         $nou += ['descriere' => ''];
 
         if ($vechi !== null) {   // nimic schimbat = nicio scriere, nicio versiune nouă
@@ -479,6 +559,16 @@ function seteaza_identitate(array $campuri): array
     if (array_key_exists('limba', $campuri)) {
         $nou['limba'] = (string) ($campuri['limba'] ?? '');
         if (!preg_match('/^[a-z]{2,3}(-[A-Z]{2})?$/', $nou['limba'])) throw new EroareCms('"limba" e un cod ca "ro" sau "en-GB"');
+    }
+    // Limbile site-ului: prima e cea implicită (stă la /), restul primesc prefix de adresă (/en/...).
+    // Listă goală sau cu o singură limbă = site monolingv. Nu se cere ca „limba" să fie prima: se aliniază singură.
+    if (array_key_exists('limbi', $campuri)) {
+        $nou['limbi'] = [];
+        foreach ((array) ($campuri['limbi'] ?? []) as $cod) {
+            $cod = (string) $cod;
+            if (!preg_match('/^[a-z]{2,3}(-[A-Z]{2})?$/', $cod)) throw new EroareCms('fiecare cod din "limbi" e ca "ro" sau "en-GB"');
+            if (!in_array($cod, $nou['limbi'], true)) $nou['limbi'][] = $cod;
+        }
     }
     if (array_key_exists('culoare', $campuri)) {
         $nou['culoare'] = strtolower((string) ($campuri['culoare'] ?? ''));

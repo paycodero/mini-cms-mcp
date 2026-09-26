@@ -1,6 +1,9 @@
-<?php if (!defined('MINICMS')) { http_response_code(403); exit; } ?>
+<?php if (!defined('MINICMS')) { http_response_code(403); exit; }
+$lang_pagina = $e ? limba_element($e) : limba_curenta();   // limba paginii curente (nu doar limba implicită a site-ului)
+$alternative = alternate_limbi($e ?? null);                // adresele în celelalte limbi, pentru comutator și hreflang
+?>
 <!DOCTYPE html>
-<html lang="<?= esc(config('site.limba')) ?>">
+<html lang="<?= esc($lang_pagina) ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -15,12 +18,18 @@
 <?php if ($canonic): ?><link rel="canonical" href="<?= esc($canonic) ?>">
 <meta property="og:url" content="<?= esc($canonic) ?>">
 <?php endif; ?>
+<?php // hreflang: spune motoarelor că paginile sunt aceeași, în limbi diferite. x-default = limba implicită.
+if (!$noindex && count($alternative) > 1): foreach ($alternative as $cod_alt => $url_alt): ?>
+<link rel="alternate" hreflang="<?= esc($cod_alt) ?>" href="<?= esc($url_alt) ?>">
+<?php endforeach; if (isset($alternative[limba_implicita()])): ?>
+<link rel="alternate" hreflang="x-default" href="<?= esc($alternative[limba_implicita()]) ?>">
+<?php endif; endif; ?>
 <meta property="og:title" content="<?= esc($titlu_pagina) ?>">
 <meta property="og:site_name" content="<?= esc(config('site.nume')) ?>">
 <meta property="og:type" content="<?= esc($tip_og) ?>">
 <?php if ($descriere !== ''): ?><meta property="og:description" content="<?= esc($descriere) ?>">
 <?php endif; ?>
-<meta property="og:locale" content="<?= esc(str_replace('-', '_', (string) config('site.limba'))) ?>">
+<meta property="og:locale" content="<?= esc(str_replace('-', '_', $lang_pagina)) ?>">
 <?php if ($imagine_og !== ''): ?><meta property="og:image" content="<?= esc($imagine_og) ?>">
 <?php $masuri_og = imagine_masuri((string) ($e['imagine'] ?? '')); if ($masuri_og): ?><meta property="og:image:width" content="<?= (int) $masuri_og['latime'] ?>">
 <meta property="og:image:height" content="<?= (int) $masuri_og['inaltime'] ?>">
@@ -55,7 +64,7 @@ if ((string) config('site.ga4') !== '' && !$noindex): $ga4 = (string) config('si
 <?php endif; ?>
 <header class="antet">
   <div class="lat antet-rand">
-    <a class="sigla" href="/"><?php if ((string) config('site.logo') !== ''): ?><img src="<?= esc(config('site.logo')) ?>" alt="" height="40"><?php endif; ?><span><?= esc(config('site.nume')) ?></span></a>
+    <a class="sigla" href="<?= esc(prefix_limba() ?: '/') ?>"><?php if ((string) config('site.logo') !== ''): ?><img src="<?= esc(config('site.logo')) ?>" alt="" height="40"><?php endif; ?><span><?= esc(config('site.nume')) ?></span></a>
     <nav class="meniu" aria-label="Meniu">
 <?php foreach (meniu() as $m): ?>
 <?php if (!empty($m['copii'])): // submeniul se deschide la trecerea mouse-ului și din tastatură (:focus-within), fără JavaScript ?>
@@ -72,9 +81,17 @@ if ((string) config('site.ga4') !== '' && !$noindex): $ga4 = (string) config('si
 <?php endif; ?>
 <?php endforeach; ?>
     </nav>
-    <form class="cauta-antet" action="/cauta" method="get" role="search">
+    <form class="cauta-antet" action="<?= esc(prefix_limba() . '/cauta') ?>" method="get" role="search">
       <input type="search" name="q" value="<?= esc($cautare) ?>" placeholder="Caută pe site" aria-label="Caută pe site" maxlength="100">
     </form>
+<?php if (e_multilingv()): ?>
+    <nav class="limbi" aria-label="Limbă">
+<?php foreach (limbi() as $cod_l): $url_l = $alternative[$cod_l] ?? url_absolut($cod_l === limba_implicita() ? '/' : '/' . $cod_l); ?>
+<?php if ($cod_l === $lang_pagina): ?>      <span class="limba-activa" aria-current="true"><?= esc(strtoupper($cod_l)) ?></span>
+<?php else: ?>      <a href="<?= esc($url_l) ?>" hreflang="<?= esc($cod_l) ?>" lang="<?= esc($cod_l) ?>"><?= esc(strtoupper($cod_l)) ?></a>
+<?php endif; endforeach; ?>
+    </nav>
+<?php endif; ?>
   </div>
 </header>
 <main class="lat">

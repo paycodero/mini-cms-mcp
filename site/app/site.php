@@ -17,6 +17,13 @@ function ruleaza_site(): void
     $cale = rtrim($cale, '/');
     if ($cale === '' || $cale === '/index.php') $cale = '/';
 
+    // Prefixul de limbă (/en/...): pe un site multilingv, o limbă a doua stă sub prefixul ei. Limba implicită stă la /.
+    if (e_multilingv() && preg_match('#^/([a-z]{2,3}(?:-[A-Z]{2})?)(/.*)?$#', $cale, $m)
+        && in_array($m[1], limbi(), true) && $m[1] !== limba_implicita()) {
+        limba_curenta($m[1]);
+        $cale = ($m[2] ?? '') !== '' ? $m[2] : '/';
+    }
+
     if ($cale === '/') { pagina_acasa(); return; }
     if ($cale === '/articole') { pagina_lista(null); return; }
     if ($cale === '/sitemap.xml') { fisier_sitemap(); return; }
@@ -74,7 +81,7 @@ function randeaza(string $sablon, array $v, int $cod = 200, array $csp = []): vo
 // (se ajunge la ele din lista subpaginilor, de pe pagina-părinte).
 function meniu(): array
 {
-    $pagini = listeaza_elemente('pagina', 'vizibil');
+    $pagini = listeaza_limba('pagina', 'vizibil');
     $m = [];
     foreach ($pagini as $p) {
         if (($p['meniu'] ?? null) === null || ($p['parinte'] ?? null) !== null) continue;
@@ -84,8 +91,24 @@ function meniu(): array
         }
         $m[] = ['titlu' => $p['titlu'], 'url' => url_element($p), 'copii' => $copii];
     }
-    if (listeaza_elemente('articol', 'vizibil')) $m[] = ['titlu' => nume_articole(false, true), 'url' => '/articole'];
+    if (listeaza_limba('articol', 'vizibil')) $m[] = ['titlu' => nume_articole(false, true), 'url' => prefix_limba() . '/articole'];
     return $m;
+}
+
+// Adresele aceleiași pagini în celelalte limbi, pentru comutator și hreflang. Prima pagină e mereu la /<limba>;
+// o pagină interioară apare doar în limbile în care are o traducere (același grup). Cheia e codul de limbă.
+function alternate_limbi(?array $e): array
+{
+    if (!e_multilingv()) return [];
+    $rez = [];
+    foreach (limbi() as $lang) {
+        if ($e === null) {   // prima pagină: ruta rădăcină a limbii există mereu, chiar fără o pagină „acasa" scrisă
+            $rez[$lang] = url_absolut(($lang === limba_implicita()) ? '/' : '/' . $lang);
+        } elseif (($p = pereche_element($e, $lang)) !== null) {
+            $rez[$lang] = url_absolut(url_element($p));
+        }
+    }
+    return $rez;
 }
 
 // Cum se numesc articolele pe site („ghiduri", „rețete"; implicit „articole"). $articulat adaugă „le" („ghidurile"),
@@ -133,7 +156,7 @@ function eveniment_urmeaza(array $e): bool
 // Prima pagină: întâi evenimentele care urmează, cel mai apropiat primul; apoi restul, cele mai noi întâi.
 function articole_acasa(int $cate = 6): array
 {
-    $toate = listeaza_elemente('articol', 'vizibil');
+    $toate = listeaza_limba('articol', 'vizibil');
     $urmeaza = array_values(array_filter($toate, 'eveniment_urmeaza'));
     usort($urmeaza, fn($a, $b) => strtotime((string) $a['eveniment']['inceput']) <=> strtotime((string) $b['eveniment']['inceput']));
     $restul = array_filter($toate, fn($a) => !eveniment_urmeaza($a));
@@ -161,7 +184,7 @@ function eveniment_jsonld(array $e, string $canonic, string $imagine): ?array
 // Două articole de citit mai departe: întâi cele cu prima etichetă a articolului, apoi cele mai noi.
 function articole_legate(array $e, int $cate = 2): array
 {
-    $alte = array_values(array_filter(listeaza_elemente('articol', 'vizibil'), fn($x) => $x['slug'] !== $e['slug']));
+    $alte = array_values(array_filter(listeaza_limba('articol', 'vizibil', limba_element($e)), fn($x) => $x['slug'] !== $e['slug']));
     $prima = slug_din_text((string) (($e['etichete'] ?? [])[0] ?? ''));
     $aceeasi = $prima === '' ? [] : array_filter($alte, fn($x) => in_array($prima, array_map(fn($t) => slug_din_text((string) $t), $x['etichete'] ?? []), true));
     $rez = [];
@@ -301,8 +324,7 @@ function faq_jsonld(string $html): ?array
 
 function pagina_acasa(): void
 {
-    $acasa = citeste_element('pagina', 'acasa');
-    if ($acasa && !e_vizibil($acasa)) $acasa = null;
+    $acasa = home_limba(limba_curenta());
     randeaza('acasa', variabile_acasa($acasa));
 }
 
@@ -318,7 +340,7 @@ function variabile_acasa(?array $acasa): array
         // WebSite + editorul: așa știu Google, Bing și asistenții AI ce entitate e site-ul, nu doar ce pagini are.
         'jsonld' => ['@context' => 'https://schema.org', '@type' => 'WebSite', '@id' => url_absolut('/#site'),
             'name' => config('site.nume'), 'url' => url_absolut('/'), 'description' => (string) config('site.descriere'),
-            'inLanguage' => (string) config('site.limba'), 'publisher' => editor_jsonld(),
+            'inLanguage' => limba_curenta(), 'publisher' => editor_jsonld(),
             'potentialAction' => ['@type' => 'SearchAction', 'target' => ['@type' => 'EntryPoint',
                 'urlTemplate' => url_absolut('/cauta?q={search_term_string}')], 'query-input' => 'required name=search_term_string']],
     ];
@@ -333,6 +355,10 @@ function pagina_element(string $slug): void
     foreach (['pagina', 'articol'] as $tip) {
         $e = citeste_element($tip, $slug);
         if (!$e || !e_vizibil($e)) continue;
+        // Fiecare element are o singură adresă canonică, în limba lui: sub prefixul greșit nu se vede (→ 404).
+        if (limba_element($e) !== limba_curenta()) continue;
+        // Prima pagină a unei limbi stă la /<limba>, nu la /<limba>/<slug>: adresa cu slug duce la rădăcina limbii.
+        if (e_home($e)) { header('Location: ' . url_element($e), true, 301); return; }
         randeaza($tip, variabile_element($tip, $e));
         return;
     }
@@ -362,7 +388,7 @@ function variabile_element(string $tip, array $e): array
             'description' => $e['descriere'] ?? '', 'datePublished' => $e['publicat_la'] ?? null, 'dateModified' => $e['actualizat'] ?? null,
             'image' => $v['imagine_og'] ?: null, 'url' => $v['canonic'],
             'mainEntityOfPage' => ['@type' => 'WebPage', '@id' => $v['canonic']],
-            'inLanguage' => (string) config('site.limba'),
+            'inLanguage' => limba_element($e),
             'keywords' => ($e['etichete'] ?? []) ? implode(', ', $e['etichete']) : null,
             'articleSection' => $e['etichete'][0] ?? null,
             'isAccessibleForFree' => true,
@@ -371,7 +397,7 @@ function variabile_element(string $tip, array $e): array
         if ($ev = eveniment_jsonld($e, $v['canonic'], $v['imagine_og'])) $v['jsonld_extra'][] = $ev;
     } else {
         $v['jsonld'] = ['@context' => 'https://schema.org', '@type' => 'WebPage', '@id' => $v['canonic'],
-                        'name' => $e['titlu'], 'url' => $v['canonic'], 'inLanguage' => (string) config('site.limba'),
+                        'name' => $e['titlu'], 'url' => $v['canonic'], 'inLanguage' => limba_element($e),
                         'isPartOf' => ['@id' => url_absolut('/#site')], 'publisher' => editor_jsonld()];
     }
     return $v;
@@ -434,7 +460,7 @@ function numar_rezultate(int $n): string
 
 function pagina_lista(?string $eticheta): void
 {
-    $toate = listeaza_elemente('articol', 'vizibil');
+    $toate = listeaza_limba('articol', 'vizibil');
     $nume_eticheta = null;
     if ($eticheta !== null) {
         $toate = array_values(array_filter($toate, function ($e) use ($eticheta, &$nume_eticheta) {
@@ -448,7 +474,7 @@ function pagina_lista(?string $eticheta): void
     $pe_pagina = max(1, (int) config('articole_pe_pagina'));
     $total_pagini = max(1, (int) ceil(count($toate) / $pe_pagina));
     $nr = max(1, min($total_pagini, (int) ($_GET['pagina'] ?? 1)));
-    $baza = $eticheta === null ? '/articole' : '/eticheta/' . $eticheta;
+    $baza = prefix_limba() . ($eticheta === null ? '/articole' : '/eticheta/' . $eticheta);
     $titlu = $eticheta === null ? nume_articole(false, true) : (string) $nume_eticheta;
     randeaza('lista', [
         'titlu' => $titlu, 'eticheta' => $eticheta, 'articole' => array_slice($toate, ($nr - 1) * $pe_pagina, $pe_pagina),
