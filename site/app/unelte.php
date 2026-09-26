@@ -175,6 +175,18 @@ function unelte(): array
                 return ['lant' => jurnal_verifica(), 'intrari' => jurnal_ultimele($n, !empty($a['doar_probleme']))];
             },
         ],
+        'vizite_ai' => [
+            'scriere' => false, 'titlu' => 'Citirile AI ale site-ului', 'adnotari' => $citire,
+            'descriere' => 'Câte pagini au deschis ChatGPT, Claude, Perplexity, Copilot și ceilalți asistenți, și câți oameni au venit din ei, '
+                . 'numărate pe server (GA4 nu le vede: boții nu execută JavaScript). Pe fel ("om" = asistentul a citit pagina ca să răspundă '
+                . 'cuiva; "cautare" = robotul din care își aleg sursele; "antrenare"; "vizitator" = click dintr-un asistent), pe asistent, '
+                . 'pe pagină și pe zi, plus erorile întâlnite de boți (ex. 404 pe adrese vechi). Fără IP-uri.',
+            'schema' => schema_obiect([
+                'zile' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 366, 'default' => 30, 'description' => 'ultimele N zile, inclusiv azi'],
+                'pagini' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 500, 'default' => 50, 'description' => 'câte pagini în lista celor mai citite'],
+            ]),
+            'fn' => fn(array $a) => raport_vizite_ai((int) ($a['zile'] ?? 30), (int) ($a['pagini'] ?? 50)),
+        ],
         'previzualizeaza' => [
             'scriere' => false, 'titlu' => 'Link de previzualizare', 'adnotari' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => false, 'openWorldHint' => false],
             'descriere' => 'Un link temporar la care omul vede o ciornă (sau un element programat) exact cum va arăta pe site, înainte de "publica". '

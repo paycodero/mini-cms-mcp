@@ -371,6 +371,7 @@ Conectorul din claude.ai (web, telefon) cere OAuth, care e în lucru (vezi mai j
 | `listeaza_versiuni` | citire | versiunile salvate automat ale unui element |
 | `listeaza_imagini` | citire | imaginile din `/media/` |
 | `citeste_jurnal` | citire | ultimele intrări și verificarea lanțului |
+| `vizite_ai` | citire | ce pagini au citit ChatGPT, Claude, Perplexity & co. și câți oameni au venit din ei (numărat pe server) |
 | `previzualizeaza` | citire | link temporar (implicit 60 de minute) la care omul vede o ciornă exact ca pe site, înainte de publicare |
 | `listeaza_redirectionari` | citire | adresele vechi care trimit spre adrese noi |
 | `exporta` | citire | tot conținutul, pentru copia de siguranță (vezi `unelte/copie.php`) |
@@ -412,6 +413,11 @@ Site-ul e făcut ca să fie găsit de oameni prin Google și Bing, dar și citit
 - **IndexNow:** la publicare, modificare sau retragere, adresa pleacă singură spre Bing (și Yandex, Seznam, Naver).
   Cheia stă în `date/securitate/` și se servește la `https://site/<cheie>.txt`, fără niciun fișier pus în rădăcină.
   Se oprește cu `'indexnow' => false`. Google nu are un punct echivalent: acolo rămâne sitemap-ul.
+- **Citirile AI (0.21):** GA4 nu vede când ChatGPT îți deschide pagina ca să răspundă cuiva — boții nu execută JavaScript.
+  Site-ul numără pe server, pe zi, pe asistent și pe adresă: `ChatGPT-User` & co. (asistentul a citit pagina pentru un om),
+  `OAI-SearchBot`, `PerplexityBot`, `bingbot` (indexul din care se aleg sursele), `GPTBot` & co. (antrenare) și oamenii
+  veniți din asistenți (Referer sau `utm_source`). Fără IP-uri, în `date/vizite-ai/AAAA-LL.json`; se citește cu `vizite_ai`.
+  Se oprește cu `'vizite_ai' => false`. Paginile servite din cache-ul Cloudflare nu ajung la server și nu se numără.
 - **Măsurarea (GA4):** `seteaza_site` (`ga4`) primește DOAR identificatorul, ex. `G-798XLP278H` — eticheta o compune
   site-ul, cu nonce-ul paginii, iar sursele de care are nevoie intră singure în CSP. AI-ul poate porni măsurarea, dar
   nu poate pune JavaScript în pagină: identificatorul e validat cu un tipar, iar orice altceva e refuzat. Se încarcă

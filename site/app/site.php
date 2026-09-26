@@ -16,6 +16,7 @@ function ruleaza_site(): void
     $cale = rawurldecode((string) (parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/'));
     $cale = rtrim($cale, '/');
     if ($cale === '' || $cale === '/index.php') $cale = '/';
+    vizite_ai_urmareste($cale);   // ChatGPT & co. care citesc pagina, numărați pe server (GA4 nu-i vede)
 
     // Prefixul de limbă (/en/...): pe un site multilingv, o limbă a doua stă sub prefixul ei. Limba implicită stă la /.
     if (e_multilingv() && preg_match('#^/([a-z]{2,3}(?:-[A-Z]{2})?)(/.*)?$#', $cale, $m)
