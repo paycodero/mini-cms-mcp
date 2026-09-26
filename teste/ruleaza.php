@@ -1635,6 +1635,18 @@ verifica('Multilingv', 'identitatea tradusă: pagina EN poartă numele și descr
     strpos($m_en['corp'], 'og:site_name" content="Village EN Name"') !== false
     && strpos($m_en['corp'], 'EN description of the site') !== false
     && strpos($m_ro['corp'], 'Village EN Name') === false, 'numele/descrierea EN nu apar (sau apar și pe RO)');
+// toleranță la clienți MCP cu schema veche: un câmp array/obiect trimis ca text JSON e acceptat decodat
+$m_tol_site = unealta($ks, 'seteaza_site', ['limbi' => '["ro","en"]', 'traduceri' => '{"en":{"nume":"Text JSON EN"}}']);
+$m_tol_art = unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'toljson', 'titlu' => 'Tol', 'continut_html' => '<p>x</p>', 'etichete' => '["Unu","Doi"]']);
+$tol_site = $m_tol_site['date'] ?? [];
+verifica('Multilingv', 'toleranță: array/obiect trimis ca text JSON (client cu schemă veche) e acceptat',
+    !$m_tol_site['eroare'] && !$m_tol_art['eroare']
+    && (($tol_site['site']['limbi'] ?? []) === ['ro', 'en'])
+    && (($tol_site['site']['traduceri']['en']['nume'] ?? '') === 'Text JSON EN')
+    && strpos($m_tol_art['text'], 'Unu') !== false,
+    'nedecodat — limbi=' . json_encode($tol_site['site']['limbi'] ?? null) . ' text=' . substr($m_tol_site['text'], 0, 120));
+unealta($ks, 'sterge', ['tip' => 'articol', 'slug' => 'toljson']);
+
 $m_sitemap = cerere('GET', '/sitemap.xml');
 verifica('Multilingv', 'sitemap: rădăcina /en apare și fiecare adresă își declară traducerile (xhtml:link)',
     $m_sitemap['cod'] === 200 && strpos($m_sitemap['corp'], 'xmlns:xhtml') !== false

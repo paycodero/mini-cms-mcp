@@ -293,6 +293,13 @@ function subpagini_pentru(string $slug, string $stare = 'vizibil'): array
 
 function salveaza_element(string $tip, string $slug, array $campuri): array
 {
+    // Un client MCP cu schema veche în cache poate trimite un câmp array/obiect ca text JSON: îl acceptăm decodat.
+    foreach (['etichete', 'eveniment'] as $k) {
+        if (isset($campuri[$k]) && is_string($campuri[$k])) {
+            $d = json_decode($campuri[$k], true);
+            if (is_array($d) || $d === null) $campuri[$k] = $d;
+        }
+    }
     verifica_tip_slug($tip, $slug);
     if (in_array($slug, SLUGURI_REZERVATE, true)) throw new EroareCms("slugul \"$slug\" e rezervat de site");
     if ($tip === 'articol' && $slug === 'acasa') throw new EroareCms('"acasa" e rezervat pentru prima pagină');
@@ -549,6 +556,13 @@ function tema_activa(): string
 
 function seteaza_identitate(array $campuri): array
 {
+    // Unele clienți MCP cu schema veche în cache trimit un câmp array/obiect ca text JSON: îl acceptăm decodat.
+    foreach (['limbi', 'traduceri', 'legaturi'] as $k) {
+        if (isset($campuri[$k]) && is_string($campuri[$k])) {
+            $d = json_decode($campuri[$k], true);
+            if (is_array($d)) $campuri[$k] = $d;
+        }
+    }
     $nou = [];
     if (array_key_exists('nume', $campuri)) {
         $nou['nume'] = text_simplu($campuri['nume'] ?? '', 80);
