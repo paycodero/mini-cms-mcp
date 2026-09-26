@@ -498,6 +498,13 @@ verifica('SEO', 'secțiunea „Întrebări frecvente" devine FAQPage, cu întreb
     count($faq_ld['mainEntity'] ?? []) === 3
     && ($faq_ld['mainEntity'][0]['name'] ?? '') === 'Cât durează instalarea?'
     && strpos((string) ($faq_ld['mainEntity'][0]['acceptedAnswer']['text'] ?? ''), 'zece minute') !== false, json_encode($faq_ld));
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'with-faq-en', 'titlu' => 'With an English FAQ',
+    'continut_html' => '<p>Short answer.</p><h2>Frequently asked questions</h2><h3>First?</h3><p>Yes.</p><h3>Second?</h3><p>Also yes.</p>']);
+unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'with-faq-en']);
+$faq_en = ld_de_tip(jsonld_din(cerere('GET', '/with-faq-en')['corp']), 'FAQPage');
+verifica('SEO', 'și secțiunea „Frequently asked questions” (articolele în engleză) devine FAQPage',
+    count($faq_en['mainEntity'] ?? []) === 2 && ($faq_en['mainEntity'][0]['name'] ?? '') === 'First?', json_encode($faq_en));
+unealta($ks, 'sterge', ['tip' => 'articol', 'slug' => 'with-faq-en']);
 verifica('SEO', 'articolul are og:locale, datele de publicare și etichetele ca meta',
     strpos($r['corp'], 'property="og:locale"') !== false && strpos($r['corp'], 'article:published_time') !== false
     && strpos($r['corp'], 'article:modified_time') !== false && strpos($r['corp'], 'article:tag') !== false);

@@ -299,7 +299,7 @@ function firimituri_jsonld(array $e): array
 // devin FAQPage: așa ajung în rezultatele Google și sunt ușor de citat de un asistent AI.
 function faq_jsonld(string $html): ?array
 {
-    if ($html === '' || !class_exists('DOMDocument') || !preg_match('/<h2[^>]*>\s*(întrebări frecvente|intrebari frecvente|faq)/iu', $html)) return null;
+    if ($html === '' || !class_exists('DOMDocument') || !preg_match('/<h2[^>]*>\s*(întrebări frecvente|intrebari frecvente|frequently asked questions|faq)/iu', $html)) return null;
     $doc = new DOMDocument('1.0', 'UTF-8');
     $anterior = libxml_use_internal_errors(true);
     $doc->loadHTML('<!DOCTYPE html><html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body>'
@@ -317,7 +317,7 @@ function faq_jsonld(string $html): ?array
         $text = trim((string) preg_replace('/\s+/u', ' ', (string) $nod->textContent));
         if ($nume === 'h2') {
             if ($curenta) { $intrebari[] = $curenta; $curenta = null; }
-            $in_sectiune = preg_match('/^(întrebări frecvente|intrebari frecvente|faq)/iu', $text) === 1;
+            $in_sectiune = preg_match('/^(întrebări frecvente|intrebari frecvente|frequently asked questions|faq)/iu', $text) === 1;
             continue;
         }
         // un bloc separat (ex. chemarea de la finalul articolului) încheie secțiunea, nu se lipește de ultimul răspuns

@@ -30,7 +30,7 @@ function sfaturi_ai(array $e): array
         $sfaturi[] = "Primul paragraf are $n de cuvinte: un asistent citează mai ușor un răspuns scurt, pus la început. "
             . 'Răspunsul în prima frază, primul paragraf sub ' . PRIMUL_PARAGRAF_MAX_CUVINTE . ' de cuvinte, detaliile după.';
 
-    if (preg_match('/<h2[^>]*>\s*(întrebări frecvente|intrebari frecvente|faq)/iu', $html)) {
+    if (preg_match('/<h2[^>]*>\s*(întrebări frecvente|intrebari frecvente|frequently asked questions|faq)/iu', $html)) {
         require_once __DIR__ . '/site.php';   // faq_jsonld() stă în partea publică, care nu e încărcată în MCP
         if (faq_jsonld($html) === null)
             $sfaturi[] = 'Secțiunea „Întrebări frecvente” nu devine FAQ pentru Google și asistenți: fiecare întrebare trebuie să fie '
