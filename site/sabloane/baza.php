@@ -65,7 +65,7 @@ if ((string) config('site.ga4') !== '' && !$noindex): $ga4 = (string) config('si
 <header class="antet">
   <div class="lat antet-rand">
     <a class="sigla" href="<?= esc(prefix_limba() ?: '/') ?>"><?php if ((string) config('site.logo') !== ''): ?><img src="<?= esc(config('site.logo')) ?>" alt="" height="40"><?php endif; ?><span><?= esc(text_site('nume')) ?></span></a>
-    <nav class="meniu" aria-label="Meniu">
+    <nav class="meniu" aria-label="<?= esc(ui('Meniu')) ?>">
 <?php foreach (meniu() as $m): ?>
 <?php if (!empty($m['copii'])): // submeniul se deschide la trecerea mouse-ului și din tastatură (:focus-within), fără JavaScript ?>
       <div class="meniu-grup">
@@ -82,7 +82,7 @@ if ((string) config('site.ga4') !== '' && !$noindex): $ga4 = (string) config('si
 <?php endforeach; ?>
     </nav>
     <form class="cauta-antet" action="<?= esc(prefix_limba() . '/cauta') ?>" method="get" role="search">
-      <input type="search" name="q" value="<?= esc($cautare) ?>" placeholder="Caută pe site" aria-label="Caută pe site" maxlength="100">
+      <input type="search" name="q" value="<?= esc($cautare) ?>" placeholder="<?= esc(ui('Caută pe site')) ?>" aria-label="<?= esc(ui('Caută pe site')) ?>" maxlength="100">
     </form>
 <?php if (e_multilingv()): ?>
     <nav class="limbi" aria-label="Limbă">

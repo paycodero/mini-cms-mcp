@@ -2,9 +2,9 @@
 <section class="eroare">
   <p class="cod"><?= (int) $cod ?></p>
   <h1><?= esc($mesaj) ?></h1>
-  <p><a class="buton" href="/">Prima pagină</a></p>
+  <p><a class="buton" href="<?= esc(prefix_limba() ?: '/') ?>"><?= esc(ui('Prima pagină')) ?></a></p>
 <?php if ($articole): ?>
-  <h2>Poate căutai</h2>
+  <h2><?= esc(ui('Poate căutai')) ?></h2>
 <?php require __DIR__ . '/_carduri.php'; ?>
 <?php endif; ?>
 </section>

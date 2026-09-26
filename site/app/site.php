@@ -111,13 +111,34 @@ function alternate_limbi(?array $e): array
     return $rez;
 }
 
-// Cum se numesc articolele pe site („ghiduri", „rețete"; implicit „articole"). $articulat adaugă „le" („ghidurile"),
-// $majuscula pune prima literă mare („Ghiduri"). Adresa rămâne /articole oricum.
+// Textele fixe de interfață ale șabloanelor, în limba paginii curente. Pentru limba implicită se întoarce sursa (română);
+// pentru engleză, din dicționarul de mai jos. Alte limbi cad tot pe română (produsul e RO-nativ). Nu atinge conținutul.
+function ui(string $ro): string
+{
+    if (limba_curenta() === limba_implicita()) return $ro;
+    static $en = [
+        'articole' => 'articles', 'Ultimele' => 'Latest', 'Toate' => 'All',
+        'Citește mai departe' => 'Read more', 'Eticheta' => 'Tag',
+        '← Mai noi' => '← Newer', 'Mai vechi →' => 'Older →', 'Pagina %d din %d' => 'Page %d of %d',
+        'Caută pe site' => 'Search the site', 'Caută' => 'Search', 'Meniu' => 'Menu', 'Pagini' => 'Pages',
+        'Pagina nu există.' => 'Page not found.', 'Linkul nu mai e valabil.' => 'This link is no longer valid.',
+        'Metodă nepermisă.' => 'Method not allowed.', 'Eroare.' => 'Something went wrong.',
+        'Caută:' => 'Search:', 'pentru' => 'for', 'Ce cauți?' => 'What are you looking for?', 'Ce cauți' => 'What are you looking for',
+        'Articol' => 'Article', 'Pagină' => 'Page',
+        'Încearcă alte cuvinte, mai puține sau mai scurte.' => 'Try other words, fewer or shorter.',
+        '%d rezultat' => '%d result', '%d rezultate' => '%d results',
+        'Prima pagină' => 'Home page', 'Poate căutai' => 'Maybe you were looking for',
+    ];
+    return limba_curenta() === 'en' ? ($en[$ro] ?? $ro) : $ro;
+}
+
+// Cum se numesc articolele pe site („ghiduri", „rețete"; implicit „articole"). $articulat adaugă „le" („ghidurile") —
+// doar în română, altă limbă nu articulează. $majuscula pune prima literă mare. Adresa rămâne /articole oricum.
 function nume_articole(bool $articulat = false, bool $majuscula = false): string
 {
     $n = (string) text_site('nume_articole');
-    if ($n === '') $n = 'articole';
-    if ($articulat) $n .= 'le';
+    if ($n === '') $n = ui('articole');
+    if ($articulat && limba_curenta() === limba_implicita()) $n .= 'le';
     if ($majuscula && preg_match('/^(.)(.*)$/us', $n, $m)) {
         $n = strtr($m[1], ['ă' => 'Ă', 'â' => 'Â', 'î' => 'Î', 'ș' => 'Ș', 'ş' => 'Ş', 'ț' => 'Ț', 'ţ' => 'Ţ']);
         $n = strtoupper($n) . $m[2];
@@ -449,11 +470,12 @@ function pagina_cautare(): void
     $q = text_simplu($_GET['q'] ?? '', 100);
     $gasit = $q === '' ? ['modele' => [], 'rezultate' => []] : cauta_public($q);
     randeaza('cauta', ['q' => $q, 'cautare' => $q, 'rezultate' => $gasit['rezultate'], 'modele' => $gasit['modele'], 'noindex' => true,
-                       'titlu_pagina' => ($q !== '' ? 'Caută: ' . $q : 'Caută') . ' — ' . text_site('nume')]);
+                       'titlu_pagina' => ($q !== '' ? ui('Caută:') . ' ' . $q : ui('Caută')) . ' — ' . text_site('nume')]);
 }
 
 function numar_rezultate(int $n): string
 {
+    if (limba_curenta() !== limba_implicita()) return sprintf(ui($n === 1 ? '%d rezultat' : '%d rezultate'), $n);
     if ($n === 1) return '1 rezultat';
     return $n . ($n === 0 || $n % 100 >= 20 ? ' de rezultate' : ' rezultate');
 }
@@ -496,8 +518,8 @@ function pagina_eroare(int $cod): void
             return;
         }
     }
-    $mesaje = [403 => 'Linkul nu mai e valabil.', 404 => 'Pagina nu există.', 405 => 'Metodă nepermisă.'];
-    randeaza('eroare', ['cod' => $cod, 'mesaj' => $mesaje[$cod] ?? 'Eroare.', 'noindex' => true,
+    $mesaje = [403 => ui('Linkul nu mai e valabil.'), 404 => ui('Pagina nu există.'), 405 => ui('Metodă nepermisă.')];
+    randeaza('eroare', ['cod' => $cod, 'mesaj' => $mesaje[$cod] ?? ui('Eroare.'), 'noindex' => true,
                         'articole' => array_slice(listeaza_limba('articol', 'vizibil'), 0, 3),
                         'titlu_pagina' => $cod . ' — ' . text_site('nume')], $cod);
 }

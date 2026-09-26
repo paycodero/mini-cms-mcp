@@ -22,7 +22,7 @@ if (($e['imagine'] ?? '') !== '' && strpos($html, (string) $e['imagine']) === fa
   <div class="continut"><?= $html ?></div>
 <?php if ($legate ?? []): ?>
   <aside class="legate">
-    <h2>Citește mai departe</h2>
+    <h2><?= esc(ui('Citește mai departe')) ?></h2>
     <div class="legate-lista">
 <?php foreach ($legate as $x): ?>
       <a class="legat" href="<?= esc(url_element($x)) ?>">
@@ -40,5 +40,5 @@ if (($e['imagine'] ?? '') !== '' && strpos($html, (string) $e['imagine']) === fa
     </div>
   </aside>
 <?php endif; ?>
-  <p class="inapoi"><a href="/articole">← Toate <?= esc(nume_articole(true)) ?></a></p>
+  <p class="inapoi"><a href="<?= esc(prefix_limba()) ?>/articole">← <?= esc(ui('Toate')) ?> <?= esc(nume_articole(true)) ?></a></p>
 </article>

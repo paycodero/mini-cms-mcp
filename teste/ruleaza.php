@@ -1613,6 +1613,11 @@ $m_enart = cerere('GET', '/en/enarticol');
 verifica('Multilingv', 'eticheta unui articol EN duce la /en/eticheta/... (nu la lista în română)',
     $m_enart['cod'] === 200 && strpos($m_enart['corp'], 'href="/en/eticheta/tag-one"') !== false
     && strpos($m_enart['corp'], 'href="/eticheta/tag-one"') === false, "cod {$m_enart['cod']}");
+$m_home_ui = cerere('GET', '/en');
+verifica('Multilingv', 'interfața EN e tradusă: „Latest/All", link /en/articole, fără text românesc de interfață',
+    strpos($m_home_ui['corp'], 'Latest') !== false && strpos($m_home_ui['corp'], 'href="/en/articole"') !== false
+    && strpos($m_home_ui['corp'], 'Ultimele') === false && strpos($m_home_ui['corp'], 'Toate articolele') === false,
+    'text de interfață netradus pe /en');
 
 $m_ro = cerere('GET', '/despremulti');
 $m_en = cerere('GET', '/en/aboutmulti');

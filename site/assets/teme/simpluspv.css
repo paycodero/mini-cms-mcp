@@ -137,6 +137,7 @@ main.lat>section>h1{margin-bottom:clamp(28px,4vw,44px)}
 .card-imagine img{width:100%;height:100%;aspect-ratio:auto;object-fit:cover}
 .card-text{padding:20px 20px 22px;display:flex;flex-direction:column;flex:1}
 .card-text::after{content:"Citește mai mult →";margin-top:16px;font-weight:700;font-size:14px;color:var(--accent)}
+[lang="en"] .card-text::after{content:"Read more →"}
 .card h3{font-size:19px;line-height:1.18;margin:0}
 .card h3 a{color:var(--text)}
 .card h3 a::after{content:"";position:absolute;inset:0}   /* tot cardul e clicabil, ca pe simpluspv.eu */
