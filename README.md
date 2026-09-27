@@ -17,7 +17,11 @@ It installs on ordinary shared hosting with cPanel or Plesk and PHP 8.0+.
   for the claude.ai connector; a key in the header for Claude Code. Separate keys for editors (for example, your client).
 - **Readable by AI search**: sitemap, feed, `llms.txt`, clean HTML, FAQ markup, a built-in check that ChatGPT, Claude,
   Perplexity, Bing and Google bots are not blocked, and a server-side count of the pages they read.
-- 373 automated tests (install, update, backup, OAuth, SEO, measurement, attacks).
+- **English tool descriptions**: on a site whose base language is not Romanian, the AI gets every tool title, description
+  and parameter in English, with `title`, `readOnlyHint` and `destructiveHint` annotations on every tool. Command names and
+  replies stay in Romanian.
+- **GA4 only after consent**: with Google Analytics turned on, nothing loads from Google until the visitor presses "Accept".
+- 381 automated tests (install, update, backup, OAuth, SEO, measurement, attacks).
 - In production on five sites, including [cms.paycode.ro](https://cms.paycode.ro), which runs on it
   and is managed from a conversation with Claude.
 
@@ -40,7 +44,7 @@ cu capturi din cPanel, și articolele despre [de ce există](https://cms.paycode
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache, cu cPanel sau Plesk). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Câteva mii de rânduri de PHP simplu pe server, plus teste automate (373 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
+- Câteva mii de rânduri de PHP simplu pe server, plus teste automate (381 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
 - Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
 - Instalarea: o comandă pe calculator și un zip urcat în cPanel sau Plesk (File Manager).
 
@@ -418,6 +422,10 @@ Conectorul din claude.ai (web, telefon) cere OAuth, care e în lucru (vezi mai j
 | `listeaza_fisiere` | citire | documentele PDF din `/fisiere/` |
 | `urca_fisier` | scriere | un PDF, max 25 MB, din `url` (https, cu apărare SSRF) sau `continut_base64` (~6 MB); adresa `/fisiere/<nume>.pdf`; `inlocuieste=true` pune conținut nou la aceeași adresă, cu versiunea veche păstrată |
 | `sterge_fisier` | scriere | mută documentul între versiuni; refuză dacă e legat din conținut |
+
+**Descrierile în engleză (0.25):** pe un site a cărui limbă de bază nu e româna, `tools/list` și instrucțiunile de la
+`initialize` vin în engleză (`app/unelte_en.php`, traducerea textului din `app/unelte.php`). Numele comenzilor, ale
+parametrilor și răspunsurile rămân în română. Un test verifică la fiecare rulare că nicio descriere nu rămâne netradusă.
 
 Paginile și articolele au adrese comune: `/despre`, `/primul-articol`. Pagina `acasa` e prima pagină.
 

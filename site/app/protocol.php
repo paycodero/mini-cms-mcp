@@ -7,6 +7,7 @@ declare(strict_types=1);
 if (!defined('MINICMS')) { http_response_code(403); exit; }
 
 require __DIR__ . '/unelte.php';
+require __DIR__ . '/unelte_en.php';
 
 const MCP_VERSIUNI = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const MCP_MAX_OCTETI = 8 * 1024 * 1024;
@@ -106,9 +107,14 @@ function ruleaza_mcp(): void
                 'protocolVersion' => in_array($ceruta, MCP_VERSIUNI, true) ? $ceruta : MCP_VERSIUNI[0],
                 'capabilities' => ['tools' => ['listChanged' => false]],
                 'serverInfo' => ['name' => 'mini-cms-mcp', 'title' => 'Mini CMS — ' . config('site.nume'), 'version' => MINICMS_VERSIUNE],
-                'instructions' => 'Administrezi conținutul site-ului ' . config('site.nume') . ' (' . url_site() . '). '
-                    . 'Cheia ta are drept de ' . $rol . ($rol === 'scriere' && !$admin ? ' (editor: ' . $acces['cine'] . ')' : '') . '. Cheamă întâi despre_site pentru reguli. '
-                    . 'Tot ce creezi pleacă drept ciornă; publici doar după aprobarea omului. Fiecare apel e scris în jurnal.',
+                'instructions' => unelte_in_engleza()
+                    ? 'You manage the content of the site ' . config('site.nume') . ' (' . url_site() . '). '
+                        . 'Your key has ' . ($rol === 'scriere' ? 'write' : 'read') . ' rights' . ($rol === 'scriere' && !$admin ? ' (editor: ' . $acces['cine'] . ')' : '') . '. Call despre_site first for the rules. '
+                        . 'Everything you create starts as a draft; publish only after the person approves it. Every call is written to the log. '
+                        . 'Command names, parameters and replies are in Romanian; the descriptions explain them.'
+                    : 'Administrezi conținutul site-ului ' . config('site.nume') . ' (' . url_site() . '). '
+                        . 'Cheia ta are drept de ' . $rol . ($rol === 'scriere' && !$admin ? ' (editor: ' . $acces['cine'] . ')' : '') . '. Cheamă întâi despre_site pentru reguli. '
+                        . 'Tot ce creezi pleacă drept ciornă; publici doar după aprobarea omului. Fiecare apel e scris în jurnal.',
             ];
             $client = $params['clientInfo'] ?? [];
             jurnal_scrie($baza + ['rezultat' => 'ok', 'detalii' => ['client' => substr((string) ($client['name'] ?? '?') . ' ' . (string) ($client['version'] ?? ''), 0, 80),
@@ -119,8 +125,10 @@ function ruleaza_mcp(): void
             break;
         case 'tools/list':
             $lista = [];
+            $engleza = unelte_in_engleza();
             foreach (unelte() as $nume => $u) {
                 if (($u['scriere'] && $rol !== 'scriere') || (!empty($u['admin']) && !$admin)) continue;
+                if ($engleza) $u = unealta_tradusa($nume, $u);
                 $lista[] = ['name' => $nume, 'title' => $u['titlu'], 'description' => $u['descriere'],
                             'inputSchema' => $u['schema'], 'annotations' => ['title' => $u['titlu']] + $u['adnotari']];
             }

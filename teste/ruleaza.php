@@ -1981,6 +1981,37 @@ verifica('Instalare', '--chei-noi: chei noi în config, cele vechi păstrate cu 
     && ($chei5['scriere']['cheie'] ?? '') !== $chei2['scriere']['cheie'] && strpos($cfg5, $chei5['scriere']['amprenta']) !== false
     && strpos($cfg5, $chei2['scriere']['amprenta']) === false && count(glob("$inst/chei-$nume2.*.json") ?: []) === 1, $r5['iesire']);
 
+// --- descrierile comenzilor în engleză --------------------------------------------------------
+
+// Descrierile în engleză (0.25): pe un site cu limba de bază alta decât româna, AI-ul le primește traduse, pe toate.
+elibereaza();   // testele de blocare de mai sus au oprit adresa testelor
+$descrieri = function (array $lista): array {
+    $d = [];
+    $plimba = function ($sch, string $cale) use (&$plimba, &$d, &$nume_u) {
+        if (!is_array($sch)) return;
+        if ($cale !== '' && isset($sch['description'])) $d["$nume_u:$cale"] = $sch['description'];
+        foreach ((array) ($sch['properties'] ?? []) as $k => $v) $plimba($v, ($cale === '' ? '' : "$cale.") . $k);
+        if (isset($sch['items'])) $plimba($sch['items'], "$cale" . '[]');
+    };
+    foreach ($lista as $t) { $nume_u = $t['name']; $d["$nume_u:#titlu"] = $t['title']; $d["$nume_u:#descriere"] = $t['description']; $plimba($t['inputSchema'], ''); }
+    return $d;
+};
+$ro_desc = $descrieri(mcp($ks, 'tools/list')['json']['result']['tools'] ?? []);
+$u_en = unealta($ks, 'seteaza_site', ['limba' => 'en']);
+$lista_en = mcp($ks, 'tools/list')['json']['result']['tools'] ?? [];
+$init_en = mcp($ks, 'initialize', $init)['json']['result']['instructions'] ?? '';
+$en_desc = $descrieri($lista_en);
+$netraduse = array_keys(array_filter($en_desc, fn($v, $k) => ($ro_desc[$k] ?? null) === $v, ARRAY_FILTER_USE_BOTH));
+verifica('Protocol', 'pe un site în engleză, toate titlurile, descrierile și parametrii comenzilor vin în engleză, fără niciunul netradus',
+    !$u_en['eroare'] && count($lista_en) === 28 && count($en_desc) === count($ro_desc) && $netraduse === []
+    && strpos($init_en, 'You manage the content') === 0, implode(', ', $netraduse) ?: $u_en['text']);
+$bune_en = array_filter($lista_en, fn($t) => ($t['title'] ?? '') !== '' && ($t['annotations']['title'] ?? '') === $t['title']
+    && isset($t['annotations']['readOnlyHint'], $t['annotations']['destructiveHint']));
+verifica('Protocol', 'fiecare comandă are titlu și adnotările readOnlyHint + destructiveHint (cerința directorului Claude)', count($bune_en) === 28);
+unealta($ks, 'seteaza_site', ['limba' => 'ro']);
+verifica('Protocol', 'înapoi pe română, descrierile revin exact ca înainte',
+    $descrieri(mcp($ks, 'tools/list')['json']['result']['tools'] ?? []) === $ro_desc);
+
 // --- încheiere ---------------------------------------------------------------------------------
 
 proc_terminate($server);
