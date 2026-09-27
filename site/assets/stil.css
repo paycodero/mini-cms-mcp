@@ -252,3 +252,15 @@ main .continut .bloc-cifre span{display:block;margin-top:4px;color:var(--text-sl
   .cauta-antet input,.cauta-antet input:focus{width:100%}
   .legate-lista{grid-template-columns:1fr}
 }
+
+/* Bannerul de consimțământ pentru măsurare (GA4): „Refuz" și „Accept" au aceeași formă și aceeași greutate. */
+.consimtamant{position:fixed;left:16px;right:16px;bottom:16px;z-index:50;max-width:560px;margin:0 auto;background:#fff;color:#0b1220;
+  border:2px solid var(--accent,#16478f);border-radius:12px;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.18);font-size:1rem;line-height:1.45}
+.consimtamant[hidden]{display:none}
+.consimtamant p{margin:0 0 10px}
+.consimtamant a{color:var(--accent,#16478f);text-decoration:underline}
+.consimtamant-butoane{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.consimtamant-butoane button{font:inherit;font-weight:700;padding:8px 20px;border-radius:8px;border:2px solid var(--accent,#16478f);
+  background:#fff;color:var(--accent,#16478f);cursor:pointer}
+.consimtamant-butoane button:hover,.consimtamant-butoane button:focus-visible{background:var(--accent,#16478f);color:#fff}
+.subsol .setari-cookie{font:inherit;background:none;border:0;padding:0;color:inherit;text-decoration:underline;cursor:pointer}

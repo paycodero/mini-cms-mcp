@@ -96,6 +96,15 @@ function meniu(): array
     return $m;
 }
 
+// Pagina de confidențialitate, pentru bannerul de consimțământ: „confidentialitate", în limba paginii dacă are traducere
+// (același grup). Dacă nu există sau nu e publicată, bannerul apare fără link.
+function url_confidentialitate(): string
+{
+    $p = citeste_element('pagina', 'confidentialitate');
+    if (!$p || !e_vizibil($p)) return '';
+    return url_element(pereche_element($p, limba_curenta()) ?? $p);
+}
+
 // Adresele aceleiași pagini în celelalte limbi, pentru comutator și hreflang. Prima pagină e mereu la /<limba>;
 // o pagină interioară apare doar în limbile în care are o traducere (același grup). Cheia e codul de limbă.
 function alternate_limbi(?array $e): array
@@ -129,6 +138,10 @@ function ui(string $ro): string
         'Încearcă alte cuvinte, mai puține sau mai scurte.' => 'Try other words, fewer or shorter.',
         '%d rezultat' => '%d result', '%d rezultate' => '%d results',
         'Prima pagină' => 'Home page', 'Poate căutai' => 'Maybe you were looking for',
+        'Setări cookie' => 'Cookie settings', 'Consimțământ pentru cookie-uri' => 'Cookie consent',
+        'Folosim Google Analytics ca să aflăm câte vizite are site-ul. Pornește doar dacă accepți.'
+            => 'We use Google Analytics to count visits to this site. It only runs if you accept.',
+        'Detalii' => 'Details', 'Refuz' => 'Decline', 'Accept' => 'Accept',
     ];
     return limba_curenta() === 'en' ? ($en[$ro] ?? $ro) : $ro;
 }

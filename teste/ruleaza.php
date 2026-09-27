@@ -1092,10 +1092,17 @@ verifica('Securitate', 'un identificator care nu e GA4 e refuzat', $u['eroare'],
 
 $u = unealta($ks, 'seteaza_site', ['ga4' => 'G-PROBA12345']);
 $r = cerere('GET', '/');
-$nonce_pagina = preg_match('/<script nonce="([^"]+)">window\.dataLayer/', $r['corp'], $mn) ? $mn[1] : '';
-verifica('Măsurare', 'eticheta GA4 apare pe paginile publice, cu nonce, nu ca script liber',
-    !$u['eroare'] && strpos($r['corp'], 'googletagmanager.com/gtag/js?id=G-PROBA12345') !== false
-    && $nonce_pagina !== '' && strpos($r['corp'], "gtag('config','G-PROBA12345')") !== false, $u['text']);
+verifica('Măsurare', 'cu GA4 pornit, pagina NU încarcă nimic de la Google înainte de acord: doar consimtamant.js, cu nonce și identificatorul',
+    !$u['eroare'] && strpos($r['corp'], 'googletagmanager') === false && strpos($r['corp'], 'gtag(') === false
+    && preg_match('#<script defer nonce="[^"]+" src="/assets/consimtamant\.js\?v=\d+" data-ga4="G-PROBA12345"></script>#', $r['corp']) === 1, $u['text']);
+verifica('Măsurare', 'bannerul de consimțământ e în pagină, ascuns până îl arată scriptul, cu „Refuz" și „Accept", plus „Setări cookie" în subsol',
+    strpos($r['corp'], 'id="consimtamant" role="dialog"') !== false && strpos($r['corp'], 'data-consimtamant="nu"') !== false
+    && strpos($r['corp'], 'data-consimtamant="da"') !== false && strpos($r['corp'], 'data-consimtamant-deschide') !== false
+    && preg_match('#id="consimtamant"[^>]*hidden>#', $r['corp']) === 1);
+$js_acord = (string) @file_get_contents("$tmp/site/assets/consimtamant.js");
+verifica('Măsurare', 'scriptul de acord încarcă GA4 doar la „Accept" și ține alegerea în localStorage, nu în cookie',
+    strpos($js_acord, "googletagmanager.com/gtag/js") !== false && strpos($js_acord, 'localStorage') !== false
+    && strpos($js_acord, "if (ales === 'da') porneste()") !== false && preg_match("/document\\.cookie\\s*=\\s*nume\\s*\\+\\s*'=;expires/", $js_acord) === 1);
 $csp_ga = $r['antete']['content-security-policy'] ?? '';
 verifica('Măsurare', 'CSP primește singur sursele de care are nevoie măsurarea, fără unsafe-inline',
     strpos($csp_ga, 'script-src') !== false && strpos($csp_ga, 'https://www.googletagmanager.com') !== false
@@ -1103,14 +1110,14 @@ verifica('Măsurare', 'CSP primește singur sursele de care are nevoie măsurare
 
 $r = cerere('POST', '/jurnal.php', http_build_query(['cheie' => $kc]), ['Content-Type' => 'application/x-www-form-urlencoded']);
 $r2 = cerere('GET', '/cauta?q=test');
-verifica('Măsurare', 'paginile care nu se indexează (jurnal, căutare) nu se măsoară',
-    strpos($r['corp'], 'googletagmanager') === false && strpos($r2['corp'], 'googletagmanager') === false);
+verifica('Măsurare', 'paginile care nu se indexează (jurnal, căutare) nu se măsoară și nu au banner',
+    strpos($r['corp'], 'consimtamant') === false && strpos($r2['corp'], 'consimtamant') === false);
 
 $u = unealta($ks, 'seteaza_site', ['ga4' => '']);
 $r = cerere('GET', '/');
 $csp_fara = $r['antete']['content-security-policy'] ?? '';
 verifica('Măsurare', 'fără identificator nu se încarcă nimic și CSP-ul rămâne strâns',
-    !$u['eroare'] && strpos($r['corp'], 'googletagmanager') === false
+    !$u['eroare'] && strpos($r['corp'], 'googletagmanager') === false && strpos($r['corp'], 'consimtamant') === false
     && strpos($csp_fara, 'googletagmanager') === false, $csp_fara);
 
 // --- 0.11: ce avea cinesunt.info și îi trebuie oricărui site ------------------------------------
@@ -1200,8 +1207,9 @@ verifica('Pornire', 'confidențialitatea spune doar ce e pornit: fără GA4 și 
 unealta($ks, 'seteaza_site', ['ga4' => 'G-TESTPORNIRE1']);
 $u = unealta($kc, 'pagini_de_pornire');
 $conf = (string) (array_column($u['date']['pagini'] ?? [], 'continut_html', 'slug')['confidentialitate'] ?? '');
-verifica('Pornire', 'cu GA4 pornit, pagina îl numește, iar AI-ul e atenționat că lipsește acordul pentru cookie-uri',
-    strpos($conf, 'Google Analytics') !== false && ($u['date']['atentie'] ?? []) !== [], json_encode($u['date']['atentie'] ?? null, JSON_UNESCAPED_UNICODE));
+verifica('Pornire', 'cu GA4 pornit, pagina îl numește și spune cum se dă acordul (bannerul, „Setări cookie"), fără loc de completat',
+    strpos($conf, 'Google Analytics') !== false && strpos($conf, 'Setări cookie') !== false && strpos($conf, 'banner de consimțământ]]') === false
+    && ($u['date']['atentie'] ?? []) !== [], json_encode($u['date']['atentie'] ?? null, JSON_UNESCAPED_UNICODE));
 unealta($ks, 'seteaza_site', ['ga4' => $ga4_initial]);
 $r = mcp($kc, 'tools/call', ['name' => 'pagini_de_pornire', 'arguments' => new stdClass()], 1, ['CF-Ray' => '8f00aa11bb22cc33-OTP']);
 $conf = (string) (array_column(json_decode((string) ($r['json']['result']['content'][0]['text'] ?? '{}'), true)['pagini'] ?? [], 'continut_html', 'slug')['confidentialitate'] ?? '');

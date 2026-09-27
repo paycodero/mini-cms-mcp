@@ -132,7 +132,9 @@ function pagini_de_pornire(): array
     }
     if ($f['ga4'] !== '') {
         $sectiuni .= '<li>Folosim Google Analytics 4, ca să aflăm câte vizite are site-ul și de unde vin. Google Analytics pune cookie-uri și prelucrează '
-            . "adresa IP, după <a href=\"https://policies.google.com/privacy\" target=\"_blank\" rel=\"noopener\">politica Google</a>. $c: cum își dă vizitatorul acordul — site-ul nu are încă un banner de consimțământ]]</li>";
+            . "adresa IP, după <a href=\"https://policies.google.com/privacy\" target=\"_blank\" rel=\"noopener\">politica Google</a>. "
+            . 'Se încarcă doar dacă accepți măsurarea, în bannerul de la prima vizită. Alegerea se păstrează în browser, nu într-un cookie, '
+            . 'și o schimbi oricând din „Setări cookie”, în subsolul site-ului.</li>';
     }
     if ($f['video']) {
         $sectiuni .= '<li>Unele pagini au video de pe YouTube sau Vimeo. Când îl pornești, platforma respectivă poate pune cookie-uri și îți vede adresa IP.</li>';
@@ -153,7 +155,7 @@ function pagini_de_pornire(): array
     unset($p);
 
     $atentie = [];
-    if ($f['ga4'] !== '') $atentie[] = 'GA4 e pornit, dar site-ul nu are banner de consimțământ: spune-i omului că, în UE, cookie-urile de măsurare cer acordul vizitatorului.';
+    if ($f['ga4'] !== '') $atentie[] = 'GA4 e pornit: site-ul îl încarcă doar după acordul vizitatorului (bannerul de consimțământ). Verifică cu omul că pagina de confidențialitate e publicată la /confidentialitate, ca bannerul să trimită la ea.';
     return [
         'cum_se_folosesc' => [
             'Întreabă-l întâi pe om ce lipsește (vezi intrebari_pentru_om). Nu inventa nimic: nume, cifre, clienți, citate, adrese, prețuri. Ce nu știi, întrebi sau scoți blocul.',

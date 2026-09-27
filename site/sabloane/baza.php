@@ -42,10 +42,11 @@ if (!$noindex && count($alternative) > 1): foreach ($alternative as $cod_alt => 
 <?php endif; ?><?php foreach ($e['etichete'] ?? [] as $t_og): ?><meta property="article:tag" content="<?= esc($t_og) ?>">
 <?php endforeach; ?><?php endif; ?>
 <meta name="theme-color" content="<?= esc(culoare_accent()) ?>">
-<?php // Măsurarea: doar pe paginile publice. Jurnalul, actualizarea, previzualizările și aprobările nu se numără.
-if ((string) config('site.ga4') !== '' && !$noindex): $ga4 = (string) config('site.ga4'); ?>
-<script async nonce="<?= esc($nonce) ?>" src="https://www.googletagmanager.com/gtag/js?id=<?= rawurlencode($ga4) ?>"></script>
-<script nonce="<?= esc($nonce) ?>">window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','<?= esc($ga4) ?>');</script>
+<?php // Măsurarea: doar pe paginile publice (jurnalul, actualizarea, previzualizările și aprobările nu se numără) și doar
+// după acordul vizitatorului. consimtamant.js arată bannerul și încarcă GA4 abia la „Accept"; până atunci, nimic de la Google.
+$masurare = (string) config('site.ga4') !== '' && !$noindex;
+if ($masurare): ?>
+<script defer nonce="<?= esc($nonce) ?>" src="/assets/consimtamant.js?v=<?= (int) @filemtime(dirname(__DIR__) . '/assets/consimtamant.js') ?>" data-ga4="<?= esc((string) config('site.ga4')) ?>"></script>
 <?php endif; ?>
 <?php if ((string) config('site.favicon') !== ''): ?><link rel="icon" href="<?= esc(config('site.favicon')) ?>">
 <link rel="apple-touch-icon" href="<?= esc(config('site.favicon')) ?>">
@@ -116,11 +117,20 @@ if ((string) config('site.ga4') !== '' && !$noindex): $ga4 = (string) config('si
     <span class="realizare"><?= esc($realizare) ?></span>
 <?php endif; endif; ?>
     <a href="<?= esc(prefix_limba() . '/feed.xml') ?>">RSS</a>
+<?php if ($masurare): ?>
+    <button type="button" class="setari-cookie" data-consimtamant-deschide><?= esc(ui('Setări cookie')) ?></button>
+<?php endif; ?>
   </div>
 <?php if ((string) text_site('subsol') !== ''): ?>
   <div class="lat nota-subsol"><p><?= esc(text_site('subsol')) ?></p></div>
 <?php endif; ?>
 </footer>
+<?php if ($masurare): $url_conf = url_confidentialitate(); ?>
+<div class="consimtamant" id="consimtamant" role="dialog" aria-label="<?= esc(ui('Consimțământ pentru cookie-uri')) ?>" hidden>
+  <p><?= esc(ui('Folosim Google Analytics ca să aflăm câte vizite are site-ul. Pornește doar dacă accepți.')) ?><?php if ($url_conf !== ''): ?> <a href="<?= esc($url_conf) ?>"><?= esc(ui('Detalii')) ?></a><?php endif; ?></p>
+  <div class="consimtamant-butoane"><button type="button" data-consimtamant="nu"><?= esc(ui('Refuz')) ?></button><button type="button" data-consimtamant="da"><?= esc(ui('Accept')) ?></button></div>
+</div>
+<?php endif; ?>
 <?php // Butonul „Copiază" pe blocurile <pre> (prompturi, comenzi). Scriptul e al șablonului, cu nonce: conținutul nu poate aduce cod.
 if (strpos($corp_pagina, '<pre') !== false): ?>
 <script nonce="<?= esc($nonce) ?>">

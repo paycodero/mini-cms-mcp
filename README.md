@@ -174,8 +174,7 @@ Un site nou nu mai pornește gol. Pentru asta există două piese, amândouă co
   conținut, iar `salveaza` refuză să-l pună pe o pagină deja publicată. Un schelet uitat nu ajunge pe site.
 - **Pagina de confidențialitate** descrie ce face tehnic site-ul, verificat în cod: nu pune cookie-uri proprii, nu are formulare,
   nu păstrează căutările, fonturile și imaginile vin de pe site, iar jurnalul lui scrie doar administrarea și încercările de a intra
-  în ea, nu vizitele. Ce e pornit la momentul cererii intră singur: Cloudflare, GA4 (cu atenționarea că site-ul nu are banner de
-  consimțământ) și videoclipurile YouTube/Vimeo din pagini. Datele firmei și ale găzduirii rămân locuri de completat. **Nu e
+  în ea, nu vizitele. Ce e pornit la momentul cererii intră singur: Cloudflare, GA4 (încărcat doar după acordul din banner, din 0.23) și videoclipurile YouTube/Vimeo din pagini. Datele firmei și ale găzduirii rămân locuri de completat. **Nu e
   consultanță juridică:** proprietarul o verifică înainte de publicare.
 
 ## Actualizarea codului, fără zip și fără cPanel
@@ -460,6 +459,11 @@ Site-ul e făcut ca să fie găsit de oameni prin Google și Bing, dar și citit
   site-ul, cu nonce-ul paginii, iar sursele de care are nevoie intră singure în CSP. AI-ul poate porni măsurarea, dar
   nu poate pune JavaScript în pagină: identificatorul e validat cu un tipar, iar orice altceva e refuzat. Se încarcă
   numai pe paginile publice — jurnalul, actualizarea, căutarea, previzualizările și aprobările nu se măsoară.
+- **Consimțământul pentru măsurare (0.23):** cu GA4 pornit, pagina nu încarcă nimic de la Google până când vizitatorul
+  nu apasă „Accept” în bannerul de jos (`assets/consimtamant.js`). „Refuz” are aceeași formă și aceeași greutate ca „Accept”.
+  Alegerea stă în browser (localStorage), nu într-un cookie, și se schimbă din „Setări cookie”, în subsol; la refuz, cookie-urile
+  `_ga` rămase de la un acord anterior se șterg. Bannerul trimite la `/confidentialitate` (în limba paginii, dacă are traducere),
+  când pagina e publicată. Fără GA4, nu apare nici banner, nici script.
 - **Rețeaua autorului:** `seteaza_site` (`legaturi`) pune celelalte site-uri și conturi în subsol, pe fiecare
   pagină, și aceleași adrese în `sameAs` din datele structurate — de acolo află Google și Bing că profilurile sunt
   ale aceleiași entități. Sunt conținut, nu configurare: rămân la locul lor când urci un pachet nou.
