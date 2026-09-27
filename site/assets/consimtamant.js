@@ -25,13 +25,18 @@
     document.head.appendChild(s);
   }
 
-  // La refuz, cookie-urile puse de GA4 la un acord anterior (_ga, _ga_<id>) se șterg, pe domeniu și pe subdomeniu.
+  // La refuz, cookie-urile puse de GA4 la un acord anterior (_ga, _ga_<id>) se șterg. GA4 le pune pe domeniul cel mai
+  // larg pe care îl poate folosi (pe cms.paycode.ro, pe .paycode.ro), deci se încearcă fiecare domeniu părinte al gazdei.
   function stergeCookieGa() {
-    var gazda = location.hostname.replace(/^www\./, '');
+    var parti = location.hostname.split('.'), domenii = [''];
+    for (var i = 0; i < parti.length - 1; i++) {
+      var d = parti.slice(i).join('.');
+      domenii.push(';domain=' + d, ';domain=.' + d);
+    }
     document.cookie.split(';').forEach(function (c) {
       var nume = c.split('=')[0].trim();
       if (!/^_ga/.test(nume)) return;
-      ['', ';domain=' + gazda, ';domain=.' + gazda].forEach(function (d) {
+      domenii.forEach(function (d) {
         document.cookie = nume + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/' + d;
       });
     });
