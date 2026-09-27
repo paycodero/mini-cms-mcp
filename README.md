@@ -1,5 +1,7 @@
 # mini-cms-mcp
 
+[![M8ven Verified](https://m8ven.ai/badge/mcp/paycodero-mini-cms-mcp-1fsekm?variant=verified)](https://m8ven.ai/mcp/paycodero/mini-cms-mcp)
+
 **An MCP server and a flat-file PHP CMS in one: you edit your website by talking to Claude.**
 No database, no admin panel, no plugins. The AI changes the content, never the code.
 
