@@ -1,5 +1,32 @@
 # mini-cms-mcp
 
+**An MCP server and a flat-file PHP CMS in one: you edit your website by talking to Claude.**
+No database, no admin panel, no plugins. The AI changes the content, never the code.
+
+It is a small, self-hosted, open source (MIT) CMS for a site of a few pages and a blog. The MCP server lives inside
+the site itself, at `https://your-site/mcp`, so there is nothing else to run: no Node, no Docker, no VPS.
+It installs on ordinary shared hosting with cPanel and PHP 8.0+.
+
+- **Edit an existing website with AI**, from Claude Code or from the claude.ai connector (web, desktop app and phone):
+  *"Add an announcement about Saturday's event"* → a draft appears; you preview it and publish.
+- **A WordPress alternative for small sites**: plain PHP, content stored as JSON files, every change versioned and logged
+  (who changed what, and when). Backup is a copy of one folder.
+- **Remote MCP server** over Streamable HTTP, stateless (each request is a POST with a JSON reply). OAuth 2.1 with PKCE
+  for the claude.ai connector; a key in the header for Claude Code. Separate keys for editors (for example, your client).
+- **Readable by AI search**: sitemap, feed, `llms.txt`, clean HTML, FAQ markup, a built-in check that ChatGPT, Claude,
+  Perplexity, Bing and Google bots are not blocked, and a server-side count of the pages they read.
+- 373 automated tests (install, update, backup, OAuth, SEO, measurement, attacks).
+- In production on five sites, including [cms.paycode.ro](https://cms.paycode.ro), which runs on it
+  and is managed from a conversation with Claude.
+
+**Documentation in English:** [how to install it](https://cms.paycode.ro/en/install-ai-managed-cms) ·
+[how to edit your site with Claude](https://cms.paycode.ro/en/edit-your-site-with-claude) ·
+[why I left WordPress](https://cms.paycode.ro/en/why-i-left-wordpress) ·
+[a security audit by another AI](https://cms.paycode.ro/en/security-audit-by-another-ai).
+The rest of this README is in Romanian, the author's language. The commands in it work as written.
+
+---
+
 Un CMS mic pentru site-uri de câteva pagini și un blog, administrat de un asistent AI prin MCP (Model Context Protocol).
 
 **Principiul: AI-ul e singurul editor. Poate schimba conținutul, niciodată codul.**
@@ -11,7 +38,7 @@ cu capturi din cPanel, și articolele despre [de ce există](https://cms.paycode
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache/cPanel). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Circa 3.000 de rânduri PHP pe server, plus teste automate (307 verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
+- Câteva mii de rânduri de PHP simplu pe server, plus teste automate (373 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
 - Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
 - Instalarea: o comandă pe calculator și un zip urcat în cPanel.
 
