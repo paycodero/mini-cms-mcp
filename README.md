@@ -5,7 +5,7 @@ No database, no admin panel, no plugins. The AI changes the content, never the c
 
 It is a small, self-hosted, open source (MIT) CMS for a site of a few pages and a blog. The MCP server lives inside
 the site itself, at `https://your-site/mcp`, so there is nothing else to run: no Node, no Docker, no VPS.
-It installs on ordinary shared hosting with cPanel and PHP 8.0+.
+It installs on ordinary shared hosting with cPanel or Plesk and PHP 8.0+.
 
 - **Edit an existing website with AI**, from Claude Code or from the claude.ai connector (web, desktop app and phone):
   *"Add an announcement about Saturday's event"* → a draft appears; you preview it and publish.
@@ -37,10 +37,10 @@ cu capturi din cPanel, și articolele despre [de ce există](https://cms.paycode
 [cine îl scrie](https://cms.paycode.ro/despre).
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
-- Merge pe orice găzduire PHP obișnuită (Apache/cPanel). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
+- Merge pe orice găzduire PHP obișnuită (Apache, cu cPanel sau Plesk). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
 - Câteva mii de rânduri de PHP simplu pe server, plus teste automate (373 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
 - Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
-- Instalarea: o comandă pe calculator și un zip urcat în cPanel.
+- Instalarea: o comandă pe calculator și un zip urcat în cPanel sau Plesk (File Manager).
 
 ## Structura
 
