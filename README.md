@@ -21,7 +21,7 @@ It installs on ordinary shared hosting with cPanel or Plesk and PHP 8.0+.
   and parameter in English, with `title`, `readOnlyHint` and `destructiveHint` annotations on every tool. Command names and
   replies stay in Romanian.
 - **GA4 only after consent**: with Google Analytics turned on, nothing loads from Google until the visitor presses "Accept".
-- 391 automated tests (install, update, backup, OAuth, SEO, measurement, attacks).
+- 392 automated tests (install, update, backup, OAuth, SEO, measurement, attacks).
 - In production on five sites, including [cms.paycode.ro](https://cms.paycode.ro), which runs on it
   and is managed from a conversation with Claude.
 
@@ -44,7 +44,7 @@ cu capturi din cPanel, și articolele despre [de ce există](https://cms.paycode
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache, cu cPanel sau Plesk). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Câteva mii de rânduri de PHP simplu pe server, plus teste automate (391 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
+- Câteva mii de rânduri de PHP simplu pe server, plus teste automate (392 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
 - Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
 - Instalarea: o comandă pe calculator și un zip urcat în cPanel sau Plesk (File Manager).
 

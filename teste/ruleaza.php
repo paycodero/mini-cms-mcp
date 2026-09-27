@@ -2066,11 +2066,13 @@ $ro_desc = $descrieri(mcp($ks, 'tools/list')['json']['result']['tools'] ?? []);
 $u_en = unealta($ks, 'seteaza_site', ['limba' => 'en']);
 $lista_en = mcp($ks, 'tools/list')['json']['result']['tools'] ?? [];
 $init_en = mcp($ks, 'initialize', $init)['json']['result']['instructions'] ?? '';
+$pagina_en = cerere('GET', '/')['corp'];
 $en_desc = $descrieri($lista_en);
 $netraduse = array_keys(array_filter($en_desc, fn($v, $k) => ($ro_desc[$k] ?? null) === $v, ARRAY_FILTER_USE_BOTH));
 verifica('Protocol', 'pe un site în engleză, toate titlurile, descrierile și parametrii comenzilor vin în engleză, fără niciunul netradus',
     !$u_en['eroare'] && count($lista_en) === 28 && count($en_desc) === count($ro_desc) && $netraduse === []
     && strpos($init_en, 'You manage the content') === 0, implode(', ', $netraduse) ?: $u_en['text']);
+verifica('Site', 'un site cu limba de bază engleză are și interfața în engleză (căutarea, meniul)', strpos($pagina_en, 'Search the site') !== false && strpos($pagina_en, 'Caută pe site') === false);
 $bune_en = array_filter($lista_en, fn($t) => ($t['title'] ?? '') !== '' && ($t['annotations']['title'] ?? '') === $t['title']
     && isset($t['annotations']['readOnlyHint'], $t['annotations']['destructiveHint']));
 verifica('Protocol', 'fiecare comandă are titlu și adnotările readOnlyHint + destructiveHint (cerința directorului Claude)', count($bune_en) === 28);

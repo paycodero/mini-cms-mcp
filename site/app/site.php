@@ -122,11 +122,12 @@ function alternate_limbi(?array $e): array
     return $rez;
 }
 
-// Textele fixe de interfață ale șabloanelor, în limba paginii curente. Pentru limba implicită se întoarce sursa (română);
-// pentru engleză, din dicționarul de mai jos. Alte limbi cad tot pe română (produsul e RO-nativ). Nu atinge conținutul.
+// Textele fixe de interfață ale șabloanelor, în limba paginii curente: româna e sursa; pentru o pagină în engleză
+// (limbă de bază sau a doua), din dicționarul de mai jos. Alte limbi cad tot pe română (produsul e RO-nativ). Nu atinge conținutul.
 function ui(string $ro): string
 {
-    if (limba_curenta() === limba_implicita()) return $ro;
+    // Limba paginii decide, nu limba de bază: un site cu limba de bază engleză (ex. site-ul demo) primește și el interfața în engleză.
+    if (limba_curenta() !== 'en') return $ro;
     static $en = [
         'articole' => 'articles', 'Ultimele' => 'Latest', 'Toate' => 'All',
         'Citește mai departe' => 'Read more', 'Eticheta' => 'Tag',
@@ -146,7 +147,7 @@ function ui(string $ro): string
         'Site demo: oricine poate scrie aici, iar conținutul revine la forma inițială în fiecare noapte la %s (ora României).'
             => 'Demo site: anyone can write here, and the content goes back to its original state every night at %s (Romania time).',
     ];
-    return limba_curenta() === 'en' ? ($en[$ro] ?? $ro) : $ro;
+    return $en[$ro] ?? $ro;
 }
 
 // Cum se numesc articolele pe site („ghiduri", „rețete"; implicit „articole"). $articulat adaugă „le" („ghidurile") —
