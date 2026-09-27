@@ -152,6 +152,28 @@ function cod_stare(): array
 }
 
 // Sincronizarea propriu-zisă: copie de siguranță, scriere, autocontrol, iar la nevoie restaurare.
+// Fișierele site-ului trebuie să poată fi citite de serverul web: CSS-ul, JavaScript-ul și fonturile le servește el direct,
+// nu PHP. Un pachet despachetat cu drepturi 0600 (s-a întâmplat pe democms.paycode.ro, 27 sept 2026: zip refăcut pe
+// calculator) dă 403 pe /assets/, deși PHP-ul merge. La fiecare sincronizare, fișierele din pachet primesc 0644 și
+// dosarele lor 0755, doar dacă nu le au deja. config.php și dosarul de date nu sunt în pachet, deci nu se ating.
+function cod_repara_drepturi(array $cai): array
+{
+    if (PHP_OS_FAMILY === 'Windows') return [];   // pe Windows, drepturile Unix nu au sens
+    $rad = cod_radacina();
+    $reparate = [];
+    $dosare = [];
+    foreach ($cai as $rel) {
+        $cale = "$rad/$rel";
+        if (is_file($cale) && (fileperms($cale) & 0044) !== 0044 && @chmod($cale, 0644)) $reparate[] = $rel;
+        for ($d = dirname($rel); $d !== '.' && $d !== '' && $d !== '/'; $d = dirname($d)) $dosare[$d] = true;
+    }
+    foreach (array_keys($dosare) as $d) {
+        $cale = "$rad/$d";
+        if (is_dir($cale) && (fileperms($cale) & 0055) !== 0055 && @chmod($cale, 0755)) $reparate[] = "$d/";
+    }
+    return $reparate;
+}
+
 function cod_sincronizeaza(bool $forta = false): array
 {
     $start = microtime(true);
@@ -167,9 +189,10 @@ function cod_sincronizeaza(bool $forta = false): array
         throw new EroareCms("depozitul are versiunea {$stare['versiune_in_pachet']}, mai veche decât cea instalată (" . MINICMS_VERSIUNE
             . '). Trimite forta=true dacă chiar vrei să cobori versiunea.');
     }
+    $drepturi = cod_repara_drepturi(array_keys($fisiere));
     if (!$de_scris) {
-        jurnal_scrie($jurnal + ['rezultat' => 'ok', 'detalii' => ['motiv' => 'nimic de schimbat']]);
-        return $stare + ['operatie' => 'nimic de schimbat'];
+        jurnal_scrie($jurnal + ['rezultat' => 'ok', 'detalii' => ['motiv' => 'nimic de schimbat', 'drepturi_reparate' => count($drepturi)]]);
+        return $stare + ['operatie' => 'nimic de schimbat', 'drepturi_reparate' => $drepturi];
     }
 
     $rad = cod_radacina();
