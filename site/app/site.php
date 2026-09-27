@@ -144,6 +144,28 @@ function ui(string $ro): string
         'Folosim Google Analytics ca să aflăm câte vizite are site-ul. Pornește doar dacă accepți.'
             => 'We use Google Analytics to count visits to this site. It only runs if you accept.',
         'Detalii' => 'Details', 'Refuz' => 'Decline', 'Accept' => 'Accept',
+        // pagina de aprobare OAuth (conectorul claude.ai)
+        'Conectare' => 'Connection', 'Conectezi %s la %s?' => 'Connect %s to %s?',
+        'cere acces la acest site. Numele de mai sus l-a ales aplicația însăși, deci nu dovedește nimic — uită-te la rândurile de dedesubt.'
+            => 'is asking for access to this site. The name above was chosen by the application itself, so it proves nothing — check the lines below.',
+        'Se întoarce la' => 'Returns to', 'Înregistrată' => 'Registered', 'Identificator' => 'Client ID',
+        'acum %d secunde' => '%d seconds ago', 'acum %d de minute' => '%d minutes ago',
+        'mai demult decât ar trebui pentru o conectare pornită acum' => 'longer ago than expected for a connection started just now',
+        'Cu cheia de scriere poate citi, crea, modifica și publica pagini și articole, urca imagini și schimba numele site-ului. Nu poate schimba codul, configurarea sau jurnalul.'
+            => 'With the write key it can read, create, edit and publish pages and articles, upload images and change the site name. It cannot change the code, the configuration or the log.',
+        'Cu o cheie de editor, la fel, afară de numele, aspectul și conexiunile site-ului; tot ce face apare în jurnal pe numele editorului.'
+            => 'With an editor key, the same, except the site name, look and connections; everything it does is logged under the editor name.',
+        'Cu cheia de citire doar citește conținutul și jurnalul.' => 'With the read key it only reads the content and the log.',
+        'Ai nevoie de codul de conectare: cele 6 cifre primite când ai deschis conectarea, pe pagina de conectare a site-ului (sau în terminal). Dacă n-ai deschis-o tu chiar acum, înseamnă că altcineva a pornit această cerere: închide pagina.'
+            => 'You need the connection code: the 6 digits you got when you opened the connection, on the site connection page (or in the terminal). If you did not open it just now, someone else started this request: close the page.',
+        'Pagina de conectare' => 'Connection page',
+        'Continuă doar dacă tocmai ai pornit tu conectarea, din Claude. Accesul se poate retrage oricând, iar schimbarea cheilor îl anulează. Totul se scrie în jurnal.'
+            => 'Continue only if you just started the connection yourself, from Claude. Access can be revoked at any time, and changing the keys cancels it. Everything is logged.',
+        'Codul de conectare (6 cifre)' => 'Connection code (6 digits)', 'Cheia site-ului' => 'Site key', 'Permite' => 'Allow', 'Refuză' => 'Deny',
+        'Cheie lipsă sau greșită.' => 'Missing or wrong key.',
+        'Prea multe încercări eșuate de pe această adresă. Reîncearcă peste 15 minute.' => 'Too many failed attempts from this address. Try again in 15 minutes.',
+        'Cheia de citire nu deschide conectarea: e nevoie de cheia de scriere sau de cheia ta de editor.'
+            => 'The read key does not open the connection: use the write key or your editor key.',
         'Site demo: oricine poate scrie aici, iar conținutul revine la forma inițială în fiecare noapte la %s (ora României).'
             => 'Demo site: anyone can write here, and the content goes back to its original state every night at %s (Romania time).',
     ];

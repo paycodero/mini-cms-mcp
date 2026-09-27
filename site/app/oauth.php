@@ -334,7 +334,7 @@ function oauth_autorizare(string $metoda): void
     // Formularul trimite spre site, iar răspunsul redirecționează spre aplicație: CSP trebuie să permită ambele.
     $origine = parse_url($cerere['redirect_uri'], PHP_URL_SCHEME) . '://' . parse_url($cerere['redirect_uri'], PHP_URL_HOST)
         . (parse_url($cerere['redirect_uri'], PHP_URL_PORT) ? ':' . parse_url($cerere['redirect_uri'], PHP_URL_PORT) : '');
-    randeaza('autorizare', $v + ['noindex' => true, 'titlu_pagina' => 'Conectare — ' . config('site.nume')], http_response_code() ?: 200,
+    randeaza('autorizare', $v + ['noindex' => true, 'titlu_pagina' => ui('Conectare') . ' — ' . text_site('nume')], http_response_code() ?: 200,
              ['form-action' => [$origine]]);
 }
 
