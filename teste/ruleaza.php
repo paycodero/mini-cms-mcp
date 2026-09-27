@@ -1981,6 +1981,72 @@ verifica('Instalare', '--chei-noi: chei noi în config, cele vechi păstrate cu 
     && ($chei5['scriere']['cheie'] ?? '') !== $chei2['scriere']['cheie'] && strpos($cfg5, $chei5['scriere']['amprenta']) !== false
     && strpos($cfg5, $chei2['scriere']['amprenta']) === false && count(glob("$inst/chei-$nume2.*.json") ?: []) === 1, $r5['iesire']);
 
+// --- modul demo (0.26): conținutul revine zilnic la instantaneu ------------------------------------
+
+elibereaza();
+$scrie_config = function (array $c) use ($tmp) {
+    file_put_contents("$tmp/site/app/config.php", "<?php\nif (!defined('MINICMS')) { http_response_code(403); exit; }\nreturn " . var_export($c, true) . ";\n");
+};
+$r = actualizare($kd, ['actiune' => 'demo_instantaneu']);
+verifica('Demo', 'fără modul demo în config.php, instantaneul e refuzat, iar starea spune că nu e pornit',
+    $r['cod'] === 400 && strpos((string) ($r['json']['eroare'] ?? ''), 'modul demo nu e pornit') !== false, $r['corp']);
+$r = cerere('GET', '/');
+verifica('Demo', 'fără modul demo: nicio bandă „Site demo", robots.txt obișnuit', strpos($r['corp'], 'bara-demo') === false
+    && strpos(cerere('GET', '/robots.txt')['corp'], "Disallow: /\n") === false);
+
+$scrie_config($config + ['demo' => ['resetare' => '00:00']]);
+unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'demo-curat', 'titlu' => 'Pagina curată', 'continut_html' => '<p>original</p>']);
+unealta($ks, 'publica', ['tip' => 'pagina', 'slug' => 'demo-curat']);
+$r = actualizare($kd, ['actiune' => 'demo_instantaneu']);
+verifica('Demo', 'instantaneul se face doar cu cheia de cod și spune câte fișiere a pus deoparte',
+    $r['cod'] === 200 && ($r['json']['rezultat']['fisiere'] ?? 0) > 0 && !empty($r['json']['demo']['instantaneu']), $r['corp']);
+verifica('Demo', 'cheia de scriere nu poate face instantaneul și nici reseta',
+    actualizare($ks, ['actiune' => 'demo_instantaneu'])['cod'] !== 200 && actualizare($ks, ['actiune' => 'demo_reseteaza'])['cod'] !== 200);
+elibereaza();
+
+// ce ar face un vizitator: scrie peste pagina curată, adaugă un articol, schimbă numele site-ului
+unealta($ks, 'salveaza', ['tip' => 'pagina', 'slug' => 'demo-curat', 'continut_html' => '<p>stricat de vizitator</p>']);
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'demo-vizitator', 'titlu' => 'Scris de vizitator', 'continut_html' => '<p>x</p>']);
+unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'demo-vizitator']);
+$nume_inainte = (string) (unealta($kc, 'despre_site')['date']['site']['nume'] ?? '');
+unealta($ks, 'seteaza_site', ['nume' => 'Nume schimbat de vizitator']);
+$jurnal_inainte = count(glob("$tmp/site/date/jurnal/*.ndjson") ?: []);
+$r = actualizare($kd, ['actiune' => 'demo_reseteaza']);
+$pagina = unealta($kc, 'citeste', ['tip' => 'pagina', 'slug' => 'demo-curat']);
+$articol = unealta($kc, 'citeste', ['tip' => 'articol', 'slug' => 'demo-vizitator']);
+verifica('Demo', 'resetarea pune la loc pagina curată, scoate articolul vizitatorului și readuce numele site-ului',
+    $r['cod'] === 200 && strpos((string) ($pagina['date']['continut_html'] ?? ''), 'original') !== false && $articol['eroare']
+    && (string) (unealta($kc, 'despre_site')['date']['site']['nume'] ?? '') === $nume_inainte, $r['corp']);
+$jurnal = (string) @file_get_contents("$tmp/site/date/jurnal/" . date('Y-m') . '.ndjson');
+verifica('Demo', 'jurnalul nu se resetează: păstrează ce a făcut vizitatorul și resetarea însăși',
+    count(glob("$tmp/site/date/jurnal/*.ndjson") ?: []) === $jurnal_inainte && strpos($jurnal, 'demo-vizitator') !== false
+    && strpos($jurnal, '"cerere":"resetare"') !== false);
+verifica('Demo', 'cheile rămân valabile după resetare (conexiunile nu se rup)', !unealta($ks, 'listeaza')['eroare']);
+
+// resetarea zilnică: prima cerere de după ora aleasă o face, o singură dată pe zi
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'demo-vizitator', 'titlu' => 'Scris de vizitator', 'continut_html' => '<p>x</p>']);
+file_put_contents("$tmp/site/date/demo/resetare.json", json_encode(['resetat' => date('c', strtotime('-1 day')), 'motiv' => 'ora', 'fisiere' => 1]));
+cerere('GET', '/');
+$reset_auto = json_decode((string) @file_get_contents("$tmp/site/date/demo/resetare.json"), true) ?? [];
+verifica('Demo', 'prima cerere de după ora resetării readuce singură instantaneul, fără sarcini programate',
+    ($reset_auto['motiv'] ?? '') === 'ora' && strtotime((string) $reset_auto['resetat']) > strtotime('-1 hour')
+    && unealta($kc, 'citeste', ['tip' => 'articol', 'slug' => 'demo-vizitator'])['eroare']);
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'demo-a-doua', 'titlu' => 'A doua', 'continut_html' => '<p>y</p>']);
+cerere('GET', '/');
+verifica('Demo', 'în aceeași zi, după resetare, nu se mai resetează la fiecare cerere',
+    !unealta($kc, 'citeste', ['tip' => 'articol', 'slug' => 'demo-a-doua'])['eroare']);
+
+$r = cerere('GET', '/');
+$robots = cerere('GET', '/robots.txt')['corp'];
+verifica('Demo', 'site-ul demo: bandă sus, noindex în pagină și în antet, robots.txt închis, fără GA4',
+    strpos($r['corp'], 'class="bara-demo"') !== false && strpos($r['corp'], '<meta name="robots" content="noindex, nofollow">') !== false
+    && stripos((string) ($r['antete']['x-robots-tag'] ?? ''), 'noindex') !== false && strpos($robots, "User-agent: *\nDisallow: /\n") === 0
+    && strpos($r['corp'], 'consimtamant') === false && strpos($r['corp'], 'googletagmanager') === false, $robots);
+
+$scrie_config($config);
+unealta($ks, 'sterge', ['tip' => 'pagina', 'slug' => 'demo-curat']);
+unealta($ks, 'sterge', ['tip' => 'articol', 'slug' => 'demo-a-doua']);
+
 // --- descrierile comenzilor în engleză --------------------------------------------------------
 
 // Descrierile în engleză (0.25): pe un site cu limba de bază alta decât româna, AI-ul le primește traduse, pe toate.

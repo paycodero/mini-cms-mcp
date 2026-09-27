@@ -16,7 +16,7 @@ const INDEXNOW_SECUNDE = 4;
 function indexnow_pornit(): bool
 {
     $c = config('indexnow');
-    if ($c === false || $c === 'nu') return false;
+    if ($c === false || $c === 'nu' || demo_activ()) return false;   // un site demo nu anunță motoarele de căutare
     $p = parse_url((string) config('site.url'));
     $gazda = strtolower((string) ($p['host'] ?? ''));
     return ($p['scheme'] ?? '') === 'https' && $gazda !== 'localhost' && $gazda !== '127.0.0.1' && strpos($gazda, '.') !== false;

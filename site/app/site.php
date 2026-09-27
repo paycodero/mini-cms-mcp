@@ -64,6 +64,7 @@ function randeaza(string $sablon, array $v, int $cod = 200, array $csp = []): vo
     $nonce = base64_encode(random_bytes(16));
     http_response_code($cod);
     header('Content-Type: text/html; charset=utf-8');
+    if (demo_activ()) { $v['noindex'] = true; header('X-Robots-Tag: noindex, nofollow'); }   // un site demo nu intră în căutări
     if (!preg_grep('/^Cache-Control:/i', headers_list())) header('Cache-Control: no-cache');
     antete_securitate(csp_pagina($nonce, $csp));
     $v += ['titlu_pagina' => (string) text_site('nume'), 'descriere' => (string) text_site('descriere'),
@@ -142,6 +143,8 @@ function ui(string $ro): string
         'Folosim Google Analytics ca să aflăm câte vizite are site-ul. Pornește doar dacă accepți.'
             => 'We use Google Analytics to count visits to this site. It only runs if you accept.',
         'Detalii' => 'Details', 'Refuz' => 'Decline', 'Accept' => 'Accept',
+        'Site demo: oricine poate scrie aici, iar conținutul revine la forma inițială în fiecare noapte la %s (ora României).'
+            => 'Demo site: anyone can write here, and the content goes back to its original state every night at %s (Romania time).',
     ];
     return limba_curenta() === 'en' ? ($en[$ro] ?? $ro) : $ro;
 }
@@ -660,6 +663,9 @@ function fisier_robots(): void
 // Textul lui robots.txt; îl folosește și verifica_boti, ca să vadă dacă ajunge neschimbat la boți.
 function text_robots(): string
 {
+    if (demo_activ()) return "User-agent: *
+Disallow: /
+";   // site demo: nimic de indexat
     $interzise = "Disallow: /mcp\nDisallow: /mcp.php\nDisallow: /jurnal.php\nDisallow: /actualizare.php\nDisallow: /imagini.php\nDisallow: /cauta\nDisallow: /previzualizare/\nDisallow: /oauth/\n";
     $t = "User-agent: *\nAllow: /\n" . $interzise;
     foreach (ROBOTI as $bot) $t .= "\nUser-agent: $bot\nAllow: /\n" . $interzise;

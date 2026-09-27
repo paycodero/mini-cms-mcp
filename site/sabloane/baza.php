@@ -66,6 +66,9 @@ if ($masurare): ?>
 <?php endforeach; ?>
 </head>
 <body class="pagina-<?= esc($sablon) ?>">
+<?php if (demo_activ()): ?>
+<div class="bara-demo"><?= esc(sprintf(ui('Site demo: oricine poate scrie aici, iar conținutul revine la forma inițială în fiecare noapte la %s (ora României).'), demo_ora())) ?></div>
+<?php endif; ?>
 <?php if ($previzualizare): ?>
 <div class="bara-previzualizare">Previzualizare · <?= esc($previzualizare['stare']) ?> · linkul expiră la <?= esc($previzualizare['expira']) ?></div>
 <?php endif; ?>

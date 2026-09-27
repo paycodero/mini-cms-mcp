@@ -38,4 +38,7 @@ return [
     //                          // cu o cheie ținută în date/securitate/ și servită la /<cheie>.txt. Google nu are așa ceva.
     // 'csp_extra' => [],       // surse în plus pentru Content-Security-Policy, ex. pentru Google Analytics:
     //                          // ['script-src' => ['https://www.googletagmanager.com'], 'connect-src' => ['https://*.google-analytics.com']]
+    // 'demo' => ['resetare' => '03:00'],  // site demo (ex. pentru verificatorii directorului Claude): conținutul revine în fiecare
+    //                          // zi, după ora aleasă, la instantaneul făcut cu "php unelte/demo.php <site> --instantaneu".
+    //                          // Site-ul nu se indexează, nu anunță IndexNow, nu măsoară și arată o bandă „Site demo”.
 ];

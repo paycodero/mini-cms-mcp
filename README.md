@@ -21,7 +21,7 @@ It installs on ordinary shared hosting with cPanel or Plesk and PHP 8.0+.
   and parameter in English, with `title`, `readOnlyHint` and `destructiveHint` annotations on every tool. Command names and
   replies stay in Romanian.
 - **GA4 only after consent**: with Google Analytics turned on, nothing loads from Google until the visitor presses "Accept".
-- 381 automated tests (install, update, backup, OAuth, SEO, measurement, attacks).
+- 391 automated tests (install, update, backup, OAuth, SEO, measurement, attacks).
 - In production on five sites, including [cms.paycode.ro](https://cms.paycode.ro), which runs on it
   and is managed from a conversation with Claude.
 
@@ -44,7 +44,7 @@ cu capturi din cPanel, și articolele despre [de ce există](https://cms.paycode
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache, cu cPanel sau Plesk). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Câteva mii de rânduri de PHP simplu pe server, plus teste automate (381 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
+- Câteva mii de rânduri de PHP simplu pe server, plus teste automate (391 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
 - Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
 - Instalarea: o comandă pe calculator și un zip urcat în cPanel sau Plesk (File Manager).
 
@@ -68,6 +68,7 @@ unelte/instaleaza.php    instalarea: teste, chei, config.php, pachetul .zip, ver
 unelte/actualizeaza.php  actualizarea codului de pe depozit, cerută de om (cheia de cod), cu copie și punere înapoi
 unelte/copie.php         copia de siguranță: salvează tot site-ul pe calculator și îl poate pune la loc (sau pe alt site)
 unelte/urca-imagine.php  urcă poze de pe calculator: le întoarce după telefon, le micșorează, scoate locația GPS
+unelte/demo.php          site-ul demo: instantaneul curat și resetarea (cheia de cod)
 unelte/editor.php        editorii unui site (de ex. clientul): cheie pe numele lor, adăugare și scoatere (cheia de cod)
 unelte/tema.php          temele proprii ale unui site (lucrări pentru un client): le pune, le înlocuiește, le scoate (cheia de cod)
 unelte/comun.php         funcțiile comune ale uneltelor
@@ -301,6 +302,24 @@ implicită** și stă la rădăcină (`/`), iar celelalte primesc un prefix de a
   llms.txt urmează limba paginii.
 - **Identitatea tradusă:** `seteaza_site` (`traduceri`) dă, per limbă, variantele de `nume`, `descriere`, `subsol` și
   `nume_articole`. Ce lipsește într-o limbă cade pe valoarea de bază. ex. `{"en":{"nume":"The New Journal…"}}`.
+
+## Site demo, care se resetează singur (0.26)
+
+Pentru un site pe care îl încearcă oameni din afară (de exemplu verificatorii directorului de conectori Claude):
+`'demo' => ['resetare' => '03:00']` în `config.php`. Setarea nu se poate schimba prin MCP.
+
+```
+php unelte/demo.php https://demo.site.ro                  starea
+php unelte/demo.php https://demo.site.ro --instantaneu    conținutul de acum devine starea curată
+php unelte/demo.php https://demo.site.ro --reseteaza      pune la loc instantaneul acum
+```
+
+- În fiecare zi, prima cerere de după ora aleasă pune la loc instantaneul: paginile, articolele, documentele, imaginile,
+  redirecționările, identitatea site-ului și versiunile lor. Nu e nevoie de sarcini programate pe server.
+- **Nu se resetează:** jurnalul (rămâne urma a ce au făcut vizitatorii), cheile și editorii, conexiunile OAuth (cine e în
+  mijlocul unui test nu își pierde conectorul), citirile AI, copiile de cod și temele proprii.
+- Site-ul demo nu se indexează (noindex, `robots.txt` închis), nu anunță IndexNow, nu măsoară cu GA4 și arată sus o bandă
+  „Site demo” cu ora resetării.
 
 ## Copia de siguranță
 

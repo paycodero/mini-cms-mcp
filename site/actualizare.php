@@ -79,7 +79,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             } elseif ($actiune === 'scoate_editor') {
                 if (!$json) throw new EroareCms('un editor se scoate din comanda php unelte/editor.php, nu din formular');
                 $v['rezultat'] = editor_scoate((string) ($p['nume'] ?? ''));
-            } elseif ($actiune !== 'teme' && $actiune !== 'editori') {
+            } elseif ($actiune === 'demo_instantaneu') {
+                $v['rezultat'] = demo_instantaneu();
+            } elseif ($actiune === 'demo_reseteaza') {
+                $v['rezultat'] = demo_reseteaza('manual');
+            } elseif ($actiune !== 'teme' && $actiune !== 'editori' && $actiune !== 'demo') {
                 $s = cod_stare();
                 unset($s['_fisiere']);
                 $v['stare'] = $s;
@@ -87,6 +91,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $v['copii'] = cod_copii();
             $v['teme'] = teme_stare();
             $v['editori'] = editori_stare();
+            $v['demo'] = demo_stare();
         } catch (Throwable $e) {
             $cod_http = 400;
             $v['mesaj'] = $e instanceof EroareCms ? $e->getMessage() : 'Eroare internă. Detaliile sunt în jurnal.';
@@ -97,7 +102,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
         if ($json) {
             raspunde_json($cod_http, $v['mesaj'] !== '' ? ['eroare' => $v['mesaj']]
-                : ['rezultat' => $v['rezultat'], 'stare' => $v['stare'], 'copii' => $v['copii'], 'teme' => $v['teme'], 'editori' => $v['editori'] ?? []]);
+                : ['rezultat' => $v['rezultat'], 'stare' => $v['stare'], 'copii' => $v['copii'], 'teme' => $v['teme'], 'editori' => $v['editori'] ?? [],
+                   'demo' => $v['demo'] ?? ['pornit' => false]]);
         }
     }
 } elseif ($json) {

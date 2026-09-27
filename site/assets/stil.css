@@ -264,3 +264,6 @@ main .continut .bloc-cifre span{display:block;margin-top:4px;color:var(--text-sl
   background:#fff;color:var(--accent,#16478f);cursor:pointer}
 .consimtamant-butoane button:hover,.consimtamant-butoane button:focus-visible{background:var(--accent,#16478f);color:#fff}
 .subsol .setari-cookie{font:inherit;background:none;border:0;padding:0;color:inherit;text-decoration:underline;cursor:pointer}
+
+/* Banda site-ului demo (app/demo.php). */
+.bara-demo{background:#fff7d6;color:#0b1220;border-bottom:2px solid #f5c518;padding:8px 16px;text-align:center;font-weight:600;font-size:.95rem}

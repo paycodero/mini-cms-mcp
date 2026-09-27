@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 if (!defined('MINICMS')) { http_response_code(403); exit; }
 
-const MINICMS_VERSIUNE = '0.25.0';
+const MINICMS_VERSIUNE = '0.26.0';
 
 ini_set('display_errors', '0');   // un avertisment afișat ar strica JSON-ul MCP și ar scurge căi de pe server
 error_reporting(E_ALL);
@@ -57,6 +57,7 @@ function config(string $cale = '')
             'imagini_url' => true,          // false = urca_imagine nu mai primește adrese (serverul nu descarcă nimic)
             'imagini_url_permise' => [],    // doar pentru teste: "gazdă:port" la care se acceptă http și adrese locale
             'pagina_imagini' => true,       // false = pagina /imagini.php (urcarea din browser, cu cheia) nu există
+            'demo' => null,                 // ['resetare' => '03:00'] = site demo: conținutul revine zilnic la instantaneu (app/demo.php)
         ];
         foreach (['site', 'chei'] as $k) $dat[$k] = (array) ($dat[$k] ?? []) + $implicit[$k];
         $c = $dat + $implicit;
@@ -359,3 +360,6 @@ require __DIR__ . '/vizite_ai.php';
 require __DIR__ . '/verifica_boti.php';
 require __DIR__ . '/citabilitate.php';
 require __DIR__ . '/actualizare.php';
+require __DIR__ . '/demo.php';
+
+demo_reseteaza_daca_e_timpul();
