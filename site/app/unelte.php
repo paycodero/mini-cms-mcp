@@ -319,6 +319,10 @@ function unelte(): array
                 'nume_articole' => ['type' => 'string', 'maxLength' => 30,
                     'description' => 'cum se numesc articolele pe site, un cuvânt la plural cu litere mici, ex. "ghiduri": apare în meniu, '
                         . 'pe prima pagină și în liste ("Ultimele ghiduri", "Toate ghidurile"). Adresa rămâne /articole. "" = "articole"'],
+                'ga4_fara_acord' => ['type' => 'string', 'enum' => ['', 'da'],
+                    'description' => '"" = GA4 se încarcă doar după "Accept" în bannerul de consimțământ (implicit, din 0.23); '
+                        . '"da" = GA4 se încarcă direct, fără banner, ca înainte de 0.23. Doar la cererea explicită a omului: '
+                        . 'în UE, cookie-urile de măsurare cer acordul vizitatorului, iar de el răspunde proprietarul.'],
                 'arata_data' => ['type' => 'string', 'enum' => ['', 'da'],
                     'description' => '"da" = data publicării apare pe articol și pe carduri (potrivit unui blog); "" = nu apare (implicit). '
                         . 'Datele rămân oricum în sitemap, feed și datele structurate.'],

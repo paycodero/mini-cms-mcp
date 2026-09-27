@@ -652,8 +652,15 @@ function seteaza_identitate(array $campuri): array
         $nou['arata_data'] = (string) ($campuri['arata_data'] ?? '');
         if (!in_array($nou['arata_data'], ['', 'da'], true)) throw new EroareCms('"arata_data" e "da" (data publicării apare pe pagini) sau "" (nu apare)');
     }
+    // GA4 fără banner de consimțământ (cum era înainte de 0.23): doar la cererea proprietarului, care răspunde de acord.
+    if (array_key_exists('ga4_fara_acord', $campuri)) {
+        $nou['ga4_fara_acord'] = (string) ($campuri['ga4_fara_acord'] ?? '');
+        if (!in_array($nou['ga4_fara_acord'], ['', 'da'], true)) {
+            throw new EroareCms('"ga4_fara_acord" e "da" (GA4 se încarcă direct, fără banner) sau "" (bannerul de consimțământ, implicit)');
+        }
+    }
     if (!$nou) throw new EroareCms('trimite cel puțin un câmp: nume, descriere, autor, limba, culoare, logo, favicon, tema, legaturi, ga4, '
-        . 'subsol, realizare, realizare_url, nume_articole sau arata_data');
+        . 'subsol, realizare, realizare_url, nume_articole, arata_data sau ga4_fara_acord');
 
     return cu_blocare(function () use ($nou) {
         $fisier = dir_date() . '/site.json';

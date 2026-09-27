@@ -44,9 +44,15 @@ if (!$noindex && count($alternative) > 1): foreach ($alternative as $cod_alt => 
 <meta name="theme-color" content="<?= esc(culoare_accent()) ?>">
 <?php // Măsurarea: doar pe paginile publice (jurnalul, actualizarea, previzualizările și aprobările nu se numără) și doar
 // după acordul vizitatorului. consimtamant.js arată bannerul și încarcă GA4 abia la „Accept"; până atunci, nimic de la Google.
-$masurare = (string) config('site.ga4') !== '' && !$noindex;
+// Cu ga4_fara_acord = "da" (cerut de proprietar), eticheta se încarcă direct, fără banner, ca înainte de 0.23.
+$ga4 = (string) config('site.ga4');
+$ga4_direct = $ga4 !== '' && !$noindex && (string) config('site.ga4_fara_acord') === 'da';
+$masurare = $ga4 !== '' && !$noindex && !$ga4_direct;
 if ($masurare): ?>
-<script defer nonce="<?= esc($nonce) ?>" src="/assets/consimtamant.js?v=<?= (int) @filemtime(dirname(__DIR__) . '/assets/consimtamant.js') ?>" data-ga4="<?= esc((string) config('site.ga4')) ?>"></script>
+<script defer nonce="<?= esc($nonce) ?>" src="/assets/consimtamant.js?v=<?= (int) @filemtime(dirname(__DIR__) . '/assets/consimtamant.js') ?>" data-ga4="<?= esc($ga4) ?>"></script>
+<?php elseif ($ga4_direct): ?>
+<script async nonce="<?= esc($nonce) ?>" src="https://www.googletagmanager.com/gtag/js?id=<?= rawurlencode($ga4) ?>"></script>
+<script nonce="<?= esc($nonce) ?>">window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','<?= esc($ga4) ?>');</script>
 <?php endif; ?>
 <?php if ((string) config('site.favicon') !== ''): ?><link rel="icon" href="<?= esc(config('site.favicon')) ?>">
 <link rel="apple-touch-icon" href="<?= esc(config('site.favicon')) ?>">

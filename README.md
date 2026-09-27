@@ -464,6 +464,8 @@ Site-ul e făcut ca să fie găsit de oameni prin Google și Bing, dar și citit
   Alegerea stă în browser (localStorage), nu într-un cookie, și se schimbă din „Setări cookie”, în subsol; la refuz, cookie-urile
   `_ga` rămase de la un acord anterior se șterg. Bannerul trimite la `/confidentialitate` (în limba paginii, dacă are traducere),
   când pagina e publicată. Fără GA4, nu apare nici banner, nici script.
+  **Comutatorul `ga4_fara_acord` (0.24):** `seteaza_site` cu `"da"` încarcă GA4 direct, fără banner, ca înainte de 0.23 — pentru
+  un site al cărui proprietar a ales altfel (de exemplu, un client care își rezolvă acordul în alt mod). Implicit e `""`, adică bannerul.
 - **Rețeaua autorului:** `seteaza_site` (`legaturi`) pune celelalte site-uri și conturi în subsol, pe fiecare
   pagină, și aceleași adrese în `sameAs` din datele structurate — de acolo află Google și Bing că profilurile sunt
   ale aceleiași entități. Sunt conținut, nu configurare: rămân la locul lor când urci un pachet nou.

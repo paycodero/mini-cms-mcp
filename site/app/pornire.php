@@ -59,7 +59,7 @@ function fapte_confidentialitate(): array
     // Cloudflare: după adresa cererii (din_cloudflare) SAU după antetul CF-Ray, pe care Cloudflare îl trimite mereu serverului.
     // LiteSpeed-ul de pe găzduirea paycode.ro pune singur IP-ul real în REMOTE_ADDR, deci doar adresa nu ajunge (21 sept 2026).
     $cf = din_cloudflare() || (string) ($_SERVER['HTTP_CF_RAY'] ?? '') !== '';
-    return ['ga4' => (string) config('site.ga4'), 'cloudflare' => $cf, 'video' => $video];
+    return ['ga4' => (string) config('site.ga4'), 'ga4_fara_acord' => (string) config('site.ga4_fara_acord') === 'da', 'cloudflare' => $cf, 'video' => $video];
 }
 
 function pagini_de_pornire(): array
@@ -133,8 +133,9 @@ function pagini_de_pornire(): array
     if ($f['ga4'] !== '') {
         $sectiuni .= '<li>Folosim Google Analytics 4, ca să aflăm câte vizite are site-ul și de unde vin. Google Analytics pune cookie-uri și prelucrează '
             . "adresa IP, după <a href=\"https://policies.google.com/privacy\" target=\"_blank\" rel=\"noopener\">politica Google</a>. "
-            . 'Se încarcă doar dacă accepți măsurarea, în bannerul de la prima vizită. Alegerea se păstrează în browser, nu într-un cookie, '
-            . 'și o schimbi oricând din „Setări cookie”, în subsolul site-ului.</li>';
+            . ($f['ga4_fara_acord'] ? "$c: cum își dă vizitatorul acordul — pe acest site GA4 se încarcă fără banner de consimțământ (ga4_fara_acord)]]</li>"
+                : 'Se încarcă doar dacă accepți măsurarea, în bannerul de la prima vizită. Alegerea se păstrează în browser, nu într-un cookie, '
+                . 'și o schimbi oricând din „Setări cookie”, în subsolul site-ului.</li>');
     }
     if ($f['video']) {
         $sectiuni .= '<li>Unele pagini au video de pe YouTube sau Vimeo. Când îl pornești, platforma respectivă poate pune cookie-uri și îți vede adresa IP.</li>';
@@ -155,7 +156,8 @@ function pagini_de_pornire(): array
     unset($p);
 
     $atentie = [];
-    if ($f['ga4'] !== '') $atentie[] = 'GA4 e pornit: site-ul îl încarcă doar după acordul vizitatorului (bannerul de consimțământ). Verifică cu omul că pagina de confidențialitate e publicată la /confidentialitate, ca bannerul să trimită la ea.';
+    if ($f['ga4'] !== '' && $f['ga4_fara_acord']) $atentie[] = 'GA4 se încarcă fără banner de consimțământ (ga4_fara_acord = "da"): spune-i omului că, în UE, cookie-urile de măsurare cer acordul vizitatorului.';
+    elseif ($f['ga4'] !== '') $atentie[] = 'GA4 e pornit: site-ul îl încarcă doar după acordul vizitatorului (bannerul de consimțământ). Verifică cu omul că pagina de confidențialitate e publicată la /confidentialitate, ca bannerul să trimită la ea.';
     return [
         'cum_se_folosesc' => [
             'Întreabă-l întâi pe om ce lipsește (vezi intrebari_pentru_om). Nu inventa nimic: nume, cifre, clienți, citate, adrese, prețuri. Ce nu știi, întrebi sau scoți blocul.',
