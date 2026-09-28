@@ -21,7 +21,8 @@ It installs on ordinary shared hosting with cPanel or Plesk and PHP 8.0+.
   and parameter in English, with `title`, `readOnlyHint` and `destructiveHint` annotations on every tool. Command names and
   replies stay in Romanian.
 - **GA4 only after consent**: with Google Analytics turned on, nothing loads from Google until the visitor presses "Accept".
-- 393 automated tests (install, update, backup, OAuth, SEO, measurement, attacks).
+- **Network of sites**: articles and pages can end with links to the author's other sites on the same subject, read on the server from a shared index (`retea`, off by default).
+- 395 automated tests (install, update, backup, OAuth, SEO, measurement, attacks).
 - In production on five sites, including [cms.paycode.ro](https://cms.paycode.ro), which runs on it
   and is managed from a conversation with Claude.
 
@@ -44,7 +45,7 @@ cu capturi din cPanel, și articolele despre [de ce există](https://cms.paycode
 
 - PHP simplu (8.0+). Fără Composer, fără bază de date, fără fișiere de pe alte servere, fără panou de administrare.
 - Merge pe orice găzduire PHP obișnuită (Apache, cu cPanel sau Plesk). MCP prin Streamable HTTP fără sesiuni: fiecare cerere e un POST cu răspuns JSON.
-- Câteva mii de rânduri de PHP simplu pe server, plus teste automate (393 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
+- Câteva mii de rânduri de PHP simplu pe server, plus teste automate (395 de verificări, inclusiv instalarea, actualizarea, copia de siguranță, OAuth, SEO și măsurarea).
 - Se leagă de Claude Code (cheie în antet) și de conectorul din claude.ai, web și telefon (OAuth, aprobat cu cheia site-ului).
 - Instalarea: o comandă pe calculator și un zip urcat în cPanel sau Plesk (File Manager).
 
@@ -496,6 +497,9 @@ Site-ul e făcut ca să fie găsit de oameni prin Google și Bing, dar și citit
 - **Rețeaua autorului:** `seteaza_site` (`legaturi`) pune celelalte site-uri și conturi în subsol, pe fiecare
   pagină, și aceleași adrese în `sameAs` din datele structurate — de acolo află Google și Bing că profilurile sunt
   ale aceleiași entități. Sunt conținut, nu configurare: rămân la locul lor când urci un pachet nou.
+- **Legăturile din rețea (0.27):** `seteaza_site` (`retea`) primește adresa https a unui index comun (JSON) al site-urilor
+  aceluiași autor; la finalul articolelor și paginilor apare blocul „Pe același subiect, pe celelalte site-uri”. Indexul se
+  citește pe server (îl văd și motoarele de căutare), cu o copie de 6 ore în date/. Implicit gol = fără bloc, fără nicio cerere în afară.
 - **Textul din subsol:** `seteaza_site` (`subsol`) pune o mențiune scurtă pe fiecare pagină și în llms.txt — ce nu oferă
   site-ul, sau firma și CUI-ul. Text simplu, fără HTML.
 - **Cine a făcut site-ul:** `seteaza_site` (`realizare`, ex. „Website realizat cu AI și miniCMS”, plus `realizare_url`)

@@ -131,6 +131,7 @@ function ui(string $ro): string
     static $en = [
         'articole' => 'articles', 'Ultimele' => 'Latest', 'Toate' => 'All',
         'Citește mai departe' => 'Read more', 'Eticheta' => 'Tag',
+        'Din rețea' => 'From the network', 'Pe același subiect, pe celelalte site-uri' => 'On the same subject, on my other sites',
         '← Mai noi' => '← Newer', 'Mai vechi →' => 'Older →', 'Pagina %d din %d' => 'Page %d of %d',
         'Caută pe site' => 'Search the site', 'Caută' => 'Search', 'Meniu' => 'Menu', 'Pagini' => 'Pages',
         'Pagina nu există.' => 'Page not found.', 'Linkul nu mai e valabil.' => 'This link is no longer valid.',
@@ -436,6 +437,7 @@ function variabile_element(string $tip, array $e): array
           'jsonld_extra' => [firimituri_jsonld($e)]];
     $faq = faq_jsonld($html);
     if ($faq) $v['jsonld_extra'][] = $faq;
+    $v['retea'] = retea_legaturi($v['canonic']);
     if ($tip === 'pagina') {   // meniul pe două niveluri: pagina-părinte își listează subpaginile, subpagina duce înapoi
         $v['sectiune'] = sectiune_pagina($e);
         $v['subpagini'] = ($e['slug'] ?? '') === 'acasa' ? [] : subpagini_pentru((string) $e['slug']);

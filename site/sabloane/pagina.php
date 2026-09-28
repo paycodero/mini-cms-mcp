@@ -5,6 +5,16 @@
   <p class="introducere"><?= esc($e['descriere']) ?></p>
 <?php endif; ?>
   <div class="continut"><?= $html ?></div>
+<?php if ($retea ?? []): ?>
+  <aside class="retea" aria-label="<?= esc(ui('Din rețea')) ?>">
+    <h2><?= esc(ui('Pe același subiect, pe celelalte site-uri')) ?></h2>
+    <ul>
+<?php foreach ($retea as $x): ?>
+      <li><a href="<?= esc($x['url']) ?>"><span class="retea-site"><?= esc($x['site']) ?></span><span class="retea-titlu"><?= esc($x['titlu']) ?></span></a></li>
+<?php endforeach; ?>
+    </ul>
+  </aside>
+<?php endif; ?>
 <?php if ($subpagini ?? []): ?>
   <nav class="subpagini" aria-label="Paginile secțiunii <?= esc($e['titlu']) ?>">
     <h2>În această secțiune</h2>

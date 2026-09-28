@@ -623,6 +623,13 @@ function seteaza_identitate(array $campuri): array
                 . 'Nu se trimite eticheta de script, doar identificatorul.');
         }
     }
+    if (array_key_exists('retea', $campuri)) {
+        // Adresa indexului comun al rețelei (JSON), citit pe server: doar https, fără parametri ascunși.
+        $nou['retea'] = trim((string) ($campuri['retea'] ?? ''));
+        if ($nou['retea'] !== '' && !filter_var($nou['retea'], FILTER_VALIDATE_URL) || ($nou['retea'] !== '' && !preg_match('#^https://#i', $nou['retea']))) {
+            throw new EroareCms('"retea" e adresa https a indexului comun al rețelei, ex. "https://simpluspv.eu/retea.json" (gol = fără bloc)');
+        }
+    }
     if (array_key_exists('tema', $campuri)) {
         $nou['tema'] = trim((string) ($campuri['tema'] ?? ''));
         $teme = teme_disponibile();

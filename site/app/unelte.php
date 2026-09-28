@@ -323,6 +323,10 @@ function unelte(): array
                     'description' => '"" = GA4 se încarcă doar după "Accept" în bannerul de consimțământ (implicit, din 0.23); '
                         . '"da" = GA4 se încarcă direct, fără banner, ca înainte de 0.23. Doar la cererea explicită a omului: '
                         . 'în UE, cookie-urile de măsurare cer acordul vizitatorului, iar de el răspunde proprietarul.'],
+                'retea' => ['type' => 'string',
+                    'description' => 'adresa https a indexului comun al rețelei de site-uri ale autorului (JSON), ex. "https://simpluspv.eu/retea.json": '
+                        . 'la finalul articolelor și paginilor apar legături spre paginile de pe CELELALTE site-uri, pe același subiect. '
+                        . 'Legăturile le alege indexul, nu site-ul. "" = fără bloc (implicit)'],
                 'arata_data' => ['type' => 'string', 'enum' => ['', 'da'],
                     'description' => '"da" = data publicării apare pe articol și pe carduri (potrivit unui blog); "" = nu apare (implicit). '
                         . 'Datele rămân oricum în sitemap, feed și datele structurate.'],

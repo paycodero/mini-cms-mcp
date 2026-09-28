@@ -1180,6 +1180,23 @@ $u = unealta($ks, 'seteaza_site', ['arata_data' => 'da']);
 $r = cerere('GET', '/legat-unu');
 verifica('Site', 'cu arata_data = "da", data apare pe articol și pe carduri', !$u['eroare'] && strpos($r['corp'], '<span class="data-publicarii">2 ianuarie 2026</span>') !== false
     && strpos(cerere('GET', '/articole')['corp'], '<p class="data">2 ianuarie 2026</p>') !== false, $u['text']);
+// Rețeaua de site-uri (0.27): copia indexului e pusă direct în date/, proaspătă, ca testul să nu iasă pe internet.
+$u = unealta($ks, 'seteaza_site', ['retea' => 'http://exemplu.ro/retea.json']);
+$u2 = unealta($ks, 'seteaza_site', ['retea' => 'https://exemplu.ro/retea.json']);
+file_put_contents("$tmp/site/date/retea-cache.json", json_encode(['sursa' => 'https://exemplu.ro/retea.json', 'la' => time(), 'legaturi' => [
+    '127.0.0.1/legat-unu' => [
+        ['url' => 'https://alt-site.ro/pagina-buna', 'titlu' => 'Pagina <b>bună</b>', 'nume_site' => 'Alt site'],
+        ['url' => 'http://alt-site.ro/fara-https', 'titlu' => 'Fără https', 'nume_site' => 'Alt site'],
+        ['url' => "$url/legat-doi", 'titlu' => 'Tot pe acest site', 'nume_site' => 'Eu'],
+        ['url' => 'javascript:alert(1)', 'titlu' => 'Rău', 'nume_site' => 'X']]]]));
+$r = cerere('GET', '/legat-unu');
+verifica('Site', 'rețeaua: doar https, cu indexul comun; blocul arată doar legăturile https spre alte site-uri, cu titlul ca text',
+    $u['eroare'] && !$u2['eroare'] && strpos($r['corp'], 'class="retea"') !== false
+    && strpos($r['corp'], 'href="https://alt-site.ro/pagina-buna"') !== false && strpos($r['corp'], 'Pagina &lt;b&gt;bună&lt;/b&gt;') !== false
+    && strpos($r['corp'], 'fara-https') === false && strpos($r['corp'], 'Tot pe acest site') === false && strpos($r['corp'], 'javascript:') === false,
+    $u2['text']);
+unealta($ks, 'seteaza_site', ['retea' => '']);
+verifica('Site', 'rețeaua oprită = niciun bloc', strpos(cerere('GET', '/legat-unu')['corp'], 'class="retea"') === false);
 unealta($ks, 'seteaza_site', ['subsol' => '', 'nume_articole' => '', 'arata_data' => '']);
 foreach (['legat-unu', 'legat-doi', 'legat-trei', 'cu-de-toate'] as $s) unealta($ks, 'sterge', ['tip' => 'articol', 'slug' => $s]);
 verifica('Site', 'fără nume ales, articolele se numesc din nou „articole", iar subsolul dispare',

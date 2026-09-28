@@ -40,5 +40,15 @@ if (($e['imagine'] ?? '') !== '' && strpos($html, (string) $e['imagine']) === fa
     </div>
   </aside>
 <?php endif; ?>
+<?php if ($retea ?? []): ?>
+  <aside class="retea" aria-label="<?= esc(ui('Din rețea')) ?>">
+    <h2><?= esc(ui('Pe același subiect, pe celelalte site-uri')) ?></h2>
+    <ul>
+<?php foreach ($retea as $x): ?>
+      <li><a href="<?= esc($x['url']) ?>"><span class="retea-site"><?= esc($x['site']) ?></span><span class="retea-titlu"><?= esc($x['titlu']) ?></span></a></li>
+<?php endforeach; ?>
+    </ul>
+  </aside>
+<?php endif; ?>
   <p class="inapoi"><a href="<?= esc(prefix_limba()) ?>/articole">← <?= esc(ui('Toate')) ?> <?= esc(nume_articole(true)) ?></a></p>
 </article>
