@@ -268,11 +268,12 @@ main .continut .bloc-cifre span{display:block;margin-top:4px;color:var(--text-sl
 /* Banda site-ului demo (app/demo.php). */
 .bara-demo{background:#fff7d6;color:#0b1220;border-bottom:2px solid #f5c518;padding:8px 16px;text-align:center;font-weight:600;font-size:.95rem}
 
-/* Rețeaua de site-uri (0.27): legături spre celelalte site-uri ale autorului, pe același subiect */
-.retea{margin-top:40px;padding:16px 18px;border:1px solid var(--linie);border-left:4px solid var(--accent,#6d2be8);border-radius:10px}
-.retea h2{font-size:18px;margin:0 0 10px}
-.retea ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.retea a{display:flex;gap:10px;align-items:baseline;text-decoration:none}
-.retea-site{flex:0 0 auto;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid var(--linie)}
-.retea-titlu{font-weight:600}
-@media (max-width:560px){.retea a{flex-direction:column;gap:3px}}
+/* Rețeaua de site-uri (0.27): legături spre celelalte site-uri ale autorului, pe același subiect.
+   Clasa e din-retea, NU retea: .subsol .retea e lista de site-uri din subsol (0.27.1). */
+.din-retea{margin-top:40px;padding:16px 18px;border:1px solid var(--linie);border-left:4px solid var(--accent,#6d2be8);border-radius:10px}
+.din-retea h2{font-size:18px;margin:0 0 10px}
+.din-retea ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.din-retea a{display:flex;gap:10px;align-items:baseline;text-decoration:none}
+.din-retea-site{flex:0 0 auto;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid var(--linie)}
+.din-retea-titlu{font-weight:600}
+@media (max-width:560px){.din-retea a{flex-direction:column;gap:3px}}

@@ -1191,12 +1191,12 @@ file_put_contents("$tmp/site/date/retea-cache.json", json_encode(['sursa' => 'ht
         ['url' => 'javascript:alert(1)', 'titlu' => 'Rău', 'nume_site' => 'X']]]]));
 $r = cerere('GET', '/legat-unu');
 verifica('Site', 'rețeaua: doar https, cu indexul comun; blocul arată doar legăturile https spre alte site-uri, cu titlul ca text',
-    $u['eroare'] && !$u2['eroare'] && strpos($r['corp'], 'class="retea"') !== false
+    $u['eroare'] && !$u2['eroare'] && strpos($r['corp'], 'class="din-retea"') !== false
     && strpos($r['corp'], 'href="https://alt-site.ro/pagina-buna"') !== false && strpos($r['corp'], 'Pagina &lt;b&gt;bună&lt;/b&gt;') !== false
     && strpos($r['corp'], 'fara-https') === false && strpos($r['corp'], 'Tot pe acest site') === false && strpos($r['corp'], 'javascript:') === false,
     $u2['text']);
 unealta($ks, 'seteaza_site', ['retea' => '']);
-verifica('Site', 'rețeaua oprită = niciun bloc', strpos(cerere('GET', '/legat-unu')['corp'], 'class="retea"') === false);
+verifica('Site', 'rețeaua oprită = niciun bloc', strpos(cerere('GET', '/legat-unu')['corp'], 'class="din-retea"') === false);
 unealta($ks, 'seteaza_site', ['subsol' => '', 'nume_articole' => '', 'arata_data' => '']);
 foreach (['legat-unu', 'legat-doi', 'legat-trei', 'cu-de-toate'] as $s) unealta($ks, 'sterge', ['tip' => 'articol', 'slug' => $s]);
 verifica('Site', 'fără nume ales, articolele se numesc din nou „articole", iar subsolul dispare',
