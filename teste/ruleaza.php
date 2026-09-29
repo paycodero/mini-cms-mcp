@@ -1714,7 +1714,7 @@ verifica('Securitate', 'OAuth: cheia de citire nu primește cod de conectare din
 elibereaza();
 [$corp, $ant] = formular(['cheie' => $ke]);
 $r = cerere('POST', '/oauth/conectare', $corp, $ant);
-$COD = preg_match('/class="cod-conectare"[^>]*>([0-9]{3}) ([0-9]{3})</', $r['corp'], $m) ? $m[1] . $m[2] : '';
+$COD = preg_match('/class="cod-conectare"[^>]*>([0-9]{6})</', $r['corp'], $m) ? $m[1] : '';
 $j = unealta($kc, 'citeste_jurnal', ['ultimele' => 5]);
 verifica('Editori', 'cu cheia ei, editorul primește din pagină codul de 6 cifre; deschiderea e în jurnal pe numele ei', $r['cod'] === 200
     && strlen($COD) === 6 && strpos($r['corp'], "$url/mcp") !== false

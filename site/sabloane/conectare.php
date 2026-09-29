@@ -19,7 +19,7 @@
 <?php else: ?>
   <h1>Codul tău de conectare</h1>
 <?php if ($fereastra['cod'] !== ''): ?>
-  <p class="cod-conectare" aria-label="Codul de conectare"><?= esc(implode(' ', str_split($fereastra['cod'], 3))) ?></p>
+  <p class="cod-conectare" aria-label="Codul de conectare"><?= esc($fereastra['cod']) ?></p>
   <p>E bun până la <b><?= esc($fereastra['pana_la']) ?></b>, pentru o singură conectare. Nu-l trimite nimănui.</p>
 <?php else: ?>
   <p>Pe acest site conectarea e deschisă permanent: nu ai nevoie de cod.</p>

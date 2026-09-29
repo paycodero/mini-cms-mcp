@@ -183,8 +183,9 @@ figure.coperta.coperta-portret img{display:block;width:auto;max-width:100%;max-h
 
 /* jurnalul */
 .formular{display:grid;gap:10px;max-width:420px;margin-top:16px}
-.formular input[type=password]{font:inherit;padding:10px 12px;border:2px solid var(--linie);border-radius:var(--raza)}
-.formular input[type=password]:focus{border-color:var(--accent);outline:none}
+.formular input[type=password],.formular input[type=text]{font:inherit;padding:10px 12px;border:2px solid var(--linie);border-radius:var(--raza);background:var(--fond);color:var(--text)}
+.formular input[type=password]:focus,.formular input[type=text]:focus{border-color:var(--accent);outline:none}
+.formular input#cod_conectare{font-size:24px;font-weight:700;letter-spacing:.3em;font-variant-numeric:tabular-nums;max-width:220px}
 .bifa{font-size:15px;color:var(--text-2)}
 .alerta{background:var(--rosu-fond);color:var(--rosu);border-left:5px solid var(--rosu);padding:10px 14px;border-radius:6px;font-weight:600}
 .lant{padding:12px 16px;border-radius:var(--raza);font-weight:700}
