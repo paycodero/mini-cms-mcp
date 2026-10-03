@@ -666,8 +666,15 @@ function seteaza_identitate(array $campuri): array
             throw new EroareCms('"ga4_fara_acord" e "da" (GA4 se încarcă direct, fără banner) sau "" (bannerul de consimțământ, implicit)');
         }
     }
+    // GA4 cu Consent Mode v2: eticheta se încarcă de la început, dar cu stocarea refuzată; fără cookie-uri până la „Accept".
+    if (array_key_exists('ga4_mod_acord', $campuri)) {
+        $nou['ga4_mod_acord'] = (string) ($campuri['ga4_mod_acord'] ?? '');
+        if (!in_array($nou['ga4_mod_acord'], ['', 'da'], true)) {
+            throw new EroareCms('"ga4_mod_acord" e "da" (Consent Mode v2: GA4 trimite semnale anonime fără cookie-uri înainte de acord) sau "" (nimic de la Google până la „Accept", implicit)');
+        }
+    }
     if (!$nou) throw new EroareCms('trimite cel puțin un câmp: nume, descriere, autor, limba, culoare, logo, favicon, tema, legaturi, ga4, '
-        . 'subsol, realizare, realizare_url, nume_articole, arata_data sau ga4_fara_acord');
+        . 'subsol, realizare, realizare_url, nume_articole, arata_data, ga4_fara_acord sau ga4_mod_acord');
 
     return cu_blocare(function () use ($nou) {
         $fisier = dir_date() . '/site.json';

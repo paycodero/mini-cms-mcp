@@ -494,6 +494,11 @@ Site-ul e făcut ca să fie găsit de oameni prin Google și Bing, dar și citit
   când pagina e publicată. Fără GA4, nu apare nici banner, nici script.
   **Comutatorul `ga4_fara_acord` (0.24):** `seteaza_site` cu `"da"` încarcă GA4 direct, fără banner, ca înainte de 0.23 — pentru
   un site al cărui proprietar a ales altfel (de exemplu, un client care își rezolvă acordul în alt mod). Implicit e `""`, adică bannerul.
+  **Consent Mode v2 (0.28):** `seteaza_site` cu `ga4_mod_acord` = `"da"` păstrează bannerul, dar încarcă eticheta GA4 de la început, cu
+  stocarea refuzată (`analytics_storage`, `ad_storage`, `ad_user_data`, `ad_personalization` = denied). Înainte de acord, Google primește
+  doar semnale anonime de vizită, fără cookie-uri, din care estimează vizitele pierdute; la „Accept" trece pe acordat, iar la „Refuz"
+  rămâne refuzat, fără reîncărcarea paginii. Textul bannerului și pagina de confidențialitate spun singure ce se întâmplă. Implicit e `""`
+  (nimic de la Google până la „Accept"). Unii juriști cer acord și pentru semnalele anonime: alegerea e a proprietarului.
 - **Rețeaua autorului:** `seteaza_site` (`legaturi`) pune celelalte site-uri și conturi în subsol, pe fiecare
   pagină, și aceleași adrese în `sameAs` din datele structurate — de acolo află Google și Bing că profilurile sunt
   ale aceleiași entități. Sunt conținut, nu configurare: rămân la locul lor când urci un pachet nou.

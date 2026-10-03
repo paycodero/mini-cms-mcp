@@ -48,8 +48,11 @@ if (!$noindex && count($alternative) > 1): foreach ($alternative as $cod_alt => 
 $ga4 = (string) config('site.ga4');
 $ga4_direct = $ga4 !== '' && !$noindex && (string) config('site.ga4_fara_acord') === 'da';
 $masurare = $ga4 !== '' && !$noindex && !$ga4_direct;
+// Cu ga4_mod_acord = "da" (Consent Mode v2), consimtamant.js încarcă eticheta de la început, cu stocarea refuzată: fără cookie-uri
+// până la „Accept", dar Google primește semnale anonime de vizită.
+$ga4_mod = $masurare && (string) config('site.ga4_mod_acord') === 'da';
 if ($masurare): ?>
-<script defer nonce="<?= esc($nonce) ?>" src="/assets/consimtamant.js?v=<?= (int) @filemtime(dirname(__DIR__) . '/assets/consimtamant.js') ?>" data-ga4="<?= esc($ga4) ?>"></script>
+<script defer nonce="<?= esc($nonce) ?>" src="/assets/consimtamant.js?v=<?= (int) @filemtime(dirname(__DIR__) . '/assets/consimtamant.js') ?>" data-ga4="<?= esc($ga4) ?>"<?= $ga4_mod ? ' data-mod="da"' : '' ?>></script>
 <?php elseif ($ga4_direct): ?>
 <script async nonce="<?= esc($nonce) ?>" src="https://www.googletagmanager.com/gtag/js?id=<?= rawurlencode($ga4) ?>"></script>
 <script nonce="<?= esc($nonce) ?>">window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','<?= esc($ga4) ?>');</script>
@@ -136,7 +139,7 @@ if ($masurare): ?>
 </footer>
 <?php if ($masurare): $url_conf = url_confidentialitate(); ?>
 <div class="consimtamant" id="consimtamant" role="dialog" aria-label="<?= esc(ui('Consimțământ pentru cookie-uri')) ?>" hidden>
-  <p><?= esc(ui('Folosim Google Analytics ca să aflăm câte vizite are site-ul. Pornește doar dacă accepți.')) ?><?php if ($url_conf !== ''): ?> <a href="<?= esc($url_conf) ?>"><?= esc(ui('Detalii')) ?></a><?php endif; ?></p>
+  <p><?= esc($ga4_mod ? ui('Folosim Google Analytics ca să aflăm câte vizite are site-ul. Dacă refuzi, nu punem cookie-uri, dar Google primește tot un semnal anonim de vizită.') : ui('Folosim Google Analytics ca să aflăm câte vizite are site-ul. Pornește doar dacă accepți.')) ?><?php if ($url_conf !== ''): ?> <a href="<?= esc($url_conf) ?>"><?= esc(ui('Detalii')) ?></a><?php endif; ?></p>
   <div class="consimtamant-butoane"><button type="button" data-consimtamant="nu"><?= esc(ui('Refuz')) ?></button><button type="button" data-consimtamant="da"><?= esc(ui('Accept')) ?></button></div>
 </div>
 <?php endif; ?>

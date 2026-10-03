@@ -144,6 +144,8 @@ function ui(string $ro): string
         'Setări cookie' => 'Cookie settings', 'Consimțământ pentru cookie-uri' => 'Cookie consent',
         'Folosim Google Analytics ca să aflăm câte vizite are site-ul. Pornește doar dacă accepți.'
             => 'We use Google Analytics to count visits to this site. It only runs if you accept.',
+        'Folosim Google Analytics ca să aflăm câte vizite are site-ul. Dacă refuzi, nu punem cookie-uri, dar Google primește tot un semnal anonim de vizită.'
+            => 'We use Google Analytics to count visits to this site. If you decline, we set no cookies, but Google still receives an anonymous visit signal.',
         'Detalii' => 'Details', 'Refuz' => 'Decline', 'Accept' => 'Accept',
         // pagina de aprobare OAuth (conectorul claude.ai)
         'Conectare' => 'Connection', 'Conectezi %s la %s?' => 'Connect %s to %s?',

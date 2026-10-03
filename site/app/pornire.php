@@ -59,7 +59,7 @@ function fapte_confidentialitate(): array
     // Cloudflare: după adresa cererii (din_cloudflare) SAU după antetul CF-Ray, pe care Cloudflare îl trimite mereu serverului.
     // LiteSpeed-ul de pe găzduirea paycode.ro pune singur IP-ul real în REMOTE_ADDR, deci doar adresa nu ajunge (21 sept 2026).
     $cf = din_cloudflare() || (string) ($_SERVER['HTTP_CF_RAY'] ?? '') !== '';
-    return ['ga4' => (string) config('site.ga4'), 'ga4_fara_acord' => (string) config('site.ga4_fara_acord') === 'da', 'cloudflare' => $cf, 'video' => $video];
+    return ['ga4' => (string) config('site.ga4'), 'ga4_fara_acord' => (string) config('site.ga4_fara_acord') === 'da', 'ga4_mod' => (string) config('site.ga4_mod_acord') === 'da', 'cloudflare' => $cf, 'video' => $video];
 }
 
 function pagini_de_pornire(): array
@@ -134,8 +134,12 @@ function pagini_de_pornire(): array
         $sectiuni .= '<li>Folosim Google Analytics 4, ca să aflăm câte vizite are site-ul și de unde vin. Google Analytics pune cookie-uri și prelucrează '
             . "adresa IP, după <a href=\"https://policies.google.com/privacy\" target=\"_blank\" rel=\"noopener\">politica Google</a>. "
             . ($f['ga4_fara_acord'] ? "$c: cum își dă vizitatorul acordul — pe acest site GA4 se încarcă fără banner de consimțământ (ga4_fara_acord)]]</li>"
-                : 'Se încarcă doar dacă accepți măsurarea, în bannerul de la prima vizită. Alegerea se păstrează în browser, nu într-un cookie, '
-                . 'și o schimbi oricând din „Setări cookie”, în subsolul site-ului.</li>');
+                : ($f['ga4_mod']
+                    ? 'Înainte de acord, eticheta Google se încarcă, dar fără cookie-uri: Google primește doar semnale anonime de vizită (pagina, țara, tipul de dispozitiv), '
+                    . 'din care estimează statistic vizitele. Cookie-urile și măsurarea completă pornesc doar dacă accepți, în bannerul de la prima vizită. '
+                    . 'Alegerea se păstrează în browser, nu într-un cookie, și o schimbi oricând din „Setări cookie”, în subsolul site-ului.</li>'
+                    : 'Se încarcă doar dacă accepți măsurarea, în bannerul de la prima vizită. Alegerea se păstrează în browser, nu într-un cookie, '
+                    . 'și o schimbi oricând din „Setări cookie”, în subsolul site-ului.</li>'));
     }
     if ($f['video']) {
         $sectiuni .= '<li>Unele pagini au video de pe YouTube sau Vimeo. Când îl pornești, platforma respectivă poate pune cookie-uri și îți vede adresa IP.</li>';
@@ -157,6 +161,7 @@ function pagini_de_pornire(): array
 
     $atentie = [];
     if ($f['ga4'] !== '' && $f['ga4_fara_acord']) $atentie[] = 'GA4 se încarcă fără banner de consimțământ (ga4_fara_acord = "da"): spune-i omului că, în UE, cookie-urile de măsurare cer acordul vizitatorului.';
+    elseif ($f['ga4'] !== '' && $f['ga4_mod']) $atentie[] = 'GA4 e pornit cu Consent Mode v2 (ga4_mod_acord = "da"): înainte de acord pleacă spre Google doar semnale anonime, fără cookie-uri. Spune-i omului că unii juriști cer acord și pentru ele; verifică și că pagina de confidențialitate e publicată la /confidentialitate.';
     elseif ($f['ga4'] !== '') $atentie[] = 'GA4 e pornit: site-ul îl încarcă doar după acordul vizitatorului (bannerul de consimțământ). Verifică cu omul că pagina de confidențialitate e publicată la /confidentialitate, ca bannerul să trimită la ea.';
     return [
         'cum_se_folosesc' => [

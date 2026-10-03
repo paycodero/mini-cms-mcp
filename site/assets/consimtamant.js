@@ -11,18 +11,32 @@
   function citeste() { try { return localStorage.getItem(CHEIE); } catch (e) { return null; } }
   function scrie(v) { try { localStorage.setItem(CHEIE, v); } catch (e) {} }
 
+  // Consent Mode v2 (data-mod="da"): eticheta se încarcă de la început, cu stocarea refuzată. Fără cookie-uri și fără identificator,
+  // Google primește doar semnale anonime de vizită; la „Accept" trece pe acordat și măsurarea devine completă. Reclamele rămân
+  // mereu refuzate: site-ul nu face reclame.
+  var mod = eticheta && eticheta.getAttribute('data-mod') === 'da';
+
   var pornit = false;
-  function porneste() {
+  function porneste(acordat) {
     if (pornit) return;
     pornit = true;
     window.dataLayer = window.dataLayer || [];
     window.gtag = function () { window.dataLayer.push(arguments); };
+    if (mod) {
+      window.gtag('consent', 'default', {
+        analytics_storage: acordat ? 'granted' : 'denied',
+        ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied'
+      });
+    }
     window.gtag('js', new Date());
     window.gtag('config', id);
     var s = document.createElement('script');
     s.async = true;
     s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(id);
     document.head.appendChild(s);
+  }
+  function actualizeaza(acordat) {
+    if (pornit && window.gtag) window.gtag('consent', 'update', { analytics_storage: acordat ? 'granted' : 'denied' });
   }
 
   // La refuz, cookie-urile puse de GA4 la un acord anterior (_ga, _ga_<id>) se șterg. GA4 le pune pe domeniul cel mai
@@ -48,8 +62,9 @@
     var alegere = b.getAttribute('data-consimtamant') === 'da' ? 'da' : 'nu';
     scrie(alegere);
     banner.hidden = true;
-    if (alegere === 'da') { porneste(); return; }
+    if (alegere === 'da') { if (pornit) actualizeaza(true); else porneste(true); return; }
     stergeCookieGa();
+    if (mod) { actualizeaza(false); return; }   // cu Consent Mode, refuzul se comunică etichetei; nu e nevoie de reîncărcare
     if (pornit) location.reload();   // scriptul Google deja încărcat nu se poate descărca altfel
   });
 
@@ -58,6 +73,9 @@
   });
 
   var ales = citeste();
-  if (ales === 'da') porneste();
-  else if (ales !== 'nu') banner.hidden = false;
+  if (ales === 'da') porneste(true);
+  else {
+    if (mod) porneste(false);   // înainte de acord și după refuz: eticheta rulează, dar fără stocare
+    if (ales !== 'nu') banner.hidden = false;
+  }
 })();

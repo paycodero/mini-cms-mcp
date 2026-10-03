@@ -1102,7 +1102,7 @@ verifica('Măsurare', 'bannerul de consimțământ e în pagină, ascuns până 
 $js_acord = (string) @file_get_contents("$tmp/site/assets/consimtamant.js");
 verifica('Măsurare', 'scriptul de acord încarcă GA4 doar la „Accept" și ține alegerea în localStorage, nu în cookie',
     strpos($js_acord, "googletagmanager.com/gtag/js") !== false && strpos($js_acord, 'localStorage') !== false
-    && strpos($js_acord, "if (ales === 'da') porneste()") !== false && preg_match("/document\\.cookie\\s*=\\s*nume\\s*\\+\\s*'=;expires/", $js_acord) === 1);
+    && strpos($js_acord, "if (ales === 'da') porneste(true)") !== false && preg_match("/document\\.cookie\\s*=\\s*nume\\s*\\+\\s*'=;expires/", $js_acord) === 1);
 $u2 = unealta($ks, 'seteaza_site', ['ga4_fara_acord' => 'poate']);
 verifica('Securitate', '„ga4_fara_acord" primește doar "da" sau ""', $u2['eroare'], $u2['text']);
 $u2 = unealta($ks, 'seteaza_site', ['ga4_fara_acord' => 'da']);
@@ -1114,6 +1114,26 @@ $u2 = unealta($ks, 'seteaza_site', ['ga4_fara_acord' => '']);
 $r2 = cerere('GET', '/');
 verifica('Măsurare', 'înapoi la "", revine bannerul și nu se mai încarcă nimic de la Google înainte de acord',
     !$u2['eroare'] && strpos($r2['corp'], 'id="consimtamant"') !== false && strpos($r2['corp'], 'googletagmanager') === false);
+$u2 = unealta($ks, 'seteaza_site', ['ga4_mod_acord' => 'poate']);
+verifica('Securitate', '„ga4_mod_acord" primește doar "da" sau ""', $u2['eroare'], $u2['text']);
+$r2 = cerere('GET', '/');
+verifica('Măsurare', 'implicit (ga4_mod_acord gol), scriptul de acord NU primește data-mod și bannerul spune „Pornește doar dacă accepți"',
+    strpos($r2['corp'], 'data-mod=') === false && strpos($r2['corp'], 'Pornește doar dacă accepți') !== false);
+$u2 = unealta($ks, 'seteaza_site', ['ga4_mod_acord' => 'da']);
+$r2 = cerere('GET', '/');
+verifica('Măsurare', 'cu ga4_mod_acord = "da" (Consent Mode v2), scriptul primește data-mod="da", bannerul rămâne, iar textul spune adevărul despre semnalul anonim',
+    !$u2['eroare'] && strpos($r2['corp'], 'data-ga4="G-PROBA12345" data-mod="da"') !== false
+    && strpos($r2['corp'], 'id="consimtamant"') !== false && strpos($r2['corp'], 'semnal anonim') !== false
+    && strpos($r2['corp'], 'Pornește doar dacă accepți') === false && strpos($r2['corp'], 'googletagmanager') === false, $u2['text']);
+verifica('Măsurare', 'scriptul în modul Consent Mode setează consent default „denied" înainte de config, nu cere reîncărcare la refuz și ține reclamele refuzate',
+    strpos($js_acord, "'consent', 'default'") !== false && strpos($js_acord, "analytics_storage: acordat ? 'granted' : 'denied'") !== false
+    && strpos($js_acord, "ad_user_data: 'denied'") !== false && strpos($js_acord, "ad_personalization: 'denied'") !== false
+    && strpos($js_acord, "'consent', 'update'") !== false && strpos($js_acord, 'if (mod) { actualizeaza(false); return; }') !== false
+    && strpos($js_acord, "if (mod) porneste(false)") !== false);
+$u2 = unealta($ks, 'seteaza_site', ['ga4_mod_acord' => '']);
+$r2 = cerere('GET', '/');
+verifica('Măsurare', 'înapoi la "", dispare data-mod și revine textul strict',
+    !$u2['eroare'] && strpos($r2['corp'], 'data-mod=') === false && strpos($r2['corp'], 'Pornește doar dacă accepți') !== false);
 $csp_ga = $r['antete']['content-security-policy'] ?? '';
 verifica('Măsurare', 'CSP primește singur sursele de care are nevoie măsurarea, fără unsafe-inline',
     strpos($csp_ga, 'script-src') !== false && strpos($csp_ga, 'https://www.googletagmanager.com') !== false

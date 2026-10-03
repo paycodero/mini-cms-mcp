@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 if (!defined('MINICMS')) { http_response_code(403); exit; }
 
-const MINICMS_VERSIUNE = '0.27.2';
+const MINICMS_VERSIUNE = '0.28.0';
 
 ini_set('display_errors', '0');   // un avertisment afișat ar strica JSON-ul MCP și ar scurge căi de pe server
 error_reporting(E_ALL);
@@ -18,7 +18,7 @@ class EroareCms extends RuntimeException {}   // eroare de validare, cu mesaj bu
 // Identitatea site-ului e conținut: AI-ul o schimbă cu seteaza_site, iar valorile stau în date/site.json.
 // Ce scrie în config.php e doar punctul de plecare. Adresa (url) și cheile rămân numai în config.php.
 const CAMPURI_IDENTITATE = ['nume', 'descriere', 'limba', 'limbi', 'traduceri', 'autor', 'culoare', 'logo', 'favicon', 'tema', 'legaturi', 'ga4',
-    'subsol', 'realizare', 'realizare_url', 'nume_articole', 'arata_data', 'ga4_fara_acord', 'retea'];
+    'subsol', 'realizare', 'realizare_url', 'nume_articole', 'arata_data', 'ga4_fara_acord', 'ga4_mod_acord', 'retea'];
 const CAMPURI_LISTA = ['legaturi', 'limbi', 'traduceri'];   // câmpurile de identitate care se citesc ca array, nu ca text
 // Câmpurile de identitate care pot avea o traducere per limbă (în site.traduceri[<limba>]).
 const CAMPURI_TRADUSE = ['nume', 'descriere', 'subsol', 'nume_articole'];
@@ -34,7 +34,7 @@ function config(string $cale = '')
         $implicit = [
             'site' => ['nume' => '', 'descriere' => '', 'url' => '', 'limba' => 'ro', 'limbi' => [], 'traduceri' => [], 'autor' => '', 'culoare' => '#6d2be8',
                        'logo' => '', 'favicon' => '', 'tema' => '', 'legaturi' => [], 'ga4' => '',
-                       'subsol' => '', 'realizare' => '', 'realizare_url' => '', 'nume_articole' => '', 'arata_data' => '', 'ga4_fara_acord' => '', 'retea' => ''],
+                       'subsol' => '', 'realizare' => '', 'realizare_url' => '', 'nume_articole' => '', 'arata_data' => '', 'ga4_fara_acord' => '', 'ga4_mod_acord' => '', 'retea' => ''],
             'chei' => ['citire' => '', 'scriere' => '', 'cod' => ''],
             'depozit' => 'paycodero/mini-cms-mcp',   // de unde își ia site-ul versiunea nouă, când i-o ceri tu
             'depozit_ramura' => 'main',

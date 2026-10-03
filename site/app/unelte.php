@@ -323,6 +323,11 @@ function unelte(): array
                     'description' => '"" = GA4 se încarcă doar după "Accept" în bannerul de consimțământ (implicit, din 0.23); '
                         . '"da" = GA4 se încarcă direct, fără banner, ca înainte de 0.23. Doar la cererea explicită a omului: '
                         . 'în UE, cookie-urile de măsurare cer acordul vizitatorului, iar de el răspunde proprietarul.'],
+                'ga4_mod_acord' => ['type' => 'string', 'enum' => ['', 'da'],
+                    'description' => '"" = nimic de la Google până la "Accept" (implicit). "da" = Consent Mode v2: eticheta GA4 se încarcă de la început, '
+                        . 'cu stocarea refuzată (fără cookie-uri), iar Google primește semnale anonime de vizită chiar înainte de acord; '
+                        . 'la "Accept" măsurarea devine completă. Are sens doar cu GA4 pornit și fără ga4_fara_acord. '
+                        . 'Doar la cererea explicită a omului: pagina de confidențialitate și textul bannerului se schimbă singure.'],
                 'retea' => ['type' => 'string',
                     'description' => 'adresa https a indexului comun al rețelei de site-uri ale autorului (JSON), ex. "https://simpluspv.eu/retea.json": '
                         . 'la finalul articolelor și paginilor apar legături spre paginile de pe CELELALTE site-uri, pe același subiect. '
