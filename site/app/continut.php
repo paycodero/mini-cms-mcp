@@ -400,7 +400,7 @@ function salveaza_element(string $tip, string $slug, array $campuri): array
 // La publicare, $la (opțional) e data publicării: în viitor = programat (apare singur la ora aceea, fără sarcini
 // pe server), în trecut = se păstrează data (ex. la mutarea unui articol vechi). Fără $la: acum, sau data inițială
 // dacă elementul a mai fost publicat.
-function schimba_stare(string $tip, string $slug, string $stare, ?string $la = null): array
+function schimba_stare(string $tip, string $slug, string $stare, ?string $la = null, ?string $aprobare = null): array
 {
     verifica_tip_slug($tip, $slug);
     $moment = null;
@@ -410,9 +410,10 @@ function schimba_stare(string $tip, string $slug, string $stare, ?string $la = n
         if ($ts === false || $ts < 0) throw new EroareCms('"la" nu e o dată validă — ex. "2026-10-01 09:00" (ora României)');
         $moment = date('c', $ts);
     }
-    return cu_blocare(function () use ($tip, $slug, $stare, $moment) {
+    return cu_blocare(function () use ($tip, $slug, $stare, $moment, $aprobare) {
         $e = citeste_element($tip, $slug);
         if ($e === null) throw new EroareCms("nu există $tip cu slugul \"$slug\"");
+        if ($stare === 'publicat') verifica_aprobare($e, $aprobare);   // fără previzualizare pentru exact acest conținut, nu se publică
         if ($stare === 'publicat' && ($locuri = locuri_de_completat($e))) {   // un schelet de pornire necompletat nu ajunge pe site
             throw new EroareCms('elementul mai are ' . count($locuri) . ' locuri de completat, de ex. ' . $locuri[0]
                 . ' — completează-le (sau scoate blocul) cu salveaza, apoi publică');
@@ -882,6 +883,42 @@ function cheie_previzualizare(bool $creeaza): string
     return $cheie;
 }
 
+// Aprobarea la publicare: previzualizeaza întoarce un token semnat (HMAC) pe tip|slug|amprenta conținutului|expirare, iar publica
+// îl cere. Dacă textul s-a schimbat după previzualizare, amprenta nu mai corespunde și tokenul nu mai merge: se previzualizează iar.
+// Tokenul dovedește că previzualizarea a fost cerută pentru exact acest conținut, nu că omul a deschis linkul.
+const APROBARE_SECUNDE = 86400;
+
+function amprenta_continut(array $e): string
+{
+    $campuri = [];
+    foreach (['tip', 'slug', 'titlu', 'descriere', 'continut_html', 'etichete', 'imagine', 'imagine_alt', 'limba', 'grup', 'meniu', 'parinte', 'autor', 'eveniment'] as $c) {
+        $campuri[$c] = $e[$c] ?? null;
+    }
+    return hash('sha256', (string) json_encode($campuri, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+}
+
+function token_aprobare(string $tip, string $slug, string $amprenta, int $expira, string $cheie): string
+{
+    return $expira . '.' . hash_hmac('sha256', "aprobare|$tip|$slug|$amprenta|$expira", $cheie);
+}
+
+function verifica_aprobare(array $e, ?string $token): void
+{
+    $tip = (string) ($e['tip'] ?? '');
+    $slug = (string) ($e['slug'] ?? '');
+    $indrumare = 'cheamă previzualizeaza pentru acest element, arată-i omului linkul, iar după acordul lui trimite "aprobare" (token_aprobare din răspuns) la publica';
+    if ($token === null || trim($token) === '') throw new EroareCms("publicarea cere \"aprobare\": $indrumare");
+    $cheie = cheie_previzualizare(false);
+    if ($cheie === '' || !preg_match('/^([0-9]{9,11})\.([0-9a-f]{64})$/', trim($token), $m)) {
+        throw new EroareCms("\"aprobare\" nu e un token valid: $indrumare");
+    }
+    $expira = (int) $m[1];
+    if ($expira < time()) throw new EroareCms("tokenul de aprobare a expirat: $indrumare");
+    if (!hash_equals(token_aprobare($tip, $slug, amprenta_continut($e), $expira, $cheie), $expira . '.' . $m[2])) {
+        throw new EroareCms("tokenul de aprobare nu se potrivește cu conținutul de acum (s-a schimbat după previzualizare, sau e al altui element): $indrumare");
+    }
+}
+
 function link_previzualizare(string $tip, string $slug, int $minute): array
 {
     verifica_tip_slug($tip, $slug);
@@ -890,9 +927,14 @@ function link_previzualizare(string $tip, string $slug, int $minute): array
     $minute = max(5, min(1440, $minute));
     $expira = time() + $minute * 60;
     $semn = hash_hmac('sha256', "$slug|$expira", cheie_previzualizare(true));
+    $aprobare_expira = time() + APROBARE_SECUNDE;
     return ['url' => url_absolut("/previzualizare/$slug?e=$expira&s=$semn"), 'expira' => date('c', $expira),
             'stare' => $e['stare'] ?? '', 'pe_site' => e_vizibil($e),
-            'atentie' => 'linkul arată elementul exact ca pe site, cu oricine îl primește, până la expirare'];
+            'token_aprobare' => token_aprobare($tip, $slug, amprenta_continut($e), $aprobare_expira, cheie_previzualizare(true)),
+            'token_expira' => date('c', $aprobare_expira),
+            'atentie' => 'linkul arată elementul exact ca pe site, cu oricine îl primește, până la expirare. '
+                . 'token_aprobare se trimite la publica DOAR după ce omul a văzut previzualizarea și a aprobat; se leagă de conținutul de acum: '
+                . 'dacă mai modifici elementul, ceri alt link'];
 }
 
 function previzualizare_valida(string $slug, int $expira, string $semn): bool

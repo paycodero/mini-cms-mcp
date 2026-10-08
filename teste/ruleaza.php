@@ -80,8 +80,15 @@ function mcp(?string $cheie, string $metoda, array $params = [], $id = 1, array 
     return $r;
 }
 
+$fara_auto_aprobare = false;   // true = testele de aprobare trimit ele însele (sau nu trimit) tokenul
+
 function unealta(string $cheie, string $nume, array $args = []): array
 {
+    global $fara_auto_aprobare;
+    if ($nume === 'publica' && !$fara_auto_aprobare && !isset($args['aprobare'])) {   // fluxul normal: previzualizare, apoi publicare cu tokenul ei
+        $pv = unealta($cheie, 'previzualizeaza', ['tip' => $args['tip'] ?? '', 'slug' => $args['slug'] ?? '']);
+        if (!empty($pv['date']['token_aprobare'])) $args['aprobare'] = $pv['date']['token_aprobare'];
+    }
     $r = mcp($cheie, 'tools/call', ['name' => $nume, 'arguments' => (object) $args]);
     $rez = $r['json']['result'] ?? null;
     return ['eroare' => (bool) ($rez['isError'] ?? true), 'text' => (string) ($rez['content'][0]['text'] ?? ($r['json']['error']['message'] ?? $r['corp'])),
@@ -639,6 +646,30 @@ cerere('GET', '/chiar-atelierul-test', null, ['User-Agent' => $ua_chatgpt, 'X-Mi
 @unlink("$tmp/site/date/securitate/proba-boti.cheie");
 $dupa = unealta($kc, 'vizite_ai', ['zile' => 7])['date']['pe_fel']['om'] ?? -1;
 verifica('Boți', 'cererile de probă (cu cheia bună) nu intră în citirile AI; cu o cheie falsă se numără', $dupa === $inainte + 1, "$inainte → $dupa");
+
+// --- 0.29: publicarea cere tokenul de aprobare din previzualizare ---------------------------------
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'aprobare-test', 'titlu' => 'Aprobare test', 'continut_html' => '<h2>Text</h2><p>Prima versiune.</p>']);
+$fara_auto_aprobare = true;
+$u = unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'aprobare-test']);
+verifica('Aprobare', 'publica fără token e refuzată', $u['eroare'], $u['text']);
+$u = unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'aprobare-test', 'aprobare' => 'inventat']);
+verifica('Aprobare', 'publica cu un token inventat e refuzată', $u['eroare'], $u['text']);
+$pv = unealta($ks, 'previzualizeaza', ['tip' => 'articol', 'slug' => 'aprobare-test']);
+$tok = (string) ($pv['date']['token_aprobare'] ?? '');
+verifica('Aprobare', 'previzualizeaza întoarce un token de aprobare', $tok !== '' && !empty($pv['date']['token_expira']), $pv['text']);
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'aprobare-test', 'continut_html' => '<h2>Text</h2><p>A doua versiune, schimbată după previzualizare.</p>']);
+$u = unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'aprobare-test', 'aprobare' => $tok]);
+verifica('Aprobare', 'tokenul nu mai merge dacă textul s-a schimbat după previzualizare', $u['eroare'], $u['text']);
+$pv = unealta($ks, 'previzualizeaza', ['tip' => 'articol', 'slug' => 'aprobare-test']);
+$tok = (string) ($pv['date']['token_aprobare'] ?? '');
+unealta($ks, 'salveaza', ['tip' => 'articol', 'slug' => 'aprobare-alt', 'titlu' => 'Alt articol', 'continut_html' => '<h2>Text</h2><p>Alt text.</p>']);
+$u = unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'aprobare-alt', 'aprobare' => $tok]);
+verifica('Aprobare', 'tokenul unui element nu publică alt element', $u['eroare'], $u['text']);
+$u = unealta($ks, 'publica', ['tip' => 'articol', 'slug' => 'aprobare-test', 'aprobare' => $tok]);
+verifica('Aprobare', 'tokenul potrivit publică', !$u['eroare'] && ($u['date']['operatie'] ?? '') === 'publicat', $u['text']);
+$fara_auto_aprobare = false;
+unealta($ks, 'sterge', ['tip' => 'articol', 'slug' => 'aprobare-test']);
+unealta($ks, 'sterge', ['tip' => 'articol', 'slug' => 'aprobare-alt']);
 
 // --- 0.3: previzualizare, publicare programată, căutare, redirecționări, logo, export -------------
 

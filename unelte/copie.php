@@ -186,7 +186,13 @@ foreach (['pagina' => 'pagini', 'articol' => 'articole'] as $tip => $plural) {
         }
         try {
             $mcp('salveaza', $argumente);
-            if (($e['stare'] ?? '') === 'publicat') $mcp('publica', ['tip' => $tip, 'slug' => (string) $e['slug'], 'la' => (string) ($e['publicat_la'] ?? '')]);
+            if (($e['stare'] ?? '') === 'publicat') {
+                $pub = ['tip' => $tip, 'slug' => (string) $e['slug'], 'la' => (string) ($e['publicat_la'] ?? '')];
+                // de la 0.29 publica cere tokenul din previzualizare (copia e conținut deja aprobat); un site mai vechi nu are token și nu cunoaște câmpul
+                $pv = $mcp('previzualizeaza', ['tip' => $tip, 'slug' => (string) $e['slug']]);
+                if (!empty($pv['token_aprobare'])) $pub['aprobare'] = $pv['token_aprobare'];
+                $mcp('publica', $pub);
+            }
             $puse++;
         } catch (Throwable $ex) {
             gresit("$tip/{$e['slug']}: " . $ex->getMessage());

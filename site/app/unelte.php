@@ -57,14 +57,15 @@ function unelte(): array
                                  '/media/<fisier>' => 'imagini urcate', '/fisiere/<nume>.pdf' => 'documente PDF urcate (urca_fisier)',
                                  '/sitemap.xml, /feed.xml, /llms.txt, /robots.txt' => 'generate automat'],
                     'reguli' => [
-                        'Tot ce creezi pleacă drept ciornă; pe site apare doar după "publica".',
+                        'Tot ce creezi pleacă drept ciornă; pe site apare doar după "publica". Atenție: salveaza pe un element DEJA publicat se vede imediat, iar seteaza_site schimbă imediat tot site-ul (versiunea anterioară se păstrează; restaureaza o aduce înapoi).',
                         'Paginile și articolele au adrese comune: un slug nu poate fi folosit de ambele.',
                         'Înainte de orice modificare se salvează o versiune; "sterge" mută elementul între versiuni.',
                         'HTML-ul trece printr-o listă de etichete permise; ce se scoate apare în "curatari" la răspuns.',
                         'Titlul elementului devine <h1>; în conținut începe cu <h2>.',
                         'Fiecare apel, inclusiv citirile, e scris în jurnal.',
                         'Numele, descrierea, autorul, limba, culoarea, logo-ul, favicon-ul, tema, textul din subsol, mențiunea realizatorului și numele articolelor se schimbă cu seteaza_site, după acordul omului.',
-                        'Înainte de "publica", trimite-i omului linkul din previzualizeaza: vede pagina exact ca pe site.',
+                        'Înainte de "publica", trimite-i omului linkul din previzualizeaza: vede pagina exact ca pe site. "publica" cere "aprobare" (token_aprobare din previzualizeaza), '
+                            . 'legat de conținutul văzut; după orice modificare ceri alt link, altfel publicarea e refuzată.',
                         '"publica" cu "la" în viitor programează elementul: apare singur la ora aceea.',
                         'Când se schimbă adresa unui element, o redirecționare (redirectioneaza) duce vizitatorii de la adresa veche la cea nouă.',
                         'Meniul are două niveluri: o pagină cu "parinte" (slugul unei pagini din meniu) apare în submeniul ei, în ordinea din "meniu". '
@@ -202,7 +203,7 @@ function unelte(): array
         'previzualizeaza' => [
             'scriere' => false, 'titlu' => 'Link de previzualizare', 'adnotari' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => false, 'openWorldHint' => false],
             'descriere' => 'Un link temporar la care omul vede o ciornă (sau un element programat) exact cum va arăta pe site, înainte de "publica". '
-                . 'Linkul expiră după "minute" (implicit 60) și nu e indexat.',
+                . 'Linkul expiră după "minute" (implicit 60) și nu e indexat. Întoarce și "token_aprobare", pe care "publica" îl cere.',
             'schema' => schema_obiect(['tip' => $tip, 'slug' => $slug,
                 'minute' => ['type' => 'integer', 'minimum' => 5, 'maximum' => 1440, 'default' => 60]], ['tip', 'slug']),
             'fn' => fn(array $a) => cu_sfaturi_ai(link_previzualizare((string) arg_text($a, 'tip'), (string) arg_text($a, 'slug'), (int) ($a['minute'] ?? 60)),
@@ -349,12 +350,14 @@ function unelte(): array
         'publica' => [
             'scriere' => true, 'titlu' => 'Publică',
             'adnotari' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'openWorldHint' => false],
-            'descriere' => 'Face elementul vizibil pe site. Publică doar după ce omul a aprobat conținutul (vezi previzualizeaza). '
+            'descriere' => 'Face elementul vizibil pe site. Cere "aprobare": token_aprobare din previzualizeaza, pentru exact conținutul de acum; '
+                . 'fără el, sau după o modificare, publicarea e refuzată. Trimite-l doar după ce omul a văzut previzualizarea și a aprobat. '
                 . 'Cu "la" în viitor, elementul e programat: apare singur la ora aceea.',
             'schema' => schema_obiect(['tip' => $tip, 'slug' => $slug,
+                'aprobare' => ['type' => 'string', 'description' => 'token_aprobare întors de previzualizeaza (valabil 24 h, legat de conținutul de la acea previzualizare)'],
                 'la' => ['type' => 'string', 'description' => 'opțional: data și ora publicării, ex. "2026-10-01 09:00" (ora României). '
-                    . 'În viitor = programat; în trecut = păstrează data (ex. la mutarea unui articol vechi).']], ['tip', 'slug']),
-            'fn' => fn(array $a) => cu_sfaturi_ai(schimba_stare((string) arg_text($a, 'tip'), (string) arg_text($a, 'slug'), 'publicat', arg_text($a, 'la', false)),
+                    . 'În viitor = programat; în trecut = păstrează data (ex. la mutarea unui articol vechi).']], ['tip', 'slug', 'aprobare']),
+            'fn' => fn(array $a) => cu_sfaturi_ai(schimba_stare((string) arg_text($a, 'tip'), (string) arg_text($a, 'slug'), 'publicat', arg_text($a, 'la', false), arg_text($a, 'aprobare', false)),
                 (string) $a['tip'], (string) $a['slug']),
         ],
         'retrage' => [
