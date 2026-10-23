@@ -54,6 +54,7 @@ function config(string $cale = '')
                                       // (cu --oauth, cod de 6 cifre în terminal) · 'deschis' = ca în 0.5 · false = fără OAuth
             'oauth_gazde' => [],      // gazde https în plus la care OAuth poate trimite codul (implicit: claude.ai, claude.com, localhost)
             'articole_pe_pagina' => 12,
+            'articole_acasa' => 6,    // câte articole arată prima pagină, la „Ultimele …”
             'imagini_url' => true,          // false = urca_imagine nu mai primește adrese (serverul nu descarcă nimic)
             'imagini_url_permise' => [],    // doar pentru teste: "gazdă:port" la care se acceptă http și adrese locale
             'pagina_imagini' => true,       // false = pagina /imagini.php (urcarea din browser, cu cheia) nu există

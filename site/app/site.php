@@ -219,8 +219,9 @@ function eveniment_urmeaza(array $e): bool
 }
 
 // Prima pagină: întâi evenimentele care urmează, cel mai apropiat primul; apoi restul, cele mai noi întâi.
-function articole_acasa(int $cate = 6): array
+function articole_acasa(?int $cate = null): array
 {
+    if ($cate === null) $cate = max(1, (int) config('articole_acasa'));
     $toate = listeaza_limba('articol', 'vizibil');
     $urmeaza = array_values(array_filter($toate, 'eveniment_urmeaza'));
     usort($urmeaza, fn($a, $b) => strtotime((string) $a['eveniment']['inceput']) <=> strtotime((string) $b['eveniment']['inceput']));
