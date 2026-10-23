@@ -29,6 +29,7 @@ function ruleaza_site(): void
     if ($cale === '/articole') { pagina_lista(null); return; }
     if ($cale === '/sitemap.xml') { fisier_sitemap(); return; }
     if ($cale === '/feed.xml') { fisier_feed(); return; }
+    if ($cale === '/feed' || $cale === '/feed/') { header('Location: /feed.xml', true, 301); header('Cache-Control: public, max-age=86400'); return; }   // calea veche a unui feed de dinainte de mini-cms-mcp (cinesunt.info), inca cerut de FeedFetcher-Google
     if ($cale === '/robots.txt') { fisier_robots(); return; }
     if ($cale === '/llms.txt') { fisier_llms(); return; }
     if ($cale === '/cauta') { pagina_cautare(); return; }
