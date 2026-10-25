@@ -94,8 +94,34 @@ function meniu(): array
         }
         $m[] = ['titlu' => $p['titlu'], 'url' => url_element($p), 'copii' => $copii];
     }
-    if (listeaza_limba('articol', 'vizibil')) $m[] = ['titlu' => nume_articole(false, true), 'url' => prefix_limba() . '/articole'];
+    $articole = listeaza_limba('articol', 'vizibil');
+    if ($articole) {
+        $m[] = ['titlu' => nume_articole(false, true), 'url' => prefix_limba() . '/articole', 'copii' => etichete_meniu($articole)];
+    }
     return $m;
+}
+
+// Etichetele din articolele vizibile, ca submeniu sub linkul spre articole (ex. „Ghiduri" > decizii, timp, obiceiuri…):
+// doar dacă site-ul le-a cerut (meniu_etichete = "da") și sunt cel puțin două — sub una singură, un submeniu n-are rost.
+// Ordinea e după câte articole are fiecare etichetă (cele mai folosite primele), ca la o listă de categorii adevărată.
+function etichete_meniu(array $articole): array
+{
+    if (config('site.meniu_etichete') !== 'da') return [];
+    $nume = [];
+    $numar = [];
+    foreach ($articole as $e) {
+        foreach ($e['etichete'] ?? [] as $t) {
+            $s = slug_din_text((string) $t);
+            if ($s === '') continue;
+            $nume[$s] = $nume[$s] ?? (string) $t;
+            $numar[$s] = ($numar[$s] ?? 0) + 1;
+        }
+    }
+    if (count($nume) < 2) return [];
+    arsort($numar);
+    $rez = [];
+    foreach (array_keys($numar) as $s) $rez[] = ['titlu' => $nume[$s], 'url' => prefix_limba() . '/eticheta/' . $s, 'eticheta' => $s];
+    return $rez;
 }
 
 // Pagina de confidențialitate, pentru bannerul de consimțământ: „confidentialitate", în limba paginii dacă are traducere

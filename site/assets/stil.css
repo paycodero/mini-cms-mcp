@@ -32,6 +32,17 @@ img{max-width:100%;height:auto}
 .meniu .submeniu a{display:block;padding:8px 16px;white-space:normal;font-weight:500;line-height:1.35}
 .meniu .submeniu a:hover{background:var(--panou)}
 @media (hover:none),(max-width:640px){.meniu-grup:hover > .submeniu,.meniu-grup:focus-within > .submeniu{display:none}}
+/* categoriile (etichetele), dacă site-ul le cere (meniu_etichete): <details> nativ, nu <a>+div ca mai sus — se deschide
+   la atingere pe orice ecran, fără JavaScript, plus la hover pe un ecran cu mouse. */
+.meniu-categorii{position:relative;display:flex}
+.meniu-categorii > summary{list-style:none;cursor:pointer;color:var(--text-2);text-decoration:none;font-weight:600;padding:6px 0}
+.meniu-categorii > summary::-webkit-details-marker{display:none}
+.meniu-categorii > summary::after{content:"";display:inline-block;width:.36em;height:.36em;margin:0 0 .2em .45em;
+  border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);opacity:.7}
+.meniu-categorii:hover > summary,.meniu-categorii[open] > summary{color:var(--accent)}
+.meniu-categorii > .submeniu{display:none}
+.meniu-categorii[open] > .submeniu{display:block}
+@media (hover:hover){.meniu-categorii:not([open]):hover > .submeniu{display:block}}
 .cauta-antet input{font:inherit;font-size:15px;width:170px;padding:6px 12px;border:2px solid var(--linie);border-radius:999px;background:var(--fond);color:var(--text)}
 .cauta-antet input:focus{border-color:var(--accent);outline:none;width:220px}
 .limbi{display:flex;gap:4px;align-items:center;font-weight:700;font-size:14px}

@@ -71,6 +71,8 @@ function unelte(): array
                         'Meniul are două niveluri: o pagină cu "parinte" (slugul unei pagini din meniu) apare în submeniul ei, în ordinea din "meniu". '
                             . 'Adresa rămâne /<slug>. Pagina-părinte își listează singură subpaginile, iar subpagina are un link înapoi: nu le scrie în conținut. '
                             . 'Un singur nivel de subpagini; o pagină cu subpagini nu se poate șterge până nu le muți.',
+                        'meniu_etichete (seteaza_site) = "da" adaugă, sub linkul spre articole/nume_articole, un submeniu cu etichetele folosite '
+                            . '(cele mai folosite primele) spre /eticheta/<slug>; se deschide la atingere, pe orice ecran. Are sens cu cel puțin două etichete.',
                         'Un articol care anunță un eveniment (concert, curs, lansare) primește câmpul "eveniment" (început, loc, adresă, artiști, bilete): '
                             . 'site-ul compune din el datele structurate Event și pune ziua evenimentului pe card. Nu scrie <script> JSON-LD în conținut: filtrul îl scoate.',
                         'Un site nou sau gol: cheamă pagini_de_pornire (acasă, despre, servicii, contact, confidențialitate) și completează-le cu omul.',
@@ -336,6 +338,9 @@ function unelte(): array
                 'arata_data' => ['type' => 'string', 'enum' => ['', 'da'],
                     'description' => '"da" = data publicării apare pe articol și pe carduri (potrivit unui blog); "" = nu apare (implicit). '
                         . 'Datele rămân oricum în sitemap, feed și datele structurate.'],
+                'meniu_etichete' => ['type' => 'string', 'enum' => ['', 'da'],
+                    'description' => '"da" = etichetele articolelor apar ca submeniu (categorii) sub linkul spre articole/nume_articole, în antet; '
+                        . 'se deschide la atingere, pe orice ecran. "" = nu apar (implicit). Are sens doar cu cel puțin două etichete folosite.'],
                 'legaturi' => ['type' => 'array', 'maxItems' => 15,
                     'description' => 'celelalte site-uri și conturi ale aceluiași autor: apar în subsol, pe fiecare pagină, '
                         . 'și în datele structurate ca "sameAs" (așa știu Google și Bing că sunt ale aceleiași entități). '

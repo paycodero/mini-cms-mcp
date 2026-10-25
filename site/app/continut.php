@@ -660,6 +660,13 @@ function seteaza_identitate(array $campuri): array
         $nou['arata_data'] = (string) ($campuri['arata_data'] ?? '');
         if (!in_array($nou['arata_data'], ['', 'da'], true)) throw new EroareCms('"arata_data" e "da" (data publicării apare pe pagini) sau "" (nu apare)');
     }
+    // Etichetele articolelor, ca submeniu sub linkul spre articole/nume_articole (ex. „Ghiduri" > decizii, timp, ...).
+    if (array_key_exists('meniu_etichete', $campuri)) {
+        $nou['meniu_etichete'] = (string) ($campuri['meniu_etichete'] ?? '');
+        if (!in_array($nou['meniu_etichete'], ['', 'da'], true)) {
+            throw new EroareCms('"meniu_etichete" e "da" (etichetele articolelor apar ca submeniu în antet) sau "" (nu apar, implicit)');
+        }
+    }
     // GA4 fără banner de consimțământ (cum era înainte de 0.23): doar la cererea proprietarului, care răspunde de acord.
     if (array_key_exists('ga4_fara_acord', $campuri)) {
         $nou['ga4_fara_acord'] = (string) ($campuri['ga4_fara_acord'] ?? '');
@@ -675,7 +682,7 @@ function seteaza_identitate(array $campuri): array
         }
     }
     if (!$nou) throw new EroareCms('trimite cel puțin un câmp: nume, descriere, autor, limba, culoare, logo, favicon, tema, legaturi, ga4, '
-        . 'subsol, realizare, realizare_url, nume_articole, arata_data, ga4_fara_acord sau ga4_mod_acord');
+        . 'subsol, realizare, realizare_url, nume_articole, arata_data, meniu_etichete, ga4_fara_acord sau ga4_mod_acord');
 
     return cu_blocare(function () use ($nou) {
         $fisier = dir_date() . '/site.json';

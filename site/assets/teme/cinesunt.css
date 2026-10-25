@@ -42,7 +42,7 @@ a{color:inherit}
 .lat{max-width:1160px;padding:0 28px}
 
 /* ---------- antetul ---------- */
-.antet{border:0;background:transparent}
+.antet{border:0;background:var(--fond);position:sticky;top:0;z-index:40;box-shadow:0 1px 0 var(--linie)}
 .antet-rand{padding-top:20px;padding-bottom:20px;gap:12px 20px;flex-wrap:nowrap}
 /* numele, cu „sunt" în violet: culoarea e pusă pe literele numelui, măsurate în em pe Space Grotesk 700 */
 .sigla{font-family:var(--titluri);font-weight:700;font-size:19px;letter-spacing:0;white-space:nowrap}
@@ -55,6 +55,15 @@ a{color:inherit}
 .meniu a{font-size:13px;font-weight:600;padding:11px 18px;border-radius:999px;border:1.5px solid var(--text);color:var(--text);white-space:nowrap}
 .meniu a:hover{background:var(--text);color:#fff}
 @media (max-width:640px){.cauta-antet{display:none}}
+
+/* categoriile (etichetele) sub „Ghidurile": pastilă cu săgeată, care se deschide la atingere (vezi stil.css) */
+.meniu-categorii > summary{font-size:13px;font-weight:600;padding:11px 18px;border-radius:999px;border:1.5px solid var(--text);color:var(--text);white-space:nowrap}
+.meniu-categorii > summary::after{border-color:currentColor}
+.meniu-categorii:hover > summary,.meniu-categorii[open] > summary{background:var(--text);color:#fff}
+.meniu-categorii > .submeniu{display:none;flex-wrap:wrap;gap:8px;min-width:0;max-width:260px;padding:14px;left:auto;right:-14px}
+.meniu-categorii[open] > .submeniu{display:flex}
+@media (hover:hover){.meniu-categorii:not([open]):hover > .submeniu{display:flex}}
+.meniu-categorii .submeniu a.pill{display:inline-flex;padding:7px 14px;font-size:12.5px}
 
 main.lat{padding-top:24px;padding-bottom:76px}
 

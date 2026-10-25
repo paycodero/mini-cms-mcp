@@ -80,7 +80,16 @@ if ($masurare): ?>
     <a class="sigla" href="<?= esc(prefix_limba() ?: '/') ?>"><?php if ((string) config('site.logo') !== ''): ?><img src="<?= esc(config('site.logo')) ?>" alt="" height="40"><?php endif; ?><span><?= esc(text_site('nume')) ?></span></a>
     <nav class="meniu" aria-label="<?= esc(ui('Meniu')) ?>">
 <?php foreach (meniu() as $m): ?>
-<?php if (!empty($m['copii'])): // submeniul se deschide la trecerea mouse-ului și din tastatură (:focus-within), fără JavaScript ?>
+<?php if (!empty($m['copii']) && isset($m['copii'][0]['eticheta'])): // categoriile (etichetele): <details> nativ, se deschide la atingere pe orice ecran, fără JavaScript ?>
+      <details class="meniu-categorii">
+        <summary><?= esc($m['titlu']) ?></summary>
+        <div class="submeniu">
+<?php foreach ($m['copii'] as $c): ?>
+          <a href="<?= esc($c['url']) ?>" class="pill eticheta-<?= esc($c['eticheta']) ?>"><?= esc($c['titlu']) ?></a>
+<?php endforeach; ?>
+        </div>
+      </details>
+<?php elseif (!empty($m['copii'])): // submeniul paginilor-părinte se deschide la trecerea mouse-ului și din tastatură (:focus-within), fără JavaScript ?>
       <div class="meniu-grup">
         <a href="<?= esc($m['url']) ?>" class="are-submeniu"><?= esc($m['titlu']) ?></a>
         <div class="submeniu">
