@@ -33,6 +33,7 @@
 .eticheta-decizii{--c:var(--c-decizii)} .eticheta-timp{--c:var(--c-timp)} .eticheta-obiceiuri{--c:var(--c-obiceiuri)}
 .eticheta-focus{--c:var(--c-focus)} .eticheta-creativitate{--c:var(--c-creativitate)}
 
+html{overflow-x:hidden}
 body{background:var(--fond);color:var(--text);font:16px/1.6 var(--font);overflow-x:hidden}
 /* ca pe site-ul vechi: titlurile moștenesc spațierea textului, cu excepțiile de mai jos (erou, carduri, pași) */
 h1,h2,h3{font-family:var(--titluri);letter-spacing:-.02em;color:var(--text);line-height:1.6}
@@ -68,7 +69,7 @@ main.lat{padding-top:24px;padding-bottom:76px}
 
 /* ---------- prima pagină: erou pe două coloane, apoi metoda, domeniile, ghidurile, autorul ---------- */
 /* Titlul (din șablon) și blocurile din conținut se așază în aceeași grilă: erou și continut nu mai au cutie proprie. */
-.pagina-acasa main.lat{display:grid;grid-template-columns:1fr .95fr;column-gap:40px;align-items:start;position:relative}
+.pagina-acasa main.lat{display:grid;grid-template-columns:1fr .95fr;column-gap:40px;align-items:start;position:relative;overflow:hidden}
 .pagina-acasa .erou,.pagina-acasa main > .continut{display:contents}
 :where(.pagina-acasa main > *,.pagina-acasa main > .continut > *){grid-column:1/-1;min-width:0}
 .pagina-acasa .eyebrow{grid-column:1;grid-row:1;justify-self:start}
