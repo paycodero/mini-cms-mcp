@@ -109,11 +109,11 @@ function ruleaza_mcp(): void
                 'serverInfo' => ['name' => 'mini-cms-mcp', 'title' => 'Mini CMS — ' . config('site.nume'), 'version' => MINICMS_VERSIUNE],
                 'instructions' => unelte_in_engleza()
                     ? 'You manage the content of the site ' . config('site.nume') . ' (' . url_site() . '). '
-                        . 'Your key has ' . ($rol === 'scriere' ? 'write' : 'read') . ' rights' . ($rol === 'scriere' && !$admin ? ' (editor: ' . $acces['cine'] . ')' : '') . '. Call despre_site first for the rules. '
+                        . 'Your key has ' . ($rol === 'scriere' ? 'write' : 'read') . ' rights' . ($rol === 'scriere' && !$admin ? ' (editor: ' . $acces['cine'] . ')' : '') . '. '
                         . 'Everything you create starts as a draft; publish only after the person approves it. Every call is written to the log. '
                         . 'Command names, parameters and replies are in Romanian; the descriptions explain them.'
                     : 'Administrezi conținutul site-ului ' . config('site.nume') . ' (' . url_site() . '). '
-                        . 'Cheia ta are drept de ' . $rol . ($rol === 'scriere' && !$admin ? ' (editor: ' . $acces['cine'] . ')' : '') . '. Cheamă întâi despre_site pentru reguli. '
+                        . 'Cheia ta are drept de ' . $rol . ($rol === 'scriere' && !$admin ? ' (editor: ' . $acces['cine'] . ')' : '') . '. '
                         . 'Tot ce creezi pleacă drept ciornă; publici doar după aprobarea omului. Fiecare apel e scris în jurnal.',
             ];
             $client = $params['clientInfo'] ?? [];

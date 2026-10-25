@@ -35,7 +35,7 @@ function unelte(): array
     return [
         'despre_site' => [
             'scriere' => false, 'titlu' => 'Despre site și regulile lui', 'adnotari' => $citire,
-            'descriere' => 'Numele, descrierea și adresa site-ului, câte pagini și articole are, ce HTML e permis, cum se formează adresele și ce drepturi are cheia folosită. Cheam-o prima.',
+            'descriere' => 'Numele, descrierea și adresa site-ului, câte pagini și articole are, ce HTML e permis, cum se formează adresele și ce drepturi are cheia folosită.',
             'schema' => schema_obiect([]),
             'fn' => function (array $a, string $rol) {
                 $numar = [];

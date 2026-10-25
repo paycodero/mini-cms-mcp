@@ -12,7 +12,7 @@ const UNELTE_EN_SLUG = 'The address: lowercase letters without diacritics, digit
 
 const UNELTE_EN = [
     'despre_site' => ['t' => 'About the site and its rules',
-        'd' => 'The site\'s name, description and address, how many pages and articles it has, which HTML is allowed, how addresses are formed and what rights the key in use has. Call it first.'],
+        'd' => 'The site\'s name, description and address, how many pages and articles it has, which HTML is allowed, how addresses are formed and what rights the key in use has.'],
     'pagini_de_pornire' => ['t' => 'Starter pages for a new site',
         'd' => 'Skeletons of the home, about, services, contact and privacy pages, built from the shared blocks, with [[COMPLETEAZĂ: …]] placeholders. Creates nothing: you fill them in with what you learn from the person, save them as drafts with salveaza, then the person approves them. The privacy page describes what this site does technically and what is turned on right now (GA4, Cloudflare, video).'],
     'listeaza' => ['t' => 'List pages and articles',
