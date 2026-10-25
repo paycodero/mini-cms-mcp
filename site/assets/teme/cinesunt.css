@@ -33,7 +33,6 @@
 .eticheta-decizii{--c:var(--c-decizii)} .eticheta-timp{--c:var(--c-timp)} .eticheta-obiceiuri{--c:var(--c-obiceiuri)}
 .eticheta-focus{--c:var(--c-focus)} .eticheta-creativitate{--c:var(--c-creativitate)}
 
-html{overflow-x:hidden}
 body{background:var(--fond);color:var(--text);font:16px/1.6 var(--font);overflow-x:hidden}
 /* ca pe site-ul vechi: titlurile moștenesc spațierea textului, cu excepțiile de mai jos (erou, carduri, pași) */
 h1,h2,h3{font-family:var(--titluri);letter-spacing:-.02em;color:var(--text);line-height:1.6}
